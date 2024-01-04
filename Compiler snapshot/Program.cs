@@ -1,11 +1,13 @@
 ﻿using Compiler_snapshot.SyntaxTokens;
 using Compiler_snapshot.Syntax_Nodes;
+using Compiler_snapshot.Miscellaneuos;
+using Compiler_snapshot.Binding;
 
 namespace Compiler_snapshot
 {
-    internal class Program
+    internal static class Program
     {
-        static void Main(string[] args)
+        private static void Main()
         {
             bool showTree = false;
 
@@ -29,47 +31,45 @@ namespace Compiler_snapshot
                 }
 
                 SyntaxTree tree = SyntaxTree.Parse(line);
+                Binder binder = new Binder();
+                BoundExpression boundTree = binder.BindExpression(tree.Root);
 
-                ConsoleColor color = Console.ForegroundColor;
+                IReadOnlyList<string> diagnostics = tree.Diagnostics.Concat(binder.Diagnostics).ToArray();
+
                 if (showTree)
                 {
                     Console.ForegroundColor = ConsoleColor.DarkGray;
                     PrettyPrint(tree.Root);
-                    Console.ForegroundColor = color;
+                    Console.ResetColor();
                 }
 
-                if (tree.Diagnostics.Any())
+                if (diagnostics.Any())
                 {
                     Console.ForegroundColor = ConsoleColor.Red;
-                    foreach (string diagnostic in tree.Diagnostics)
+                    foreach (string diagnostic in diagnostics)
                         Console.WriteLine(diagnostic);
-                    Console.ForegroundColor = color;
+                    Console.ResetColor();
                 }
                 else
                 {
-                    Evaluator evaluator = new Evaluator(tree.Root);
+                    Evaluator evaluator = new Evaluator(boundTree);
                     Console.WriteLine(evaluator.Evaluate());
                 }
             }
         }
 
-        static void PrettyPrint(SyntaxNode node, string indent = "", bool isLast = true) 
+        private static void PrettyPrint(SyntaxNode node, string indent = "", bool isLast = true) 
         {
             string marker = isLast ? "└──" : "├-─";
 
-            Console.Write(indent);
-            Console.Write(marker);
-            Console.Write(node.Kind);
+            Console.Write(indent + marker + node.Kind);
 
             if (node is SyntaxToken t && t.Value != null)
-            {
-                Console.Write(" ");
-                Console.Write(t.Value);
-            }
+                Console.Write(" " + t.Value);
 
             Console.WriteLine();
 
-            indent += isLast ? "    " : "│   ";
+            indent += isLast ? "   " : "│  ";
 
             var last = node.GetChildren().LastOrDefault();
 

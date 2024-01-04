@@ -2,7 +2,7 @@
 
 namespace Compiler_snapshot.SyntaxTokens
 {
-    public class SyntaxToken : SyntaxNode
+    public sealed class SyntaxToken : SyntaxNode
     {
         public override SyntaxKind Kind { get; }
         public int Position { get; private set; }
@@ -18,21 +18,5 @@ namespace Compiler_snapshot.SyntaxTokens
         }
 
         public override IEnumerable<SyntaxNode> GetChildren() => Enumerable.Empty<SyntaxNode>();
-    }
-
-    public enum SyntaxKind 
-    {
-        Incorrect,
-        EndOfFile,
-        WhiteSpace,
-        IntegerLiteral,
-        Plus,
-        Minus,
-        Star,
-        Slash,
-        OpenParen,
-        CloseParen,
-        BinaryExpression,
-        ParenthesizedExpression
     }
 }
