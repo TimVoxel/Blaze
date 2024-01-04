@@ -74,6 +74,8 @@ namespace Compiler_snapshot
                 case ')':
                     return new SyntaxToken(SyntaxKind.CloseParenToken, Consume(), ")", null);
                 case '!':
+                    if (Next == '=')
+                        return new SyntaxToken(SyntaxKind.NotEqualsToken, _position += 2, "!=", null);
                     return new SyntaxToken(SyntaxKind.ExclamationSignToken, Consume(), "!", null);
                 case '&':
                     if (Next == '&')
@@ -82,6 +84,10 @@ namespace Compiler_snapshot
                 case '|':
                     if (Next == '|')
                         return new SyntaxToken(SyntaxKind.DoublePipeToken, _position += 2, "||", null);
+                    break;
+                case '=':
+                    if (Next == '=')
+                        return new SyntaxToken(SyntaxKind.DoubleEqualsToken, _position += 2, "==", null);
                     break;
             }
             _diagnostics.Add($"ERROR: Stray \'{Current}\' in expression");

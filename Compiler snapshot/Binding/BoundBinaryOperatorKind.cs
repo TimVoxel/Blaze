@@ -7,6 +7,8 @@
         Multiplication,
         Division,
         LogicalAddition,
-        LogicalMultiplication
+        LogicalMultiplication,
+        Equals,
+        NotEquals
     }
 }

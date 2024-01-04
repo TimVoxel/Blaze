@@ -25,7 +25,7 @@ namespace Compiler_snapshot.Miscellaneuos
             {
                 object operand = EvaluateExpression(unary.Operand);
 
-                switch (unary.OperatorKind)
+                switch (unary.Operator.OperatorKind)
                 {
                     case BoundUnaryOperatorKind.Identity:
                         return (int)operand;
@@ -43,7 +43,7 @@ namespace Compiler_snapshot.Miscellaneuos
                 object left = EvaluateExpression(binary.Left);
                 object right = EvaluateExpression(binary.Right);
 
-                switch (binary.OperatorKind)
+                switch (binary.Operator.OperatorKind)
                 {
                     case BoundBinaryOperatorKind.Addition:
                         return (int)left + (int)right;
@@ -57,7 +57,11 @@ namespace Compiler_snapshot.Miscellaneuos
                         return (bool)left && (bool)right;
                     case BoundBinaryOperatorKind.LogicalAddition:
                         return (bool)left || (bool)right;
-                    default: throw new Exception($"Unexpected binary operator {binary.OperatorKind}");
+                    case BoundBinaryOperatorKind.Equals:
+                        return Equals(left, right);
+                    case BoundBinaryOperatorKind.NotEquals:
+                        return !Equals(left, right);
+                    default: throw new Exception($"Unexpected binary operator {binary.Operator.OperatorKind}");
                 }
             }
 

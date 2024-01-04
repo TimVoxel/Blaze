@@ -15,6 +15,8 @@
         ExclamationSignToken,
         DoubleAmpersandToken,
         DoublePipeToken,
+        DoubleEqualsToken,
+        NotEqualsToken,
         IdentifierToken,
 
         //Literals
