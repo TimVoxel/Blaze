@@ -1,5 +1,7 @@
 ﻿using DPP_Compiler.SyntaxTokens;
 using DPP_Compiler.Syntax_Nodes;
+using DPP_Compiler;
+using DPP_Compiler.Diagnostics; 
 
 namespace Compiler_Usage
 {
@@ -8,6 +10,7 @@ namespace Compiler_Usage
         private static void Main()
         {
             bool showTree = false;
+            Dictionary<VariableSymbol, object?> variables = new Dictionary<VariableSymbol, object?>();
 
             while (true)
             {
@@ -29,11 +32,10 @@ namespace Compiler_Usage
                 }
 
                 SyntaxTree tree = SyntaxTree.Parse(line);
-                Binder binder = new Binder();
-                BoundExpression boundTree = binder.BindExpression(tree.Root);
-
-                IReadOnlyList<string> diagnostics = tree.Diagnostics.Concat(binder.Diagnostics).ToArray();
-
+                Compilation compilation = new Compilation(tree);
+                EvaluationResult result = compilation.Evaluate(variables);
+                IReadOnlyList<Diagnostic> diagnostics = result.Diagnostics;
+                
                 if (showTree)
                 {
                     Console.ForegroundColor = ConsoleColor.DarkGray;
@@ -41,17 +43,35 @@ namespace Compiler_Usage
                     Console.ResetColor();
                 }
 
-                if (diagnostics.Any())
+                if (!diagnostics.Any())
                 {
-                    Console.ForegroundColor = ConsoleColor.Red;
-                    foreach (string diagnostic in diagnostics)
-                        Console.WriteLine(diagnostic);
-                    Console.ResetColor();
+                    Console.WriteLine(result.Value);
                 }
                 else
                 {
-                    Evaluator evaluator = new Evaluator(boundTree);
-                    Console.WriteLine(evaluator.Evaluate());
+                    foreach (Diagnostic diagnostic in diagnostics)
+                    {
+                        Console.WriteLine();
+                        Console.ForegroundColor = ConsoleColor.Red;
+                        Console.WriteLine(diagnostic);
+                        Console.ResetColor();
+
+                        string prefix = line.Substring(0, diagnostic.Span.Start);
+                        string error = line.Substring(diagnostic.Span.Start, diagnostic.Span.Length);
+                        string suffix = line.Substring(diagnostic.Span.End);
+
+                        Console.Write("    ");
+                        Console.Write(prefix);
+
+                        Console.ForegroundColor = ConsoleColor.Red;
+                        Console.Write(error);
+                        Console.ResetColor();
+
+                        Console.Write(suffix);
+                        Console.WriteLine();
+                    }
+                    Console.WriteLine();
+                    Console.ResetColor();
                 }
             }
         }
