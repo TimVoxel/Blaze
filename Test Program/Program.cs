@@ -3,7 +3,7 @@ using DPP_Compiler.Syntax_Nodes;
 using DPP_Compiler;
 using DPP_Compiler.Diagnostics; 
 
-namespace Compiler_Usage
+namespace TestProgram
 {
     internal static class Program
     {
