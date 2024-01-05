@@ -1,9 +1,7 @@
-﻿using Compiler_snapshot.SyntaxTokens;
-using Compiler_snapshot.Syntax_Nodes;
-using Compiler_snapshot.Miscellaneuos;
-using Compiler_snapshot.Binding;
+﻿using DPP_Compiler.SyntaxTokens;
+using DPP_Compiler.Syntax_Nodes;
 
-namespace Compiler_snapshot
+namespace Compiler_Usage
 {
     internal static class Program
     {
