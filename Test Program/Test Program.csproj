@@ -9,7 +9,7 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\DPP compiler library\DPP compiler library.csproj" />
+    <ProjectReference Include="..\DPP compiler library\DPP compiler.csproj" />
   </ItemGroup>
 
 </Project>
