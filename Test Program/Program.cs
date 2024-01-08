@@ -39,7 +39,7 @@ namespace TestProgram
                 if (showTree)
                 {
                     Console.ForegroundColor = ConsoleColor.DarkGray;
-                    PrettyPrint(tree.Root);
+                    tree.Root.WriteTo(Console.Out);
                     Console.ResetColor();
                 }
 
@@ -74,25 +74,6 @@ namespace TestProgram
                     Console.ResetColor();
                 }
             }
-        }
-
-        private static void PrettyPrint(SyntaxNode node, string indent = "", bool isLast = true) 
-        {
-            string marker = isLast ? "└──" : "├-─";
-
-            Console.Write(indent + marker + node.Kind);
-
-            if (node is SyntaxToken t && t.Value != null)
-                Console.Write(" " + t.Value);
-
-            Console.WriteLine();
-
-            indent += isLast ? "   " : "│  ";
-
-            var last = node.GetChildren().LastOrDefault();
-
-            foreach (SyntaxNode child in node.GetChildren())
-                PrettyPrint(child, indent, child == last);
         }
     }
 }

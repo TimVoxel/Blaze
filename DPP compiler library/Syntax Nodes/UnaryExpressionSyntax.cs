@@ -14,5 +14,11 @@ namespace DPP_Compiler.Syntax_Nodes
             OperatorToken = operatorToken;
             Operand = operand;
         }
+
+        public override IEnumerable<SyntaxNode> GetChildren()
+        {
+            yield return OperatorToken;
+            yield return Operand;
+        }
     }
 }

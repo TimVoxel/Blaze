@@ -10,7 +10,7 @@ namespace DPP_Compiler.SyntaxTokens
         public string Text { get; private set; }
         public object? Value { get; private set; }
 
-        public TextSpan Span => new TextSpan(Position, Text.Length);
+        public override TextSpan Span => new TextSpan(Position, Text.Length);
 
         public SyntaxToken(SyntaxKind kind, int position, string text, object? value)
         {
@@ -19,5 +19,7 @@ namespace DPP_Compiler.SyntaxTokens
             Text = text;
             Value = value;
         }
+
+        public override IEnumerable<SyntaxNode> GetChildren() => Enumerable.Empty<SyntaxNode>();
     }
 }
