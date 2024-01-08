@@ -1,6 +1,7 @@
 ﻿using DPP_Compiler.Diagnostics;
 using DPP_Compiler.Syntax_Nodes;
 using DPP_Compiler.SyntaxTokens;
+using System.ComponentModel.DataAnnotations;
 
 namespace DPP_Compiler
 {
@@ -21,6 +22,18 @@ namespace DPP_Compiler
         {
             Parser parser = new Parser(text);
             return parser.Parse();
+        }
+
+        public static IEnumerable<SyntaxToken> ParseTokens(string text)
+        {
+            Lexer lexer = new Lexer(text);
+            while (true)
+            {
+                SyntaxToken token = lexer.Lex();
+                if (token.Kind == SyntaxKind.EndOfFileToken)
+                    break;
+                yield return token;
+            }
         }
     }
 }

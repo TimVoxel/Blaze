@@ -1,7 +1,9 @@
 ﻿namespace DPP_Compiler
 {
-    internal static class SyntaxFacts
+    public static class SyntaxFacts
     {
+        public static SyntaxKind[] AllSyntaxKinds => (SyntaxKind[])Enum.GetValues(typeof(SyntaxKind));
+
         public static int GetBinaryOperatorPrecedence(this SyntaxKind kind)
         {
             switch (kind)
@@ -49,6 +51,58 @@
                 default: 
                     return SyntaxKind.IdentifierToken;
             }
+        }
+
+        public static IEnumerable<SyntaxKind> GetBinaryOperators()
+        {
+            foreach (SyntaxKind kind in AllSyntaxKinds)
+                if (GetBinaryOperatorPrecedence(kind) > 0)
+                    yield return kind;
+        }
+
+        public static IEnumerable<SyntaxKind> GetUnaryOperators()
+        {
+            foreach (SyntaxKind kind in AllSyntaxKinds)
+                if (GetUnaryOperatorPrecedence(kind) > 0)
+                    yield return kind;
+        }
+
+        public static string? GetText(SyntaxKind kind)
+        {
+            switch (kind)
+            {
+                case SyntaxKind.FalseKeyword: 
+                    return "false";
+                case SyntaxKind.TrueKeyword:
+                    return "true";
+                case SyntaxKind.PlusToken:
+                    return "+";
+                case SyntaxKind.MinusToken:
+                    return "-";
+                case SyntaxKind.StarToken:
+                    return "*";
+                case SyntaxKind.SlashToken:
+                    return "/";
+                case SyntaxKind.OpenParenToken:
+                    return "(";
+                case SyntaxKind.CloseParenToken:
+                    return ")";
+                case SyntaxKind.ExclamationSignToken:
+                    return "!";
+                case SyntaxKind.EqualsToken:
+                    return "=";
+                case SyntaxKind.DoubleEqualsToken:
+                    return "==";
+                case SyntaxKind.DoubleAmpersandToken:
+                    return "&&";
+                case SyntaxKind.DoublePipeToken:
+                    return "||";
+                case SyntaxKind.NotEqualsToken:
+                    return "!=";
+                default:
+                    return null;
+            }
+            
         }
     }
 }
