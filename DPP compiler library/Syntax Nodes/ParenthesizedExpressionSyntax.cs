@@ -16,13 +16,5 @@ namespace DPP_Compiler.Syntax_Nodes
             Expression = expression;
             CloseParenToken = closeParenToken;
         }
-
-        public override IEnumerable<SyntaxNode> GetChildren()
-        {
-            yield return OpenParenToken;
-            yield return Expression;
-            yield return CloseParenToken;
-        }
     }
-
 }

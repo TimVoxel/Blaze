@@ -1,6 +1,7 @@
 ﻿using DPP_Compiler.Binding;
 using DPP_Compiler.Diagnostics;
 using DPP_Compiler.Miscellaneuos;
+using System.Collections.Immutable;
 
 namespace DPP_Compiler
 {
@@ -18,13 +19,13 @@ namespace DPP_Compiler
             Binder binder = new Binder(variables);
             BoundExpression boundExpression = binder.BindExpression(Syntax.Root);
 
-            IReadOnlyList<Diagnostic> diagnostics = Syntax.Diagnostics.Concat(binder.Diagnostics).ToArray();
+            ImmutableArray<Diagnostic> diagnostics = Syntax.Diagnostics.Concat(binder.Diagnostics).ToImmutableArray();
             if (diagnostics.Any())
                 return new EvaluationResult(diagnostics, null);
 
             Evaluator evaluator = new Evaluator(boundExpression, variables);
             object value = evaluator.Evaluate();
-            return new EvaluationResult(Array.Empty<Diagnostic>(), value);
+            return new EvaluationResult(ImmutableArray<Diagnostic>.Empty, value);
         }
     }
 }

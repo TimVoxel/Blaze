@@ -12,10 +12,5 @@ namespace DPP_Compiler.Syntax_Nodes
         {
             IdentifierToken = identifierToken;
         }
-
-        public override IEnumerable<SyntaxNode> GetChildren()
-        {
-            yield return IdentifierToken;
-        }
     }
 }

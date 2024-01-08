@@ -1,19 +1,23 @@
 ﻿using DPP_Compiler.SyntaxTokens;
 using DPP_Compiler.Diagnostics;
+using System.Runtime.InteropServices;
 
 namespace DPP_Compiler
 {
     internal class Lexer
     {
         private readonly string _text;
-        private int _position;
-        private DiagnosticBag _diagnostics = new DiagnosticBag();
+        private readonly DiagnosticBag _diagnostics = new DiagnosticBag();
 
+        private int _position;
+        private int _start;
+        private SyntaxKind _kind;
+        private object? _value;
+        
         private char Current => Peek(0);
         private char Next => Peek(1);
 
         public DiagnosticBag Diagnostics => _diagnostics;
-        private bool IsOutOfBounds => _position >= _text.Length;
 
         public Lexer(string text)
         {
@@ -23,88 +27,99 @@ namespace DPP_Compiler
         public SyntaxToken Lex()
         {
             //See all possible tokens in the grammar
-
-            if (IsOutOfBounds) return new SyntaxToken(SyntaxKind.EndOfFileToken, _position, "\0", null);
-
-            if (char.IsDigit(Current))
-            {
-                int start = _position;
-                while (char.IsDigit(Current))
-                    Consume();
-
-                int length = _position - start;
-                string text = _text.Substring(start, length);
-                if (!int.TryParse(text, out int value))
-                    _diagnostics.ReportInvalidNumber(new TextSpan(start, length), text, typeof(int));
-                
-                return new SyntaxToken(SyntaxKind.IntegerLiteralToken, start, text, value);
-            }
-            if (char.IsWhiteSpace(Current))
-            {
-                int start = _position;
-                while (char.IsWhiteSpace(Current))
-                    Consume();
-                int length = _position - start;
-                string text = _text.Substring(start, length);
-                return new SyntaxToken(SyntaxKind.WhiteSpaceToken, start, text, null);
-            }
-
-            if (char.IsLetter(Current))
-            {
-                int start = _position;
-                while (char.IsLetter(Current))
-                    Consume();
-                int length = _position - start;
-                string text = _text.Substring(start, length);
-                SyntaxKind keywordKind = SyntaxFacts.GetKeywordKind(text);
-                return new SyntaxToken(keywordKind, start, text, null);
-            }
+            _start = _position;
+            _kind = SyntaxKind.IncorrectToken;
+            _value = null;
 
             switch (Current)
             {
+                case '\0':
+                    _kind = SyntaxKind.EndOfFileToken;
+                    break;
                 case '+':
-                    return new SyntaxToken(SyntaxKind.PlusToken, _position++, "+", null);
+                    ConsumeOfKind(SyntaxKind.PlusToken);
+                    break;
                 case '-':
-                    return new SyntaxToken(SyntaxKind.MinusToken, _position++, "-", null);
+                    ConsumeOfKind(SyntaxKind.MinusToken);
+                    break;
                 case '*':
-                    return new SyntaxToken(SyntaxKind.StarToken, _position++, "*", null);
+                    ConsumeOfKind(SyntaxKind.StarToken);
+                    break;
                 case '/':
-                    return new SyntaxToken(SyntaxKind.SlashToken, _position++, "/", null);
+                    ConsumeOfKind(SyntaxKind.SlashToken);
+                    break;
                 case '(':
-                    return new SyntaxToken(SyntaxKind.OpenParenToken, _position++, "(", null);
+                    ConsumeOfKind(SyntaxKind.OpenParenToken);
+                    break;
                 case ')':
-                    return new SyntaxToken(SyntaxKind.CloseParenToken, _position++, ")", null);
+                    ConsumeOfKind(SyntaxKind.CloseParenToken);
+                    break;
                 case '!':
-                    if (Next == '=') 
-                        return Consume(SyntaxKind.NotEqualsToken, "!=");
-                    return new SyntaxToken(SyntaxKind.ExclamationSignToken, _position++, "!", null);
+                    if (Next == '=')
+                    {
+                        _kind = SyntaxKind.NotEqualsToken;
+                        _position += 2;
+                    }
+                    else
+                        ConsumeOfKind(SyntaxKind.ExclamationSignToken);
+                    break;
                 case '&':
-                    if (Next == '&') 
-                        return Consume(SyntaxKind.DoubleAmpersandToken, "&&");
+                    if (Next == '&')
+                    {
+                        _kind = SyntaxKind.DoubleAmpersandToken;
+                        _position += 2;
+                    }
                     break;
                 case '|':
                     if (Next == '|')
-                        return Consume(SyntaxKind.DoublePipeToken, "||");
+                    {
+                        _kind = SyntaxKind.DoublePipeToken;
+                        _position += 2;
+                    }
                     break;
                 case '=':
-                    if (Next == '=') 
-                        return Consume(SyntaxKind.DoubleEqualsToken, "==");
-                    return new SyntaxToken(SyntaxKind.EqualsToken, _position++, "=", null);
+                    if (Next == '=')
+                    {
+                        _kind = SyntaxKind.DoubleEqualsToken;
+                        _position += 2;
+                    }
+                    else
+                        ConsumeOfKind(SyntaxKind.EqualsToken);
+                    break;
+                default:
+                    if (char.IsDigit(Current))
+                    {
+                        ReadIntegerLiteral();
+                    }
+                    else if (char.IsWhiteSpace(Current))
+                    {
+                        ReadWhitespace();
+                    }
+                    else if (char.IsLetter(Current))
+                    {
+                        ReadIdentifierOrKeyword();
+                    }
+                    else
+                    {
+                        _diagnostics.ReportStrayCharacter(_position, Current);
+                        _position++;
+                    }
+                    break;
             }
-            _diagnostics.ReportStrayCharacter(_position, Current);
-            return new SyntaxToken(SyntaxKind.IncorrectToken, _position++, Current.ToString(), null);
+
+            int length = _position - _start;
+            string? text = SyntaxFacts.GetText(_kind);
+            if (text == null)
+                text = _text.Substring(_start, length);
+
+            return new SyntaxToken(_kind, _start, text, _value);
         }
 
-        private void Consume() => _position++;
-
-        private SyntaxToken Consume(SyntaxKind kind, string tokenText, object? value)
+        private void ConsumeOfKind(SyntaxKind kind)
         {
-            SyntaxToken token = new SyntaxToken(kind, _position, tokenText, value);
-            _position += tokenText.Length;
-            return token;
+            _kind = kind;
+            _position++;
         }
-
-        private SyntaxToken Consume(SyntaxKind kind, string tokenText) => Consume(kind, tokenText, null);
 
         private char Peek(int offset)
         {
@@ -112,7 +127,37 @@ namespace DPP_Compiler
             if (index >= _text.Length)
                 return '\0';
             return _text[index];
-        } 
+        }
 
+        private void ReadIntegerLiteral()
+        {
+            while (char.IsDigit(Current))
+                _position++;
+
+            int length = _position - _start;
+            string text = _text.Substring(_start, length);
+            if (!int.TryParse(text, out int value))
+                _diagnostics.ReportInvalidNumber(new TextSpan(_start, length), text, typeof(int));
+
+            _value = value;
+            _kind = SyntaxKind.IntegerLiteralToken;
+        }
+
+        private void ReadWhitespace()
+        {
+            while (char.IsWhiteSpace(Current))
+                _position++;
+
+            _kind = SyntaxKind.WhitespaceToken;
+        }
+
+        private void ReadIdentifierOrKeyword()
+        {
+            while (char.IsLetter(Current))
+                _position++;
+            int length = _position - _start;
+            string text = _text.Substring(_start, length);
+            _kind = SyntaxFacts.GetKeywordKind(text);
+        }
     }
 }

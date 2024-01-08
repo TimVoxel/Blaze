@@ -1,6 +1,4 @@
-﻿using DPP_Compiler.SyntaxTokens;
-
-namespace DPP_Compiler.Tests.CodeAnalysis
+﻿namespace DPP_Compiler.Tests.CodeAnalysis
 {
     public class EvaluatorTest
     {

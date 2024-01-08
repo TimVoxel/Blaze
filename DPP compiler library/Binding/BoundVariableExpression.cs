@@ -4,7 +4,7 @@
     {
         public VariableSymbol Variable { get; private set; }
 
-        public override BoundNodeKind Kind => BoundNodeKind.IdentifierExpression;
+        public override BoundNodeKind Kind => BoundNodeKind.VariableExpression;
         public override Type Type => Variable.Type;
 
         public BoundVariableExpression(VariableSymbol symbol)

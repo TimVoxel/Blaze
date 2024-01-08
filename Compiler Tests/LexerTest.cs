@@ -4,6 +4,21 @@ namespace DPP_Compiler.Tests
 {
     public class LexerTest
     {
+        [Fact]
+        public void Lexer_Tests_All_Tokens()
+        {
+            List<SyntaxKind> allTokenKinds = SyntaxFacts.AllTokenKinds.ToList();
+            IEnumerable<SyntaxKind> testedTokenKinds = GetTokens().Concat(GetSeparators()).Select(t => t.kind);
+
+            SortedSet<SyntaxKind> notTestedTokenKinds = new SortedSet<SyntaxKind>(allTokenKinds);
+            notTestedTokenKinds.Remove(SyntaxKind.IncorrectToken);
+            notTestedTokenKinds.Remove(SyntaxKind.EndOfFileToken);
+            notTestedTokenKinds.ExceptWith(testedTokenKinds);
+            
+            Assert.Empty(notTestedTokenKinds);
+        }
+
+
         [Theory]
         [MemberData(nameof(GetTokensData))]
         public void Lexer_Lexes_Token(SyntaxKind kind, string text)
@@ -52,23 +67,10 @@ namespace DPP_Compiler.Tests
 
         public static IEnumerable<(SyntaxKind kind, string text)> GetTokens()
         {
-            return new[]
-            {
-                (SyntaxKind.FalseKeyword, "false"),
-                (SyntaxKind.TrueKeyword, "true"),
-                (SyntaxKind.PlusToken, "+"),
-                (SyntaxKind.MinusToken, "-"),
-                (SyntaxKind.StarToken, "*"),
-                (SyntaxKind.SlashToken, "/"),
-                (SyntaxKind.OpenParenToken, "("),
-                (SyntaxKind.CloseParenToken, ")"),
-                (SyntaxKind.ExclamationSignToken, "!"),
-                (SyntaxKind.EqualsToken, "="),
-                (SyntaxKind.DoubleEqualsToken, "=="),
-                (SyntaxKind.DoubleAmpersandToken, "&&"),
-                (SyntaxKind.DoublePipeToken, "||"),
-                (SyntaxKind.NotEqualsToken, "!="),
+            var fixedTokens = SyntaxFacts.AllSyntaxKinds.Select(k => (kind: k, text: SyntaxFacts.GetText(k))).Where(t => t.text != null);
 
+            var dynamicTokens = new[]
+            {
                 (SyntaxKind.IdentifierToken, "a"),
                 (SyntaxKind.IdentifierToken, "abc"),
                 (SyntaxKind.IntegerLiteralToken, "12"),
@@ -76,17 +78,20 @@ namespace DPP_Compiler.Tests
                 (SyntaxKind.IntegerLiteralToken, "420"),
                 (SyntaxKind.IntegerLiteralToken, "1000000"),
             };
+#pragma warning disable CS8620
+            return fixedTokens.Concat(dynamicTokens);
+#pragma warning restore CS8620
         }
 
         public static IEnumerable<(SyntaxKind kind, string text)> GetSeparators()
         {
             return new[]
             {
-                (SyntaxKind.WhiteSpaceToken, " "),
-                (SyntaxKind.WhiteSpaceToken, "  "),
-                (SyntaxKind.WhiteSpaceToken, "\r"),
-                (SyntaxKind.WhiteSpaceToken, "\n"),
-                (SyntaxKind.WhiteSpaceToken, "\r\n"),
+                (SyntaxKind.WhitespaceToken, " "),
+                (SyntaxKind.WhitespaceToken, "  "),
+                (SyntaxKind.WhitespaceToken, "\r"),
+                (SyntaxKind.WhitespaceToken, "\n"),
+                (SyntaxKind.WhitespaceToken, "\r\n"),
             };
         }
 

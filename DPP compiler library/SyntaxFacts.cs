@@ -3,6 +3,7 @@
     public static class SyntaxFacts
     {
         public static SyntaxKind[] AllSyntaxKinds => (SyntaxKind[])Enum.GetValues(typeof(SyntaxKind));
+        public static SyntaxKind[] AllTokenKinds => AllSyntaxKinds.Where(k => k.ToString().EndsWith("Keyword") || k.ToString().EndsWith("Token")).ToArray();
 
         public static int GetBinaryOperatorPrecedence(this SyntaxKind kind)
         {

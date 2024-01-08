@@ -19,7 +19,5 @@ namespace DPP_Compiler.SyntaxTokens
             Text = text;
             Value = value;
         }
-
-        public override IEnumerable<SyntaxNode> GetChildren() => Enumerable.Empty<SyntaxNode>();
     }
 }

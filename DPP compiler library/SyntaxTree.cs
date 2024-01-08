@@ -1,7 +1,7 @@
 ﻿using DPP_Compiler.Diagnostics;
 using DPP_Compiler.Syntax_Nodes;
 using DPP_Compiler.SyntaxTokens;
-using System.ComponentModel.DataAnnotations;
+using System.Collections.Immutable;
 
 namespace DPP_Compiler
 {
@@ -9,11 +9,11 @@ namespace DPP_Compiler
     {
         public ExpressionSyntax Root { get; private set; }
         public SyntaxToken EndOfFileToken { get; private set; }
-        public IReadOnlyList<Diagnostic> Diagnostics { get; private set; }
+        public ImmutableArray<Diagnostic> Diagnostics { get; private set; }
 
-        public SyntaxTree(IEnumerable<Diagnostic> diagnostics, ExpressionSyntax root, SyntaxToken endOfFileToken)
+        public SyntaxTree(ImmutableArray<Diagnostic> diagnostics, ExpressionSyntax root, SyntaxToken endOfFileToken)
         {
-            Diagnostics = diagnostics.ToArray();
+            Diagnostics = diagnostics;
             Root = root;
             EndOfFileToken = endOfFileToken;
         }

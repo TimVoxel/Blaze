@@ -5,7 +5,7 @@
         //Tokens
         IncorrectToken,
         EndOfFileToken,
-        WhiteSpaceToken,
+        WhitespaceToken,
         PlusToken,
         MinusToken,
         StarToken,

@@ -16,11 +16,6 @@ namespace DPP_Compiler.Syntax_Nodes
         }
 
         public LiteralExpressionSyntax(SyntaxToken literalToken) : this(literalToken, literalToken.Value) { }
-
-        public override IEnumerable<SyntaxNode> GetChildren()
-        {
-            yield return LiteralToken;
-        }
     }
 
 }

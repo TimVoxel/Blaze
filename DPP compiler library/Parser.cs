@@ -1,15 +1,17 @@
 ﻿using DPP_Compiler.Diagnostics;
 using DPP_Compiler.Syntax_Nodes;
 using DPP_Compiler.SyntaxTokens;
+using System.Collections.Immutable;
 
 namespace DPP_Compiler
 {
     internal class Parser
     {
-        private readonly SyntaxToken[] _tokens;
-        private int _position;
-        private DiagnosticBag _diagnostics = new DiagnosticBag();
+        private readonly ImmutableArray<SyntaxToken> _tokens;
+        private readonly DiagnosticBag _diagnostics = new DiagnosticBag();
 
+        private int _position;
+        
         private SyntaxToken Current => Peek(0);
         private SyntaxToken Next => Peek(1);
         public DiagnosticBag Diagnostics => _diagnostics;
@@ -22,16 +24,16 @@ namespace DPP_Compiler
             do
             {
                 token = lexer.Lex();
-                if (token.Kind != SyntaxKind.WhiteSpaceToken && token.Kind != SyntaxKind.IncorrectToken)
+                if (token.Kind != SyntaxKind.WhitespaceToken && token.Kind != SyntaxKind.IncorrectToken)
                     tokens.Add(token);
             }
             while (token.Kind != SyntaxKind.EndOfFileToken);
 
-            _tokens = tokens.ToArray();
+            _tokens = tokens.ToImmutableArray();
             _diagnostics.AddRange(lexer.Diagnostics);
         }
 
-        private SyntaxToken Match(SyntaxKind kind)
+        private SyntaxToken TryConsume(SyntaxKind kind)
         {
             if (Current.Kind == kind)
                 return Consume();
@@ -58,8 +60,8 @@ namespace DPP_Compiler
         public SyntaxTree Parse()
         {
             ExpressionSyntax expression = ParseExpression();
-            SyntaxToken endOfFileToken = Match(SyntaxKind.EndOfFileToken);
-            return new SyntaxTree(_diagnostics, expression, endOfFileToken);
+            SyntaxToken endOfFileToken = TryConsume(SyntaxKind.EndOfFileToken);
+            return new SyntaxTree(_diagnostics.ToImmutableArray(), expression, endOfFileToken);
         }
 
         private ExpressionSyntax ParseExpression() => ParseAssignmentExpression();
@@ -109,30 +111,42 @@ namespace DPP_Compiler
             switch (Current.Kind)
             {
                 case SyntaxKind.OpenParenToken:
-                {
-                    SyntaxToken left = Consume();
-                    ExpressionSyntax expression = ParseBinaryExpression();
-                    SyntaxToken right = Match(SyntaxKind.CloseParenToken);
-                    return new ParenthesizedExpressionSyntax(left, expression, right);
-                }
+                    return ParseParenthesizedExpression();
                 case SyntaxKind.TrueKeyword:
                 case SyntaxKind.FalseKeyword:
-                {
-                    SyntaxToken current = Consume();
-                    bool value = current.Kind == SyntaxKind.TrueKeyword;
-                    return new LiteralExpressionSyntax(current, value);
-                }
-                case SyntaxKind.IdentifierToken:
-                {
-                    SyntaxToken current = Consume();
-                    return new IdentifierExpressionSyntax(current);
-                }
+                    return ParseBooleanLiteral();
+                case SyntaxKind.IntegerLiteralToken:
+                    return ParseIntegerLiteral();
                 default:
-                {
-                    SyntaxToken numberToken = Match(SyntaxKind.IntegerLiteralToken);
-                    return new LiteralExpressionSyntax(numberToken);
-                }
+                    return ParseIdentifierExpression();
             }
+        }
+
+        private ExpressionSyntax ParseIntegerLiteral()
+        {
+            SyntaxToken numberToken = TryConsume(SyntaxKind.IntegerLiteralToken);
+            return new LiteralExpressionSyntax(numberToken);
+        }
+
+        private ExpressionSyntax ParseBooleanLiteral()
+        {
+            bool isTrue = Current.Kind == SyntaxKind.TrueKeyword;
+            SyntaxToken keywordToken = (isTrue) ? TryConsume(SyntaxKind.TrueKeyword) : TryConsume(SyntaxKind.FalseKeyword);
+            return new LiteralExpressionSyntax(keywordToken, isTrue);
+        }
+
+        private ExpressionSyntax ParseIdentifierExpression()
+        {
+            SyntaxToken current = TryConsume(SyntaxKind.IdentifierToken);
+            return new IdentifierExpressionSyntax(current);
+        }
+
+        private ExpressionSyntax ParseParenthesizedExpression()
+        {
+            SyntaxToken left = TryConsume(SyntaxKind.OpenParenToken);
+            ExpressionSyntax expression = ParseBinaryExpression();
+            SyntaxToken right = TryConsume(SyntaxKind.CloseParenToken);
+            return new ParenthesizedExpressionSyntax(left, expression, right);
         }
     }
 }
