@@ -1,4 +1,5 @@
 ﻿using DPP_Compiler.Syntax_Nodes;
+using System.Runtime.Serialization;
 
 namespace DPP_Compiler.Tests
 {
@@ -52,11 +53,62 @@ namespace DPP_Compiler.Tests
             }
         }
 
+        [Theory]
+        [MemberData(nameof(GetUnaryOperatorPairsData))]
+        public void Parser_Unary_Expression_HonorsPrecedences(SyntaxKind unaryKind, SyntaxKind binaryKind)
+        {
+            int unaryPrecedence = SyntaxFacts.GetUnaryOperatorPrecedence(unaryKind);
+            int binaryPrecedence = SyntaxFacts.GetBinaryOperatorPrecedence(binaryKind);
+            string? unaryText = SyntaxFacts.GetText(unaryKind);
+            string? binaryText = SyntaxFacts.GetText(binaryKind);
+            if (unaryText == null || binaryText == null)
+                return;
+
+            string text = $"{unaryText} a {binaryText} b";
+            ExpressionSyntax expression = SyntaxTree.Parse(text).Root;
+
+            if (unaryPrecedence >= binaryPrecedence)
+            {
+                using (AssertingEnumerator enumerator = new AssertingEnumerator(expression))
+                {
+                    enumerator.AssertNode(SyntaxKind.BinaryExpression);
+                    enumerator.AssertNode(SyntaxKind.UnaryExpression);
+                    enumerator.AssertToken(unaryKind, unaryText);
+                    enumerator.AssertNode(SyntaxKind.IdentifierExpression);
+                    enumerator.AssertToken(SyntaxKind.IdentifierToken, "a");
+                    enumerator.AssertToken(binaryKind, binaryText);
+                    enumerator.AssertNode(SyntaxKind.IdentifierExpression);
+                    enumerator.AssertToken(SyntaxKind.IdentifierToken, "b");
+                }
+            }
+            else
+            {
+                using (AssertingEnumerator enumerator = new AssertingEnumerator(expression))
+                {
+                    enumerator.AssertNode(SyntaxKind.UnaryExpression);
+                    enumerator.AssertToken(unaryKind, unaryText);
+                    enumerator.AssertNode(SyntaxKind.BinaryExpression);
+                    enumerator.AssertNode(SyntaxKind.IdentifierExpression);
+                    enumerator.AssertToken(SyntaxKind.IdentifierToken, "a");
+                    enumerator.AssertToken(binaryKind, binaryText);
+                    enumerator.AssertNode(SyntaxKind.IdentifierExpression);
+                    enumerator.AssertToken(SyntaxKind.IdentifierToken, "b");
+                }
+            }
+        }
+
         public static IEnumerable<object[]> GetBinaryOperatorPairsData()
         {
             foreach (SyntaxKind operator1 in SyntaxFacts.GetBinaryOperators())
                 foreach (SyntaxKind operator2 in SyntaxFacts.GetBinaryOperators())
                     yield return new object[] { operator1, operator2 };
+        }
+
+        public static IEnumerable<object[]> GetUnaryOperatorPairsData()
+        {
+            foreach (SyntaxKind unary in SyntaxFacts.GetUnaryOperators())
+                foreach (SyntaxKind binary in SyntaxFacts.GetBinaryOperators())
+                    yield return new object[] { unary, binary };
         }
 
     }
