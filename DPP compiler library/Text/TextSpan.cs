@@ -1,4 +1,4 @@
-﻿namespace DPP_Compiler.Diagnostics
+﻿namespace DPP_Compiler.Text
 {
     public struct TextSpan
     {

@@ -1,12 +1,12 @@
 ﻿using DPP_Compiler.SyntaxTokens;
 using DPP_Compiler.Diagnostics;
-using System.Runtime.InteropServices;
+using DPP_Compiler.Text;
 
 namespace DPP_Compiler
 {
     internal class Lexer
     {
-        private readonly string _text;
+        private readonly SourceText _text;
         private readonly DiagnosticBag _diagnostics = new DiagnosticBag();
 
         private int _position;
@@ -19,7 +19,7 @@ namespace DPP_Compiler
 
         public DiagnosticBag Diagnostics => _diagnostics;
 
-        public Lexer(string text)
+        public Lexer(SourceText text)
         {
             _text = text;
         }
@@ -110,7 +110,7 @@ namespace DPP_Compiler
             int length = _position - _start;
             string? text = SyntaxFacts.GetText(_kind);
             if (text == null)
-                text = _text.Substring(_start, length);
+                text = _text.ToString(_start, length);
 
             return new SyntaxToken(_kind, _start, text, _value);
         }
@@ -135,7 +135,7 @@ namespace DPP_Compiler
                 _position++;
 
             int length = _position - _start;
-            string text = _text.Substring(_start, length);
+            string text = _text.ToString(_start, length);
             if (!int.TryParse(text, out int value))
                 _diagnostics.ReportInvalidNumber(new TextSpan(_start, length), text, typeof(int));
 
@@ -156,7 +156,7 @@ namespace DPP_Compiler
             while (char.IsLetter(Current))
                 _position++;
             int length = _position - _start;
-            string text = _text.Substring(_start, length);
+            string text = _text.ToString(_start, length);
             _kind = SyntaxFacts.GetKeywordKind(text);
         }
     }

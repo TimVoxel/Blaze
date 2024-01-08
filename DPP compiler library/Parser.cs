@@ -1,6 +1,7 @@
 ﻿using DPP_Compiler.Diagnostics;
 using DPP_Compiler.Syntax_Nodes;
 using DPP_Compiler.SyntaxTokens;
+using DPP_Compiler.Text;
 using System.Collections.Immutable;
 
 namespace DPP_Compiler
@@ -9,6 +10,7 @@ namespace DPP_Compiler
     {
         private readonly ImmutableArray<SyntaxToken> _tokens;
         private readonly DiagnosticBag _diagnostics = new DiagnosticBag();
+        private readonly SourceText _text;
 
         private int _position;
         
@@ -16,8 +18,9 @@ namespace DPP_Compiler
         private SyntaxToken Next => Peek(1);
         public DiagnosticBag Diagnostics => _diagnostics;
 
-        public Parser(string text)
+        public Parser(SourceText text)
         {
+            _text = text;
             List<SyntaxToken> tokens = new List<SyntaxToken>(); 
             Lexer lexer = new Lexer(text);
             SyntaxToken token;
@@ -61,7 +64,7 @@ namespace DPP_Compiler
         {
             ExpressionSyntax expression = ParseExpression();
             SyntaxToken endOfFileToken = TryConsume(SyntaxKind.EndOfFileToken);
-            return new SyntaxTree(_diagnostics.ToImmutableArray(), expression, endOfFileToken);
+            return new SyntaxTree(_text, _diagnostics.ToImmutableArray(), expression, endOfFileToken);
         }
 
         private ExpressionSyntax ParseExpression() => ParseAssignmentExpression();

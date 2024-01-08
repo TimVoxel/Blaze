@@ -1,4 +1,6 @@
-﻿namespace DPP_Compiler.Diagnostics
+﻿using DPP_Compiler.Text;
+
+namespace DPP_Compiler.Diagnostics
 {
     public sealed class Diagnostic
     {

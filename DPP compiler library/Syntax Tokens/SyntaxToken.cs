@@ -1,5 +1,5 @@
-﻿using DPP_Compiler.Diagnostics;
-using DPP_Compiler.Syntax_Nodes;
+﻿using DPP_Compiler.Syntax_Nodes;
+using DPP_Compiler.Text;
 
 namespace DPP_Compiler.SyntaxTokens
 {
