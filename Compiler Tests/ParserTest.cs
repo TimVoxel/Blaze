@@ -17,7 +17,7 @@ namespace DPP_Compiler.Tests
                 return;
 
             string text = $"a {operator1Text} b {operator2Text} c";
-            ExpressionSyntax expression = SyntaxTree.Parse(text).Root;
+            ExpressionSyntax expression = SyntaxTree.Parse(text).Root.Expression;
 
             if (operator1Precedence >= operator2Precedence)
             {
@@ -65,7 +65,7 @@ namespace DPP_Compiler.Tests
                 return;
 
             string text = $"{unaryText} a {binaryText} b";
-            ExpressionSyntax expression = SyntaxTree.Parse(text).Root;
+            ExpressionSyntax expression = SyntaxTree.Parse(text).Root.Expression;
 
             if (unaryPrecedence >= binaryPrecedence)
             {

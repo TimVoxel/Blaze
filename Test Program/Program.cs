@@ -13,15 +13,21 @@ namespace TestProgram
             Dictionary<VariableSymbol, object?> variables = new Dictionary<VariableSymbol, object?>();
 
             StringBuilder textBuilder = new StringBuilder();
+            Compilation? previous = null;
 
             while (true)
             {
+                Console.ForegroundColor = ConsoleColor.Green;
+
                 if (textBuilder.Length == 0)
-                    Console.Write(">");
+                    Console.Write("› ");
                 else
-                    Console.Write("|");
+                    Console.Write("• ");
+
+                Console.ResetColor();
 
                 string? inputLine = Console.ReadLine();
+
                 bool isBlank = string.IsNullOrEmpty(inputLine);
               
                 if (textBuilder.Length == 0)
@@ -39,6 +45,11 @@ namespace TestProgram
                         Console.Clear();
                         continue;
                     }
+                    if (inputLine == "#reset")
+                    {
+                        previous = null;
+                        continue;
+                    }
                 }
 
                 textBuilder.AppendLine(inputLine);
@@ -49,19 +60,16 @@ namespace TestProgram
                 if (!isBlank && syntaxTree.Diagnostics.Any())
                     continue;
 
-                Compilation compilation = new Compilation(syntaxTree);
+                Compilation compilation = (previous == null) ? new Compilation(syntaxTree) : previous.ContinueWith(syntaxTree);
                 EvaluationResult result = compilation.Evaluate(variables);
                 IReadOnlyList<Diagnostic> diagnostics = result.Diagnostics;
                 
                 if (showTree)
-                {
-                    Console.ForegroundColor = ConsoleColor.DarkGray;
                     syntaxTree.Root.WriteTo(Console.Out);
-                    Console.ResetColor();
-                }
 
                 if (!diagnostics.Any())
                 {
+                    previous = compilation;
                     Console.WriteLine(result.Value);
                 }
                 else
@@ -75,7 +83,7 @@ namespace TestProgram
                         int character = diagnostic.Span.Start - text.Lines[lineIndex].Start + 1;
 
                         Console.WriteLine();
-                        Console.ForegroundColor = ConsoleColor.Red;
+                        Console.ForegroundColor = ConsoleColor.DarkGray;
                         Console.Write($"Line {lineNumber}, Char {character}: ");
                         Console.WriteLine(diagnostic);
                         Console.ResetColor();
@@ -90,7 +98,7 @@ namespace TestProgram
                         Console.Write("    ");
                         Console.Write(prefix);
 
-                        Console.ForegroundColor = ConsoleColor.Red;
+                        Console.ForegroundColor = ConsoleColor.Magenta;
                         Console.Write(error);
                         Console.ResetColor();
 

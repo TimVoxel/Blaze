@@ -7,23 +7,42 @@ namespace DPP_Compiler
 {
     public sealed class Compilation
     {
-        public SyntaxTree Syntax { get; private set; }
+        private BoundGlobalScope? _globalScope;
 
-        public Compilation(SyntaxTree syntax)
+        public SyntaxTree SyntaxTree { get; private set; }
+
+        internal BoundGlobalScope GlobalScope
         {
-            Syntax = syntax;
+            get
+            {
+                if (_globalScope == null)
+                {
+                    BoundGlobalScope scope = Binder.BindGlobalScope(Previous?.GlobalScope, SyntaxTree.Root);
+                    Interlocked.CompareExchange(ref _globalScope, scope, null);
+                }
+                return _globalScope;
+            }
         }
 
-        public EvaluationResult Evaluate(Dictionary<VariableSymbol, object?> variables)
-        {
-            Binder binder = new Binder(variables);
-            BoundExpression boundExpression = binder.BindExpression(Syntax.Root);
+        public Compilation? Previous { get; }
 
-            ImmutableArray<Diagnostic> diagnostics = Syntax.Diagnostics.Concat(binder.Diagnostics).ToImmutableArray();
+        private Compilation(Compilation? previous, SyntaxTree syntaxTree)
+        {
+            Previous = previous;
+            SyntaxTree = syntaxTree;
+        }
+
+        public Compilation(SyntaxTree syntaxTree) : this(null, syntaxTree) { }
+
+        public Compilation ContinueWith(SyntaxTree syntaxTree) => new Compilation(this, syntaxTree);
+
+        public EvaluationResult Evaluate(Dictionary<VariableSymbol, object?> variables)
+        {   
+            ImmutableArray<Diagnostic> diagnostics = SyntaxTree.Diagnostics.Concat(GlobalScope.Diagnostics).ToImmutableArray();
             if (diagnostics.Any())
                 return new EvaluationResult(diagnostics, null);
 
-            Evaluator evaluator = new Evaluator(boundExpression, variables);
+            Evaluator evaluator = new Evaluator(GlobalScope.Expression, variables);
             object value = evaluator.Evaluate();
             return new EvaluationResult(ImmutableArray<Diagnostic>.Empty, value);
         }

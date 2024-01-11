@@ -49,15 +49,31 @@ namespace DPP_Compiler.Syntax_Nodes
             PrettyPrint(writer, this);
         }
 
-        public static void PrettyPrint(TextWriter writer,SyntaxNode node, string indent = "", bool isLast = true)
+        public static void PrettyPrint(TextWriter writer, SyntaxNode node, string indent = "", bool isLast = true)
         {
+            bool isToConsole = writer == Console.Out;
             string marker = isLast ? "└──" : "├-─";
 
-            writer.Write(indent + marker + node.Kind);
+            if (isToConsole)
+                Console.ForegroundColor = ConsoleColor.DarkGray;
+
+            writer.Write(indent);
+            writer.Write(marker);
+
+            if (isToConsole)
+                Console.ResetColor();
+
+            if (isToConsole)
+                Console.ForegroundColor = node is SyntaxToken ? ConsoleColor.Blue : ConsoleColor.Cyan;
+
+            writer.Write(node.Kind);
+
+            if (isToConsole)
+                Console.ResetColor();
 
             if (node is SyntaxToken t && t.Value != null)
                 writer.Write(" " + t.Value);
-
+            
             writer.WriteLine();
 
             indent += isLast ? "   " : "│  ";

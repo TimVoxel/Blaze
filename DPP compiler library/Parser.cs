@@ -60,11 +60,11 @@ namespace DPP_Compiler
             return _tokens[index];
         }
 
-        public SyntaxTree Parse()
+        public CompilationUnitSyntax ParseCompilationUnit()
         {
             ExpressionSyntax expression = ParseExpression();
             SyntaxToken endOfFileToken = TryConsume(SyntaxKind.EndOfFileToken);
-            return new SyntaxTree(_text, _diagnostics.ToImmutableArray(), expression, endOfFileToken);
+            return new CompilationUnitSyntax(expression, endOfFileToken);
         }
 
         private ExpressionSyntax ParseExpression() => ParseAssignmentExpression();
@@ -147,7 +147,7 @@ namespace DPP_Compiler
         private ExpressionSyntax ParseParenthesizedExpression()
         {
             SyntaxToken left = TryConsume(SyntaxKind.OpenParenToken);
-            ExpressionSyntax expression = ParseBinaryExpression();
+            ExpressionSyntax expression = ParseExpression();
             SyntaxToken right = TryConsume(SyntaxKind.CloseParenToken);
             return new ParenthesizedExpressionSyntax(left, expression, right);
         }

@@ -8,23 +8,24 @@ namespace DPP_Compiler
 {
     public sealed class SyntaxTree
     {
-        public ExpressionSyntax Root { get; private set; }
-        public SyntaxToken EndOfFileToken { get; private set; }
+        public CompilationUnitSyntax Root { get; private set; }
         public SourceText Text { get; private set; }
         public ImmutableArray<Diagnostic> Diagnostics { get; private set; }
 
-        public SyntaxTree(SourceText text, ImmutableArray<Diagnostic> diagnostics, ExpressionSyntax root, SyntaxToken endOfFileToken)
+        private SyntaxTree(SourceText text)
         {
+            Parser parser = new Parser(text);
+            CompilationUnitSyntax root = parser.ParseCompilationUnit();
+            ImmutableArray<Diagnostic> diagnostics = parser.Diagnostics.ToImmutableArray();
+
             Text = text;
             Diagnostics = diagnostics;
             Root = root;
-            EndOfFileToken = endOfFileToken;
         }
 
         public static SyntaxTree Parse(SourceText text)
         {
-            Parser parser = new Parser(text);
-            return parser.Parse();
+            return new SyntaxTree(text);
         }
 
         public static SyntaxTree Parse(string text) => Parse(SourceText.From(text));

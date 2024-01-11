@@ -18,7 +18,6 @@ namespace DPP_Compiler.Tests
             Assert.Empty(notTestedTokenKinds);
         }
 
-
         [Theory]
         [MemberData(nameof(GetTokensData))]
         public void Lexer_Lexes_Token(SyntaxKind kind, string text)

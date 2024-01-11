@@ -53,6 +53,12 @@ namespace DPP_Compiler.Diagnostics
             Report(span, message);
         }
 
+        public void ReportCannotConvert(TextSpan span, Type from, Type to)
+        {
+            string message = $"Can not convert type {from} to type {to}";
+            Report(span, message);
+        }
+
         public void AddRange(DiagnosticBag diagnostics) => _diagnostics.AddRange(diagnostics);
     }
 }
