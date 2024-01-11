@@ -36,6 +36,9 @@ namespace DPP_Compiler
                 case '\0':
                     _kind = SyntaxKind.EndOfFileToken;
                     break;
+                case ';':
+                    ConsumeOfKind(SyntaxKind.SemicolonToken);
+                    break;
                 case '+':
                     ConsumeOfKind(SyntaxKind.PlusToken);
                     break;
@@ -53,6 +56,12 @@ namespace DPP_Compiler
                     break;
                 case ')':
                     ConsumeOfKind(SyntaxKind.CloseParenToken);
+                    break;
+                case '{':
+                    ConsumeOfKind(SyntaxKind.OpenBraceToken);
+                    break;
+                case '}':
+                    ConsumeOfKind(SyntaxKind.CloseBraceToken);
                     break;
                 case '!':
                     if (Next == '=')

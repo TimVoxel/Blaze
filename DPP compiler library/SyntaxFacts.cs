@@ -76,6 +76,12 @@
                     return "false";
                 case SyntaxKind.TrueKeyword:
                     return "true";
+                case SyntaxKind.SemicolonToken:
+                    return ";";
+                case SyntaxKind.OpenBraceToken:
+                    return "{";
+                case SyntaxKind.CloseBraceToken:
+                    return "}";
                 case SyntaxKind.PlusToken:
                     return "+";
                 case SyntaxKind.MinusToken:
@@ -103,7 +109,6 @@
                 default:
                     return null;
             }
-            
         }
     }
 }

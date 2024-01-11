@@ -9,14 +9,14 @@ namespace DPP_Compiler.Binding
         public BoundGlobalScope? Previous { get; private set; }
         public ImmutableArray<Diagnostic> Diagnostics { get; private set; }
         public ImmutableArray<VariableSymbol> Variables { get; private set; }
-        public BoundExpression Expression { get; private set; }
+        public BoundStatement Statement { get; private set; }
 
-        public BoundGlobalScope(BoundGlobalScope? previous, ImmutableArray<Diagnostic> diagnostics, ImmutableArray<VariableSymbol> variables, BoundExpression expression)
+        public BoundGlobalScope(BoundGlobalScope? previous, ImmutableArray<Diagnostic> diagnostics, ImmutableArray<VariableSymbol> variables, BoundStatement statement)
         {
             Previous = previous;
             Diagnostics = diagnostics;
             Variables = variables;
-            Expression = expression;
+            Statement = statement;
         }
     }
 
@@ -69,14 +69,14 @@ namespace DPP_Compiler.Binding
         {
             BoundScope? parentScope = CreateParentScopes(previous);
             Binder binder = new Binder(parentScope);
-            BoundExpression expression = binder.BindExpression(syntax.Expression);
+            BoundStatement statement = binder.BindStatement(syntax.Statement);
             ImmutableArray<VariableSymbol> variables = binder._scope.GetDeclaredVariables();
             ImmutableArray<Diagnostic> diagnostics = binder.Diagnostics.ToImmutableArray();
 
             if (previous != null)
                 diagnostics = diagnostics.InsertRange(0, previous.Diagnostics);
 
-            return new BoundGlobalScope(previous, diagnostics, variables, expression);
+            return new BoundGlobalScope(previous, diagnostics, variables, statement);
         }
 
         private static BoundScope? CreateParentScopes(BoundGlobalScope? previous)
@@ -101,7 +101,38 @@ namespace DPP_Compiler.Binding
             return parent;
         }
 
-        public BoundExpression BindExpression(ExpressionSyntax expression)
+        private BoundStatement BindStatement(StatementSyntax syntax)
+        {
+            switch (syntax.Kind)
+            {
+                case SyntaxKind.BlockStatement:
+                    return BindBlockStatement((BlockStatementSyntax)syntax);
+                case SyntaxKind.ExpressionStatement:
+                    return BindExpressionStatement((ExpressionStatementSyntax)syntax);
+                default:
+                    throw new Exception($"Unexpected syntax {syntax.Kind}");
+            }
+        }
+
+        private BoundStatement BindExpressionStatement(ExpressionStatementSyntax syntax)
+        {
+            BoundExpression boundExpression = BindExpression(syntax.Expression);
+            return new BoundExpressionStatement(boundExpression);
+        }
+
+        private BoundStatement BindBlockStatement(BlockStatementSyntax syntax)
+        {
+            ImmutableArray<BoundStatement>.Builder boundStatements = ImmutableArray.CreateBuilder<BoundStatement>();
+            
+            foreach (StatementSyntax statement in syntax.Statements)
+            {
+                BoundStatement boundStatement = BindStatement(statement);
+                boundStatements.Add(boundStatement);
+            }
+            return new BoundBlockStatement(boundStatements.ToImmutable());
+        }
+
+        private BoundExpression BindExpression(ExpressionSyntax expression)
         {
             switch (expression.Kind)
             {

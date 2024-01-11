@@ -5,17 +5,50 @@ namespace DPP_Compiler.Miscellaneuos
 
     internal class Evaluator
     {
-        private readonly BoundExpression _root;
+        private readonly BoundStatement _root;
         private readonly Dictionary<VariableSymbol, object?> _variables;
 
-        internal Evaluator(BoundExpression root, Dictionary<VariableSymbol, object?> variables)
+        private object _lastValue;
+
+        internal Evaluator(BoundStatement root, Dictionary<VariableSymbol, object?> variables)
         {
             _root = root;
             _variables = variables;
+            _lastValue = 0;
         }
 
-        public object Evaluate() => EvaluateExpression(_root);
-        
+        public object Evaluate() {
+
+            EvaluateStatement(_root);
+            return _lastValue;
+        }
+
+        private void EvaluateStatement(BoundStatement node)
+        {
+            switch (node.Kind)
+            {
+                case BoundNodeKind.BlockStatement:
+                    EvaluateBlockStatement((BoundBlockStatement)node);
+                    break;
+                case BoundNodeKind.ExpressionStatement:
+                    EvaluateExpressionStatement((BoundExpressionStatement)node);
+                    break;
+                default:
+                    throw new Exception($"Unexpected node {node.Kind}");
+            }
+        }
+
+        private void EvaluateExpressionStatement(BoundExpressionStatement statement)
+        {
+            _lastValue = EvaluateExpression(statement.Expression);
+        }
+
+        private void EvaluateBlockStatement(BoundBlockStatement statement)
+        {
+            foreach (BoundStatement current in statement.Statements)
+                EvaluateStatement(current);
+        }
+
         private object EvaluateExpression(BoundExpression node)
         {
             switch (node.Kind)

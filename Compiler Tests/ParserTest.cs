@@ -1,5 +1,4 @@
 ﻿using DPP_Compiler.Syntax_Nodes;
-using System.Runtime.Serialization;
 
 namespace DPP_Compiler.Tests
 {
@@ -17,7 +16,7 @@ namespace DPP_Compiler.Tests
                 return;
 
             string text = $"a {operator1Text} b {operator2Text} c";
-            ExpressionSyntax expression = SyntaxTree.Parse(text).Root.Expression;
+            ExpressionSyntax expression = ParseExpression(text);
 
             if (operator1Precedence >= operator2Precedence)
             {
@@ -65,7 +64,7 @@ namespace DPP_Compiler.Tests
                 return;
 
             string text = $"{unaryText} a {binaryText} b";
-            ExpressionSyntax expression = SyntaxTree.Parse(text).Root.Expression;
+            ExpressionSyntax expression = ParseExpression(text);
 
             if (unaryPrecedence >= binaryPrecedence)
             {
@@ -95,6 +94,14 @@ namespace DPP_Compiler.Tests
                     enumerator.AssertToken(SyntaxKind.IdentifierToken, "b");
                 }
             }
+        }
+
+        private static ExpressionSyntax ParseExpression(string text)
+        {
+            SyntaxTree syntaxTree = SyntaxTree.Parse(text);
+            CompilationUnitSyntax root = syntaxTree.Root;
+            StatementSyntax statement = root.Statement;
+            return Assert.IsType<ExpressionStatementSyntax>(statement).Expression;
         }
 
         public static IEnumerable<object[]> GetBinaryOperatorPairsData()

@@ -62,9 +62,38 @@ namespace DPP_Compiler
 
         public CompilationUnitSyntax ParseCompilationUnit()
         {
-            ExpressionSyntax expression = ParseExpression();
+            StatementSyntax expression = ParseStatement();
             SyntaxToken endOfFileToken = TryConsume(SyntaxKind.EndOfFileToken);
             return new CompilationUnitSyntax(expression, endOfFileToken);
+        }
+
+        private StatementSyntax ParseStatement()
+        {
+            if (Current.Kind == SyntaxKind.OpenBraceToken)
+               return ParseBlockStatement();
+            
+            return ParseExpressionStatement();
+        }
+
+        private BlockStatementSyntax ParseBlockStatement()
+        {
+            ImmutableArray<StatementSyntax>.Builder statements = ImmutableArray.CreateBuilder<StatementSyntax>();
+
+            SyntaxToken openBraceToken = TryConsume(SyntaxKind.OpenBraceToken);
+            
+            while (Current.Kind != SyntaxKind.EndOfFileToken && Current.Kind != SyntaxKind.CloseBraceToken)
+                statements.Add(ParseStatement());
+
+            SyntaxToken closeBraceToken = TryConsume(SyntaxKind.CloseBraceToken);
+            
+            return new BlockStatementSyntax(openBraceToken, statements.ToImmutable(), closeBraceToken);
+        }
+
+        private ExpressionStatementSyntax ParseExpressionStatement()
+        {
+            ExpressionSyntax expression = ParseExpression();
+            SyntaxToken semicolon = TryConsume(SyntaxKind.SemicolonToken);
+            return new ExpressionStatementSyntax(expression, semicolon);
         }
 
         private ExpressionSyntax ParseExpression() => ParseAssignmentExpression();

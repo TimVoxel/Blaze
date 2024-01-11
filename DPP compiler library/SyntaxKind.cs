@@ -6,12 +6,15 @@
         IncorrectToken,
         EndOfFileToken,
         WhitespaceToken,
+        SemicolonToken,
         PlusToken,
         MinusToken,
         StarToken,
         SlashToken,
         OpenParenToken,
         CloseParenToken,
+        OpenBraceToken,
+        CloseBraceToken,
         ExclamationSignToken,
         DoubleAmpersandToken,
         DoublePipeToken,
@@ -37,5 +40,9 @@
         ParenthesizedExpression,
         UnaryExpression,
         AssignmentExpression,
+
+        //Statements
+        BlockStatement,
+        ExpressionStatement
     }
 }
