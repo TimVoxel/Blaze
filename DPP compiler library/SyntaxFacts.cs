@@ -49,6 +49,8 @@
                     return SyntaxKind.TrueKeyword;
                 case "false":
                     return SyntaxKind.FalseKeyword;
+                case "let":
+                    return SyntaxKind.LetKeyword;
                 default: 
                     return SyntaxKind.IdentifierToken;
             }
@@ -76,6 +78,8 @@
                     return "false";
                 case SyntaxKind.TrueKeyword:
                     return "true";
+                case SyntaxKind.LetKeyword:
+                    return "let";
                 case SyntaxKind.SemicolonToken:
                     return ";";
                 case SyntaxKind.OpenBraceToken:
@@ -105,7 +109,7 @@
                 case SyntaxKind.DoublePipeToken:
                     return "||";
                 case SyntaxKind.NotEqualsToken:
-                    return "!=";
+                    return "!=";  
                 default:
                     return null;
             }

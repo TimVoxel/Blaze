@@ -69,10 +69,15 @@ namespace DPP_Compiler
 
         private StatementSyntax ParseStatement()
         {
-            if (Current.Kind == SyntaxKind.OpenBraceToken)
-               return ParseBlockStatement();
-            
-            return ParseExpressionStatement();
+            switch (Current.Kind)
+            {
+                case SyntaxKind.OpenBraceToken:
+                    return ParseBlockStatement();
+                case SyntaxKind.LetKeyword:
+                    return ParseVariableDeclarationStatement();
+                default:
+                    return ParseExpressionStatement();
+            }
         }
 
         private BlockStatementSyntax ParseBlockStatement()
@@ -87,6 +92,16 @@ namespace DPP_Compiler
             SyntaxToken closeBraceToken = TryConsume(SyntaxKind.CloseBraceToken);
             
             return new BlockStatementSyntax(openBraceToken, statements.ToImmutable(), closeBraceToken);
+        }
+        
+        private VariableDeclarationStatementSyntax ParseVariableDeclarationStatement()
+        {
+            SyntaxToken letKeyword = TryConsume(SyntaxKind.LetKeyword);
+            SyntaxToken identifierToken = TryConsume(SyntaxKind.IdentifierToken);
+            SyntaxToken equalsToken = TryConsume(SyntaxKind.EqualsToken);
+            ExpressionSyntax initializer = ParseExpression();
+            SyntaxToken semicolon = TryConsume(SyntaxKind.SemicolonToken);
+            return new VariableDeclarationStatementSyntax(letKeyword, identifierToken, equalsToken, initializer, semicolon);
         }
 
         private ExpressionStatementSyntax ParseExpressionStatement()

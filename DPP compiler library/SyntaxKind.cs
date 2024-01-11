@@ -29,6 +29,7 @@
         //Keywords
         FalseKeyword,
         TrueKeyword,
+        LetKeyword,
         
         //Misc
         CompilationUnit,
@@ -43,6 +44,7 @@
 
         //Statements
         BlockStatement,
-        ExpressionStatement
+        ExpressionStatement,
+        VariableDeclarationStatement
     }
 }

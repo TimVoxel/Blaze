@@ -4,59 +4,10 @@ using System.Collections.Immutable;
 
 namespace DPP_Compiler.Binding
 {
-    internal sealed class BoundGlobalScope
-    {
-        public BoundGlobalScope? Previous { get; private set; }
-        public ImmutableArray<Diagnostic> Diagnostics { get; private set; }
-        public ImmutableArray<VariableSymbol> Variables { get; private set; }
-        public BoundStatement Statement { get; private set; }
-
-        public BoundGlobalScope(BoundGlobalScope? previous, ImmutableArray<Diagnostic> diagnostics, ImmutableArray<VariableSymbol> variables, BoundStatement statement)
-        {
-            Previous = previous;
-            Diagnostics = diagnostics;
-            Variables = variables;
-            Statement = statement;
-        }
-    }
-
-    internal sealed class BoundScope
-    {
-        private readonly Dictionary<string, VariableSymbol> _variables = new Dictionary<string, VariableSymbol>();
-
-        public BoundScope? Parent { get; private set; }
-
-        public BoundScope(BoundScope? parent)
-        {
-            Parent = parent;
-        }
-
-        public bool TryDeclare(VariableSymbol variable)
-        {
-            if (_variables.ContainsKey(variable.Name)) return false;
-            _variables.Add(variable.Name, variable);
-            return true;
-        }
-
-        public bool TryLookup(string name, out VariableSymbol? variable)
-        {
-            if (_variables.TryGetValue(name, out variable))
-                return true;
-
-            if (Parent == null)
-                return false;
-
-            return Parent.TryLookup(name, out variable);
-        }
-    
-        public ImmutableArray<VariableSymbol> GetDeclaredVariables() => _variables.Values.ToImmutableArray();
-    }
-
-
     internal sealed class Binder
     {
         private readonly DiagnosticBag _diagnostics = new DiagnosticBag();
-        private readonly BoundScope _scope;
+        private BoundScope _scope;
 
         public DiagnosticBag Diagnostics => _diagnostics;
 
@@ -109,9 +60,24 @@ namespace DPP_Compiler.Binding
                     return BindBlockStatement((BlockStatementSyntax)syntax);
                 case SyntaxKind.ExpressionStatement:
                     return BindExpressionStatement((ExpressionStatementSyntax)syntax);
+                case SyntaxKind.VariableDeclarationStatement:
+                    return BindVariableDeclarationStatement((VariableDeclarationStatementSyntax)syntax);
                 default:
                     throw new Exception($"Unexpected syntax {syntax.Kind}");
             }
+        }
+
+        private BoundStatement BindVariableDeclarationStatement(VariableDeclarationStatementSyntax syntax)
+        {
+            string name = syntax.Identifier.Text;
+            BoundExpression initializer = BindExpression(syntax.Initializer);
+            VariableSymbol variable = new VariableSymbol(name, initializer.Type);
+
+            if (!_scope.TryDeclare(variable))
+            {
+                _diagnostics.ReportVariableAlreadyDeclared(syntax.Identifier.Span, name);
+            }
+            return new BoundVariableDeclarationStatement(variable, initializer);
         }
 
         private BoundStatement BindExpressionStatement(ExpressionStatementSyntax syntax)
@@ -123,12 +89,18 @@ namespace DPP_Compiler.Binding
         private BoundStatement BindBlockStatement(BlockStatementSyntax syntax)
         {
             ImmutableArray<BoundStatement>.Builder boundStatements = ImmutableArray.CreateBuilder<BoundStatement>();
-            
+
+            BoundScope previous = _scope;
+            _scope = new BoundScope(previous);
+
             foreach (StatementSyntax statement in syntax.Statements)
             {
                 BoundStatement boundStatement = BindStatement(statement);
                 boundStatements.Add(boundStatement);
             }
+
+            _scope = previous;
+
             return new BoundBlockStatement(boundStatements.ToImmutable());
         }
 
@@ -203,9 +175,10 @@ namespace DPP_Compiler.Binding
             
             if (!_scope.TryLookup(name, out VariableSymbol? variable))
             {
-                variable = new VariableSymbol(name, boundExpression.Type);
-                _scope.TryDeclare(variable);
+                _diagnostics.ReportUndefinedName(expression.IdentifierToken.Span, name);
+                return boundExpression;
             }
+
             if (variable != null)
             {
                 if (boundExpression.Type != variable.Type)

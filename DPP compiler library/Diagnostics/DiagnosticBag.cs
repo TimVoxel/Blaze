@@ -60,5 +60,11 @@ namespace DPP_Compiler.Diagnostics
         }
 
         public void AddRange(DiagnosticBag diagnostics) => _diagnostics.AddRange(diagnostics);
+
+        public void ReportVariableAlreadyDeclared(TextSpan span, string name)
+        {
+            string message = $"Variable {name} is already declared";
+            Report(span, message);
+        }
     }
 }

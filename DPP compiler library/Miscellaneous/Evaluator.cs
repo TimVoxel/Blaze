@@ -1,4 +1,5 @@
 ﻿using DPP_Compiler.Binding;
+using System.ComponentModel.DataAnnotations;
 
 namespace DPP_Compiler.Miscellaneuos
 {
@@ -33,9 +34,19 @@ namespace DPP_Compiler.Miscellaneuos
                 case BoundNodeKind.ExpressionStatement:
                     EvaluateExpressionStatement((BoundExpressionStatement)node);
                     break;
+                case BoundNodeKind.VariableDeclarationStatement:
+                    EvaluateVariableDeclarationStatement((BoundVariableDeclarationStatement)node);
+                    break;
                 default:
                     throw new Exception($"Unexpected node {node.Kind}");
             }
+        }
+
+        private void EvaluateVariableDeclarationStatement(BoundVariableDeclarationStatement node)
+        {
+            object value = EvaluateExpression(node.Initializer);
+            _variables[node.Variable] = value;
+            _lastValue = value;
         }
 
         private void EvaluateExpressionStatement(BoundExpressionStatement statement)
