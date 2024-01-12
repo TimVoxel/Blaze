@@ -75,9 +75,41 @@ namespace DPP_Compiler
                     return ParseBlockStatement();
                 case SyntaxKind.LetKeyword:
                     return ParseVariableDeclarationStatement();
+                case SyntaxKind.IfKeyword:
+                    return ParseIfStatement();
+                case SyntaxKind.WhileKeyword:
+                    return ParseWhileStatement();
                 default:
                     return ParseExpressionStatement();
             }
+        }
+
+        private StatementSyntax ParseIfStatement()
+        {
+            SyntaxToken keyword = TryConsume(SyntaxKind.IfKeyword);
+            ExpressionSyntax expression = ParseExpression();
+            StatementSyntax statement = ParseStatement();
+            if (Current.Kind == SyntaxKind.ElseKeyword)
+            {
+                ElseClauseSyntax elseClause = ParseElseClause();
+                return new IfStatementSyntax(keyword, expression, statement, elseClause);
+            }
+            return new IfStatementSyntax(keyword, expression, statement);
+        }
+
+        private ElseClauseSyntax ParseElseClause()
+        {
+            SyntaxToken keyword = TryConsume(SyntaxKind.ElseKeyword);
+            StatementSyntax statement = ParseStatement();
+            return new ElseClauseSyntax(keyword, statement);
+        }
+
+        private WhileStatementSyntax ParseWhileStatement()
+        {
+            SyntaxToken keyword = TryConsume(SyntaxKind.WhileKeyword);
+            ExpressionSyntax condition = ParseExpression();
+            StatementSyntax body = ParseStatement();
+            return new WhileStatementSyntax(keyword, condition, body);
         }
 
         private BlockStatementSyntax ParseBlockStatement()

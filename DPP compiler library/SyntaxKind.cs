@@ -34,6 +34,9 @@
         FalseKeyword,
         TrueKeyword,
         LetKeyword,
+        IfKeyword,
+        ElseKeyword,
+        WhileKeyword,
         
         //Misc
         CompilationUnit,
@@ -49,6 +52,9 @@
         //Statements
         BlockStatement,
         ExpressionStatement,
-        VariableDeclarationStatement
+        VariableDeclarationStatement,
+        IfStatement,
+        ElseClause,
+        WhileStatement
     }
 }

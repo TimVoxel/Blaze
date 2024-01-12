@@ -38,6 +38,10 @@ namespace DPP_Compiler.Tests.CodeAnalysis
         [InlineData("6 >= 3;", true)]
         [InlineData("6 >= 6;", true)]
         [InlineData("{ let a = 10; (a = 20) * a; }", 400)]
+        [InlineData("{ let a = 10; if (a == 10) let c = true; }", true)]
+        [InlineData("{ let a = 10; if (a == 69) let c = true; }", 10)]
+        [InlineData("{ let a = 10; if (a == 69) {let c = true;} else let c = 69; }", 69)]
+        [InlineData("{ let i = 10; let result = 0; while i > 0 { result = result + i; i = i - 1;} result = result; }", 55)]
         public void Evaluator_Evaluate_Expression(string text, object expectedResult)
         {
             AssertValue(text, expectedResult);
@@ -51,7 +55,7 @@ namespace DPP_Compiler.Tests.CodeAnalysis
             EvaluationResult evaluationResult = compilation.Evaluate(variables);
 
             Assert.Empty(evaluationResult.Diagnostics);
-            Assert.Equal(evaluationResult.Value, expectedResult);
+            Assert.Equal(expectedResult, evaluationResult.Value);
         }
 
         [Fact]

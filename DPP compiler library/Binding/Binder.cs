@@ -1,6 +1,7 @@
 ﻿using DPP_Compiler.Diagnostics;
 using DPP_Compiler.Syntax_Nodes;
 using System.Collections.Immutable;
+using System.Reflection;
 
 namespace DPP_Compiler.Binding
 {
@@ -62,6 +63,10 @@ namespace DPP_Compiler.Binding
                     return BindExpressionStatement((ExpressionStatementSyntax)syntax);
                 case SyntaxKind.VariableDeclarationStatement:
                     return BindVariableDeclarationStatement((VariableDeclarationStatementSyntax)syntax);
+                case SyntaxKind.IfStatement:
+                    return BindIfStatement((IfStatementSyntax)syntax);
+                case SyntaxKind.WhileStatement:
+                    return BindWhileStatement((WhileStatementSyntax)syntax);
                 default:
                     throw new Exception($"Unexpected syntax {syntax.Kind}");
             }
@@ -84,6 +89,21 @@ namespace DPP_Compiler.Binding
         {
             BoundExpression boundExpression = BindExpression(syntax.Expression);
             return new BoundExpressionStatement(boundExpression);
+        }
+
+        private BoundStatement BindIfStatement(IfStatementSyntax syntax)
+        {
+            BoundExpression boundCondition = BindExpression(syntax.Condition, typeof(bool));
+            BoundStatement body = BindStatement(syntax.Body);
+            BoundStatement? elseBody = (syntax.ElseClause == null) ? null : BindStatement(syntax.ElseClause.Body);
+            return new BoundIfStatement(boundCondition, body, elseBody);
+        }
+
+        private BoundStatement BindWhileStatement(WhileStatementSyntax syntax)
+        {
+            BoundExpression boundCondition = BindExpression(syntax.Condition, typeof(bool));
+            BoundStatement body = BindStatement(syntax.Body);
+            return new BoundWhileStatement(boundCondition, body);
         }
 
         private BoundStatement BindBlockStatement(BlockStatementSyntax syntax)
@@ -123,6 +143,16 @@ namespace DPP_Compiler.Binding
                 default:
                     throw new Exception($"Unexpected syntax {expression.Kind}");
             }
+        }
+
+        private BoundExpression BindExpression(ExpressionSyntax expression, Type desiredType)
+        {
+            BoundExpression boundExpression = BindExpression(expression);
+            if (boundExpression.Type != desiredType)
+            {
+                _diagnostics.ReportCannotConvert(expression.Span, boundExpression.Type, desiredType);
+            }
+            return boundExpression;
         }
 
         private BoundExpression BindLiteralExpression(LiteralExpressionSyntax expression)

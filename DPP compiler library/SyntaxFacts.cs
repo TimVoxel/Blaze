@@ -56,6 +56,12 @@
                     return SyntaxKind.FalseKeyword;
                 case "let":
                     return SyntaxKind.LetKeyword;
+                case "if":
+                    return SyntaxKind.IfKeyword;
+                case "else":
+                    return SyntaxKind.ElseKeyword;
+                case "while":
+                    return SyntaxKind.WhileKeyword;
                 default: 
                     return SyntaxKind.IdentifierToken;
             }
@@ -85,6 +91,12 @@
                     return "true";
                 case SyntaxKind.LetKeyword:
                     return "let";
+                case SyntaxKind.IfKeyword:
+                    return "if";
+                case SyntaxKind.ElseKeyword:
+                    return "else";
+                case SyntaxKind.WhileKeyword:
+                    return "while";
                 case SyntaxKind.SemicolonToken:
                     return ";";
                 case SyntaxKind.OpenBraceToken:
