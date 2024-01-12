@@ -21,6 +21,10 @@
         DoubleEqualsToken,
         NotEqualsToken,
         EqualsToken,
+        GreaterToken,
+        GreaterOrEqualsToken,
+        LessToken,
+        LessOrEqualsToken,
         IdentifierToken,
 
         //Literals

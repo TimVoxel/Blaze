@@ -11,9 +11,14 @@
             {
                 case SyntaxKind.StarToken:
                 case SyntaxKind.SlashToken:
-                    return 5;
+                    return 6;
                 case SyntaxKind.PlusToken:
                 case SyntaxKind.MinusToken:
+                    return 5;
+                case SyntaxKind.LessToken:
+                case SyntaxKind.LessOrEqualsToken:
+                case SyntaxKind.GreaterToken:
+                case SyntaxKind.GreaterOrEqualsToken:
                     return 4;
                 case SyntaxKind.DoubleEqualsToken:
                 case SyntaxKind.NotEqualsToken:
@@ -32,10 +37,10 @@
             switch (kind) 
             {
                 case SyntaxKind.ExclamationSignToken:
-                    return 7;
+                    return 8;
                 case SyntaxKind.PlusToken:
                 case SyntaxKind.MinusToken:
-                    return 6;
+                    return 7;
 
                 default: return 0;
             }
@@ -104,6 +109,14 @@
                     return "=";
                 case SyntaxKind.DoubleEqualsToken:
                     return "==";
+                case SyntaxKind.LessToken:
+                    return "<";
+                case SyntaxKind.LessOrEqualsToken:
+                    return "<=";
+                case SyntaxKind.GreaterToken:
+                    return ">";
+                case SyntaxKind.GreaterOrEqualsToken:
+                    return ">=";
                 case SyntaxKind.DoubleAmpersandToken:
                     return "&&";
                 case SyntaxKind.DoublePipeToken:

@@ -9,6 +9,10 @@
         LogicalAddition,
         LogicalMultiplication,
         Equals,
-        NotEquals
+        NotEquals,
+        Less,
+        LessOrEquals,
+        Greater,
+        GreaterOrEquals
     }
 }

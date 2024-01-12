@@ -63,7 +63,7 @@ namespace DPP_Compiler.Diagnostics
 
         public void ReportVariableAlreadyDeclared(TextSpan span, string name)
         {
-            string message = $"Variable {name} is already declared";
+            string message = $"Variable \"{name}\" is already declared";
             Report(span, message);
         }
     }

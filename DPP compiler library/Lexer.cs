@@ -86,13 +86,31 @@ namespace DPP_Compiler
                         _position += 2;
                     }
                     break;
+                case '<':
+                    if (Next == '=')
+                    {
+                        _kind = SyntaxKind.LessOrEqualsToken;
+                        _position += 2;
+                    }
+                    else 
+                        ConsumeOfKind(SyntaxKind.LessToken);
+                    break;
+                case '>':
+                    if (Next == '=')
+                    {
+                        _kind = SyntaxKind.GreaterOrEqualsToken;
+                        _position += 2;
+                    }
+                    else
+                        ConsumeOfKind(SyntaxKind.GreaterToken);
+                    break;
                 case '=':
                     if (Next == '=')
                     {
                         _kind = SyntaxKind.DoubleEqualsToken;
                         _position += 2;
                     }
-                    else
+                    else                        
                         ConsumeOfKind(SyntaxKind.EqualsToken);
                     break;
                 default:
