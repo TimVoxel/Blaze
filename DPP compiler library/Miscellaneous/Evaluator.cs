@@ -1,5 +1,4 @@
 ﻿using DPP_Compiler.Binding;
-using System.ComponentModel.DataAnnotations;
 
 namespace DPP_Compiler.Miscellaneuos
 {
@@ -43,6 +42,9 @@ namespace DPP_Compiler.Miscellaneuos
                 case BoundNodeKind.WhileStatement:
                     EvaluateWhileStatement((BoundWhileStatement)node);
                     break;
+                case BoundNodeKind.ForStatement:
+                    EvaluteForStatement((BoundForStatement)node);
+                    break;
                 default:
                     throw new Exception($"Unexpected node {node.Kind}");
             }
@@ -79,6 +81,18 @@ namespace DPP_Compiler.Miscellaneuos
         {
             foreach (BoundStatement current in statement.Statements)
                 EvaluateStatement(current);
+        }
+
+        private void EvaluteForStatement(BoundForStatement node)
+        {
+            int lowerBound = (int) EvaluateExpression(node.LowerBound);
+            int upperBound = (int) EvaluateExpression(node.UpperBound);
+            
+            for (int i = lowerBound; i <= upperBound; i++)
+            {
+                _variables[node.Variable] = i;
+                EvaluateStatement(node.Body);
+            }
         }
 
         private object EvaluateExpression(BoundExpression node)

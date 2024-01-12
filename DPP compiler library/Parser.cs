@@ -42,7 +42,7 @@ namespace DPP_Compiler
                 return Consume();
 
             _diagnostics.ReportUnexpectedToken(Current.Span, Current.Kind, kind);
-            return new SyntaxToken(kind, Current.Position, "", null);
+            return new SyntaxToken(kind, Current.Position, Current.Text, null);
         }
 
         private SyntaxToken Consume()
@@ -79,6 +79,8 @@ namespace DPP_Compiler
                     return ParseIfStatement();
                 case SyntaxKind.WhileKeyword:
                     return ParseWhileStatement();
+                case SyntaxKind.ForKeyword:
+                    return ParseForStatement();
                 default:
                     return ParseExpressionStatement();
             }
@@ -87,7 +89,7 @@ namespace DPP_Compiler
         private StatementSyntax ParseIfStatement()
         {
             SyntaxToken keyword = TryConsume(SyntaxKind.IfKeyword);
-            ExpressionSyntax expression = ParseExpression();
+            ExpressionSyntax expression = ParseParenthesizedExpression().Expression;
             StatementSyntax statement = ParseStatement();
             if (Current.Kind == SyntaxKind.ElseKeyword)
             {
@@ -107,9 +109,27 @@ namespace DPP_Compiler
         private WhileStatementSyntax ParseWhileStatement()
         {
             SyntaxToken keyword = TryConsume(SyntaxKind.WhileKeyword);
-            ExpressionSyntax condition = ParseExpression();
+            ExpressionSyntax condition = ParseParenthesizedExpression().Expression;
             StatementSyntax body = ParseStatement();
             return new WhileStatementSyntax(keyword, condition, body);
+        }
+
+        private StatementSyntax ParseForStatement()
+        {
+            //For now only supports range for loops
+            SyntaxToken keyword = TryConsume(SyntaxKind.ForKeyword);
+            
+            TryConsume(SyntaxKind.OpenParenToken);
+            SyntaxToken identifier = TryConsume(SyntaxKind.IdentifierToken);
+            SyntaxToken equalsSign = TryConsume(SyntaxKind.EqualsToken);
+            ExpressionSyntax lowerBound = ParseExpression();
+            SyntaxToken doubleDot = TryConsume(SyntaxKind.DoubleDotToken);
+            ExpressionSyntax upperBound = ParseExpression();
+            TryConsume(SyntaxKind.CloseParenToken);
+
+            StatementSyntax body = ParseStatement();
+
+            return new ForStatementSyntax(keyword, identifier, equalsSign, lowerBound, doubleDot, upperBound, body);
         }
 
         private BlockStatementSyntax ParseBlockStatement()
@@ -117,12 +137,17 @@ namespace DPP_Compiler
             ImmutableArray<StatementSyntax>.Builder statements = ImmutableArray.CreateBuilder<StatementSyntax>();
 
             SyntaxToken openBraceToken = TryConsume(SyntaxKind.OpenBraceToken);
-            
+
             while (Current.Kind != SyntaxKind.EndOfFileToken && Current.Kind != SyntaxKind.CloseBraceToken)
+            {
+                SyntaxToken startToken = Current;
                 statements.Add(ParseStatement());
 
+                if (Current == startToken)
+                    Consume();
+            }
+
             SyntaxToken closeBraceToken = TryConsume(SyntaxKind.CloseBraceToken);
-            
             return new BlockStatementSyntax(openBraceToken, statements.ToImmutable(), closeBraceToken);
         }
         
@@ -220,7 +245,7 @@ namespace DPP_Compiler
             return new IdentifierExpressionSyntax(current);
         }
 
-        private ExpressionSyntax ParseParenthesizedExpression()
+        private ParenthesizedExpressionSyntax ParseParenthesizedExpression()
         {
             SyntaxToken left = TryConsume(SyntaxKind.OpenParenToken);
             ExpressionSyntax expression = ParseExpression();

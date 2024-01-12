@@ -41,7 +41,7 @@ namespace DPP_Compiler.Tests.CodeAnalysis
         [InlineData("{ let a = 10; if (a == 10) let c = true; }", true)]
         [InlineData("{ let a = 10; if (a == 69) let c = true; }", 10)]
         [InlineData("{ let a = 10; if (a == 69) {let c = true;} else let c = 69; }", 69)]
-        [InlineData("{ let i = 10; let result = 0; while i > 0 { result = result + i; i = i - 1;} result = result; }", 55)]
+        [InlineData("{ let i = 10; let result = 0; while (i > 0) { result = result + i; i = i - 1;} result = result; }", 55)]
         public void Evaluator_Evaluate_Expression(string text, object expectedResult)
         {
             AssertValue(text, expectedResult);
@@ -85,6 +85,16 @@ namespace DPP_Compiler.Tests.CodeAnalysis
         }
 
         [Fact]
+        public void Evaluator_IdentifierExpression_Reports_NoErrorForInsertedToken()
+        {
+            string text = @"[][]";
+            string diagnosticText = @"
+                Unexpected token <EndOfFileToken>, expected <IdentifierToken>
+                Unexpected token <EndOfFileToken>, expected <SemicolonToken>";
+            AssertDiagnostics(text, diagnosticText);
+        }
+
+        [Fact]
         public void Evaluator_Assignment_NameReports_Undefined()
         {
             string text = @"[a] = 10;";
@@ -92,6 +102,22 @@ namespace DPP_Compiler.Tests.CodeAnalysis
 
             AssertDiagnostics(text, diagnosticText);
         }
+
+        [Fact]
+        public void Evaluator_BlockStatement_NoInfiniteLoop()
+        {
+            string text = @"{
+                ([][][][]
+            ";
+            string diagnosticText = @"
+                Unexpected token <EndOfFileToken>, expected <IdentifierToken>
+                Unexpected token <EndOfFileToken>, expected <CloseParenToken>
+                Unexpected token <EndOfFileToken>, expected <SemicolonToken>
+                Unexpected token <EndOfFileToken>, expected <CloseBraceToken>";
+
+            AssertDiagnostics(text, diagnosticText);
+        }
+
 
         [Fact]
         public void Evaluator_Cant_Convert_Types()
@@ -118,6 +144,59 @@ namespace DPP_Compiler.Tests.CodeAnalysis
         {
             string text = @"true [&&] 10;";
             string diagnosticText = "Binary operator '&&' is not defined for types System.Boolean and System.Int32";
+            AssertDiagnostics(text, diagnosticText);
+        }
+
+
+        [Fact]
+        public void Evaluator_If_Cant_Convert_Types()
+        {
+            string text = @"{
+                let a = 10;
+                if ([a])
+                    a = 20;
+            }";
+            string diagnosticText = "Can not convert type System.Int32 to type System.Boolean";
+
+            AssertDiagnostics(text, diagnosticText);
+        }
+
+        [Fact]
+        public void Evaluator_While_Cant_Convert_Types()
+        {
+            string text = @"{
+                let a = 10;
+                while ([a])
+                    a = a - 1;
+            }";
+            string diagnosticText = "Can not convert type System.Int32 to type System.Boolean";
+
+            AssertDiagnostics(text, diagnosticText);
+        }
+
+        [Fact]
+        public void Evaluator_For_Cant_Convert_Types()
+        {
+            string text = @"{
+                let a = 10;
+                for (i = [false] .. 10)
+                    a = a - 1;
+            }";
+            string diagnosticText = "Can not convert type System.Boolean to type System.Int32";
+
+            AssertDiagnostics(text, diagnosticText);
+        }
+
+        [Fact]
+        public void Evaluator_For_Cant_Convert_Types2()
+        {
+            string text = @"{
+                let a = 10;
+                for (i = 10 .. [true])
+                    a = a - 1;
+            }";
+            string diagnosticText = "Can not convert type System.Boolean to type System.Int32";
+
             AssertDiagnostics(text, diagnosticText);
         }
 

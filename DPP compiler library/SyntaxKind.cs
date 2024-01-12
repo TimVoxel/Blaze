@@ -19,6 +19,7 @@
         DoubleAmpersandToken,
         DoublePipeToken,
         DoubleEqualsToken,
+        DoubleDotToken,
         NotEqualsToken,
         EqualsToken,
         GreaterToken,
@@ -37,7 +38,8 @@
         IfKeyword,
         ElseKeyword,
         WhileKeyword,
-        
+        ForKeyword,
+
         //Misc
         CompilationUnit,
 
@@ -55,6 +57,7 @@
         VariableDeclarationStatement,
         IfStatement,
         ElseClause,
-        WhileStatement
+        WhileStatement,
+        ForStatement,
     }
 }

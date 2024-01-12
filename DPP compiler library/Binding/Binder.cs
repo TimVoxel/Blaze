@@ -2,6 +2,7 @@
 using DPP_Compiler.Syntax_Nodes;
 using System.Collections.Immutable;
 using System.Reflection;
+using System.Security.Cryptography.X509Certificates;
 
 namespace DPP_Compiler.Binding
 {
@@ -67,6 +68,8 @@ namespace DPP_Compiler.Binding
                     return BindIfStatement((IfStatementSyntax)syntax);
                 case SyntaxKind.WhileStatement:
                     return BindWhileStatement((WhileStatementSyntax)syntax);
+                case SyntaxKind.ForStatement:
+                    return BindForStatement((ForStatementSyntax)syntax);
                 default:
                     throw new Exception($"Unexpected syntax {syntax.Kind}");
             }
@@ -104,6 +107,26 @@ namespace DPP_Compiler.Binding
             BoundExpression boundCondition = BindExpression(syntax.Condition, typeof(bool));
             BoundStatement body = BindStatement(syntax.Body);
             return new BoundWhileStatement(boundCondition, body);
+        }
+
+        private BoundStatement BindForStatement(ForStatementSyntax syntax)
+        {
+            BoundExpression lowerBound = BindExpression(syntax.LowerBound, typeof(int));
+            BoundExpression upperBound = BindExpression(syntax.UpperBound, typeof(int));
+            
+            BoundScope previous = _scope;
+            _scope = new BoundScope(previous);
+
+            string name = syntax.Identifier.Text;
+            VariableSymbol variable = new VariableSymbol(name, typeof(int));
+            if (!_scope.TryDeclare(variable))
+                _diagnostics.ReportVariableAlreadyDeclared(syntax.Identifier.Span, name);
+
+            BoundStatement body = BindStatement(syntax.Body);
+
+            _scope = previous;
+
+            return new BoundForStatement(variable, lowerBound, upperBound, body);   
         }
 
         private BoundStatement BindBlockStatement(BlockStatementSyntax syntax)
@@ -190,6 +213,9 @@ namespace DPP_Compiler.Binding
         private BoundExpression BindIdentifierExpression(IdentifierExpressionSyntax expression)
         {
             string name = expression.IdentifierToken.Text;
+            if (string.IsNullOrEmpty(name))
+                return new BoundLiteralExpression(0);
+
             if (!_scope.TryLookup(name, out VariableSymbol? variable))
             {
                 _diagnostics.ReportUndefinedName(expression.IdentifierToken.Span, name);

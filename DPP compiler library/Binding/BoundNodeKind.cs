@@ -15,5 +15,6 @@
         VariableDeclarationStatement,
         IfStatement,
         WhileStatement,
+        ForStatement,
     }
 }

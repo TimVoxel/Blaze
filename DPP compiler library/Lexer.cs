@@ -85,7 +85,15 @@ namespace DPP_Compiler
                         _kind = SyntaxKind.DoublePipeToken;
                         _position += 2;
                     }
+                    break; 
+                case '.':
+                    if (Next == '.')
+                    {
+                        _kind = SyntaxKind.DoubleDotToken;
+                        _position += 2;
+                    }
                     break;
+
                 case '<':
                     if (Next == '=')
                     {

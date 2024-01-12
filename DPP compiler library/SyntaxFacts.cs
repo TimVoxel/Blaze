@@ -62,6 +62,8 @@
                     return SyntaxKind.ElseKeyword;
                 case "while":
                     return SyntaxKind.WhileKeyword;
+                case "for":
+                    return SyntaxKind.ForKeyword;
                 default: 
                     return SyntaxKind.IdentifierToken;
             }
@@ -97,6 +99,8 @@
                     return "else";
                 case SyntaxKind.WhileKeyword:
                     return "while";
+                case SyntaxKind.ForKeyword:
+                    return "for";
                 case SyntaxKind.SemicolonToken:
                     return ";";
                 case SyntaxKind.OpenBraceToken:
@@ -133,6 +137,8 @@
                     return "&&";
                 case SyntaxKind.DoublePipeToken:
                     return "||";
+                case SyntaxKind.DoubleDotToken:
+                    return "..";
                 case SyntaxKind.NotEqualsToken:
                     return "!=";  
                 default:
