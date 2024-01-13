@@ -8,11 +8,15 @@
         public override BoundNodeKind Kind => BoundNodeKind.UnaryExpression;
         public override Type Type => Operand.Type;
 
-
         public BoundUnaryExpression(BoundUnaryOperator op, BoundExpression operand)
         {
             Operator = op;
             Operand = operand;
+        }
+
+        public override IEnumerable<BoundNode> GetChildren()
+        {
+            yield return Operand;
         }
     }
 }

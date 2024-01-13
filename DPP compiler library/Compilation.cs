@@ -1,7 +1,9 @@
 ﻿using DPP_Compiler.Binding;
 using DPP_Compiler.Diagnostics;
+using DPP_Compiler.Lowering;
 using DPP_Compiler.Miscellaneuos;
 using System.Collections.Immutable;
+using System.Security.Cryptography;
 
 namespace DPP_Compiler
 {
@@ -42,9 +44,21 @@ namespace DPP_Compiler
             if (diagnostics.Any())
                 return new EvaluationResult(diagnostics, null);
 
-            Evaluator evaluator = new Evaluator(GlobalScope.Statement, variables);
+            Evaluator evaluator = new Evaluator(GetLoweredStatement(), variables);
             object value = evaluator.Evaluate();
             return new EvaluationResult(ImmutableArray<Diagnostic>.Empty, value);
+        }
+
+
+        public void EmitTree(TextWriter writer)
+        {
+            GetLoweredStatement().WriteTo(writer);
+        }
+
+        private BoundStatement GetLoweredStatement()
+        {
+            BoundStatement result = GlobalScope.Statement;
+            return Lowerer.Lower(result);
         }
     }
 }

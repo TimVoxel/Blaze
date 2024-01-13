@@ -42,6 +42,7 @@ namespace DPP_Compiler.Tests.CodeAnalysis
         [InlineData("{ let a = 10; if (a == 69) let c = true; }", 10)]
         [InlineData("{ let a = 10; if (a == 69) {let c = true;} else let c = 69; }", 69)]
         [InlineData("{ let i = 10; let result = 0; while (i > 0) { result = result + i; i = i - 1;} result = result; }", 55)]
+        [InlineData("{ let result = 0; for (i = 1..10) { result = result + i; } result = result; }", 55)]
         public void Evaluator_Evaluate_Expression(string text, object expectedResult)
         {
             AssertValue(text, expectedResult);

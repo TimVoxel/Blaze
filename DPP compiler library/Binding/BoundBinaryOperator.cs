@@ -48,5 +48,15 @@
             }
             return null;
         }
+
+        internal static BoundBinaryOperator SafeBind(BoundBinaryOperatorKind kind, Type leftType, Type rightType)
+        {
+            foreach (BoundBinaryOperator binary in _operators)
+            {
+                if (binary.OperatorKind == kind && binary.LeftType == leftType && binary.RightType == rightType)
+                    return binary;
+            }
+            throw new Exception($"Operator of kind {kind} is not defined for types {leftType} and {rightType}");
+        }
     }
 }

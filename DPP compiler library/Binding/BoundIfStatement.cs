@@ -14,5 +14,13 @@
             Body = body;
             ElseBody = elseBody;
         }
+
+        public override IEnumerable<BoundNode> GetChildren()
+        {
+            yield return Condition;
+            yield return Body;
+            if (ElseBody != null)
+                yield return ElseBody;
+        }
     }
 }

@@ -11,5 +11,10 @@
         {
             Value = value;
         }
+
+        public override IEnumerable<BoundNode> GetChildren()
+        {
+            return Enumerable.Empty<BoundNode>();
+        }
     }
 }

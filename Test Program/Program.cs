@@ -10,6 +10,7 @@ namespace TestProgram
         private static void Main()
         {
             bool showTree = false;
+            bool showProgram = false;
             Dictionary<VariableSymbol, object?> variables = new Dictionary<VariableSymbol, object?>();
 
             StringBuilder textBuilder = new StringBuilder();
@@ -40,6 +41,12 @@ namespace TestProgram
                         Console.WriteLine(showTree ? "Showing parse trees" : "Not showing parse trees");
                         continue;
                     }
+                    if (inputLine == "#showProgram")
+                    {
+                        showProgram = !showProgram;
+                        Console.WriteLine(showProgram ? "Showing bound trees" : "Not showing bound trees");
+                        continue;
+                    }
                     if (inputLine == "#clear")
                     {
                         Console.Clear();
@@ -67,6 +74,9 @@ namespace TestProgram
                 if (showTree)
                     syntaxTree.Root.WriteTo(Console.Out);
 
+                if (showProgram)
+                    compilation.EmitTree(Console.Out);
+                    
                 if (!diagnostics.Any())
                 {
                     previous = compilation;

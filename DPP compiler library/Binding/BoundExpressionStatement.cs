@@ -10,5 +10,10 @@
         {
             Expression = expression;
         }
+
+        public override IEnumerable<BoundNode> GetChildren()
+        {
+            yield return Expression;
+        }
     }
 }

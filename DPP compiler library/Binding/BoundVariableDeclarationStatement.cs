@@ -12,5 +12,10 @@
             Variable = variable;
             Initializer = initializer;
         }
+
+        public override IEnumerable<BoundNode> GetChildren()
+        {
+            yield return Initializer;
+        }
     }
 }
