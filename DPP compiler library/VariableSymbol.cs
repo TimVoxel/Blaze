@@ -10,5 +10,25 @@
             Name = name;
             Type = type;
         }
+
+        public override string ToString()
+        {
+            return Name;
+        }
+    }
+
+    internal sealed class LabelSymbol
+    {
+        public string Name { get; private set; }
+
+        internal LabelSymbol(string name)
+        {
+            Name = name;
+        }
+
+        public override string ToString()
+        {
+            return Name;
+        }
     }
 }

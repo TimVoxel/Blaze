@@ -21,10 +21,28 @@ namespace DPP_Compiler.Lowering
                     return RewriteWhileStatement((BoundWhileStatement)node);
                 case BoundNodeKind.ForStatement:
                     return RewriteForStatement((BoundForStatement)node);
+                case BoundNodeKind.LabelStatement:
+                    return RewriteLabelStatement((BoundLabelStatement)node);
+                case BoundNodeKind.ConditionalGotoStatement:
+                    return RewriteConditionalLabelStatement((BoundConditionalGotoStatement)node);
+                case BoundNodeKind.GoToStatement:
+                    return RewriteGotoStatement((BoundGotoStatement)node);
                 default:
                     throw new Exception($"Unexpected node {node.Kind}");
             }
         }
+
+        protected virtual BoundStatement RewriteGotoStatement(BoundGotoStatement node) => node;
+
+        protected virtual BoundStatement RewriteConditionalLabelStatement(BoundConditionalGotoStatement node)
+        {
+            BoundExpression condition = RewriteExpression(node.Condition);
+            if (condition == node.Condition)
+                return node;
+            return new BoundConditionalGotoStatement(node.Label, condition);
+        }
+
+        protected virtual BoundStatement RewriteLabelStatement(BoundLabelStatement node) => node;
 
         protected virtual BoundStatement RewriteBlockStatement(BoundBlockStatement node)
         {

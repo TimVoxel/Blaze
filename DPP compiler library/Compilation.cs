@@ -55,7 +55,7 @@ namespace DPP_Compiler
             GetLoweredStatement().WriteTo(writer);
         }
 
-        private BoundStatement GetLoweredStatement()
+        private BoundBlockStatement GetLoweredStatement()
         {
             BoundStatement result = GlobalScope.Statement;
             return Lowerer.Lower(result);

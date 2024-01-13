@@ -12,6 +12,9 @@
         //Statements
         ExpressionStatement,
         BlockStatement,
+        GoToStatement,
+        LabelStatement,
+        ConditionalGotoStatement,
         VariableDeclarationStatement,
         IfStatement,
         WhileStatement,

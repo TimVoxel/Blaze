@@ -1,28 +1,66 @@
 ﻿using DPP_Compiler.Binding;
+using System.Xml.Linq;
 
 namespace DPP_Compiler.Miscellaneuos
 {
 
     internal class Evaluator
     {
-        private readonly BoundStatement _root;
+        private readonly BoundBlockStatement _root;
         private readonly Dictionary<VariableSymbol, object?> _variables;
 
         private object _lastValue;
 
-        internal Evaluator(BoundStatement root, Dictionary<VariableSymbol, object?> variables)
+        internal Evaluator(BoundBlockStatement root, Dictionary<VariableSymbol, object?> variables)
         {
             _root = root;
             _variables = variables;
             _lastValue = 0;
         }
 
-        public object Evaluate() {
+        public object Evaluate()
+        {
+            Dictionary<LabelSymbol, int> labelToIndex = new Dictionary<LabelSymbol, int>();
 
-            EvaluateStatement(_root);
+            for (int i = 0; i < _root.Statements.Length; i++)
+            {
+                if (_root.Statements[i] is BoundLabelStatement l)
+                    labelToIndex.Add(l.Label, i + 1);
+            }
+
+            for (int i = 0; i < _root.Statements.Length; i++)
+            {
+                BoundStatement statement = _root.Statements[i];
+
+                switch (statement.Kind)
+                {
+                    case BoundNodeKind.ExpressionStatement:
+                        EvaluateExpressionStatement((BoundExpressionStatement)statement);
+                        break;
+                    case BoundNodeKind.VariableDeclarationStatement:
+                        EvaluateVariableDeclarationStatement((BoundVariableDeclarationStatement)statement);
+                        break;
+                    case BoundNodeKind.GoToStatement:
+                        BoundGotoStatement gotoStatement = (BoundGotoStatement)statement;
+                        i = labelToIndex[gotoStatement.Label] - 1;
+                        break;
+                    case BoundNodeKind.ConditionalGotoStatement:
+                        BoundConditionalGotoStatement conditional = (BoundConditionalGotoStatement)statement;
+                        bool condition = (bool) EvaluateExpression(conditional.Condition);
+                        if (condition && !conditional.JumpIfFalse || !condition && conditional.JumpIfFalse)
+                            i = labelToIndex[conditional.Label] - 1;
+                        break;
+                    case BoundNodeKind.LabelStatement:
+                        break;
+                    default:
+                        throw new Exception($"Unexpected node {statement.Kind}");
+                }
+            }
+            
             return _lastValue;
         }
 
+        /*
         private void EvaluateStatement(BoundStatement node)
         {
             switch (node.Kind)
@@ -47,6 +85,7 @@ namespace DPP_Compiler.Miscellaneuos
             }
         }
 
+        
         private void EvaluateIfStatement(BoundIfStatement node)
         {
             bool conditionValue = (bool) EvaluateExpression(node.Condition);
@@ -55,12 +94,14 @@ namespace DPP_Compiler.Miscellaneuos
             else if (node.ElseBody != null)
                 EvaluateStatement(node.ElseBody);
         }
+        
 
         private void EvaluateWhileStatement(BoundWhileStatement node)
         {
             while ((bool) EvaluateExpression(node.Condition))
                 EvaluateStatement(node.Body);
         }
+        */
 
         private void EvaluateVariableDeclarationStatement(BoundVariableDeclarationStatement node)
         {
@@ -74,11 +115,13 @@ namespace DPP_Compiler.Miscellaneuos
             _lastValue = EvaluateExpression(statement.Expression);
         }
 
+        /*
         private void EvaluateBlockStatement(BoundBlockStatement statement)
         {
             foreach (BoundStatement current in statement.Statements)
                 EvaluateStatement(current);
         }
+        */
 
         private object EvaluateExpression(BoundExpression node)
         {
