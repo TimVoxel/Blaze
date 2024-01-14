@@ -1,6 +1,6 @@
 ﻿namespace DPP_Compiler.Symbols
 {
-    public sealed class VariableSymbol : Symbol
+    public class VariableSymbol : Symbol
     {
         public TypeSymbol Type { get; private set; }
 

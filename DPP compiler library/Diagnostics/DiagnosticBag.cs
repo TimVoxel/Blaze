@@ -17,6 +17,13 @@ namespace DPP_Compiler.Diagnostics
             _diagnostics.Add(diagnostic);
         }
 
+        public void ReportStrayCharacter(int position, char character)
+        {
+            string message = $"Stray \'{character}\' in input";
+            TextSpan span = new TextSpan(position, 1);
+            Report(span, message);
+        }
+
         public void ReportInvalidNumber(TextSpan span, string text, TypeSymbol type)
         {
             string message = $"The number \"{text}\" can not be represented by <{type}>";
@@ -26,13 +33,6 @@ namespace DPP_Compiler.Diagnostics
         public void ReportUnterminatedString(TextSpan span)
         {
             string message = $"Unterminated string literal";
-            Report(span, message);
-        }
-
-        public void ReportStrayCharacter(int position, char character)
-        {
-            string message = $"Stray \'{character}\' in input\"";
-            TextSpan span = new TextSpan(position, 1);
             Report(span, message);
         }
 
@@ -72,6 +72,29 @@ namespace DPP_Compiler.Diagnostics
         {
             string message = $"Variable \"{name}\" is already declared";
             Report(span, message);
+        }
+
+        public void ReportUndefinedFunction(TextSpan span, string text)
+        {
+            string message = $"Function \"{text}\" doesn't exist";
+            Report(span, message);
+        }
+
+        public void ReportWrongArgumentCount(TextSpan span, string name, int expectedCount, int actualCount)
+        {
+            string message = $"Function {name} requires {expectedCount} arguments, but only {actualCount} were given";
+            Report(span, message);
+        }
+
+        public void ReportWrongArgumentType(TextSpan span, string name, string parameterName, TypeSymbol expectedType, TypeSymbol actualType)
+        {
+            string message = $"Parameter \"{parameterName}\" of function \"{name}\" is of type {expectedType}, but was given a value of type {actualType}";
+            Report(span, message);
+        }
+
+        internal void ReportVoidDeclaration(TextSpan span, string name)
+        {
+            string message = $"Can not declare variable \"{name}\" of type {TypeSymbol.Void}";
         }
     }
 }

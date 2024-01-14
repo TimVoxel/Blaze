@@ -224,7 +224,7 @@ namespace DPP_Compiler
                 case SyntaxKind.StringLiteralToken:
                     return ParseStringLiteral();
                 default:
-                    return ParseIdentifierExpression();
+                    return ParseIdentifierOrCallExpression();
             }
         }
 
@@ -247,10 +247,47 @@ namespace DPP_Compiler
             return new LiteralExpressionSyntax(stringToken);
         }
 
+        private ExpressionSyntax ParseIdentifierOrCallExpression()
+        {
+            if (Current.Kind == SyntaxKind.IdentifierToken && Next.Kind == SyntaxKind.OpenParenToken)
+                return ParseCallExpression();
+            else
+                return ParseIdentifierExpression();
+        }
+
         private ExpressionSyntax ParseIdentifierExpression()
         {
-            SyntaxToken current = TryConsume(SyntaxKind.IdentifierToken);
-            return new IdentifierExpressionSyntax(current);
+            SyntaxToken identifier = TryConsume(SyntaxKind.IdentifierToken);
+            return new IdentifierExpressionSyntax(identifier);
+        }
+
+        private ExpressionSyntax ParseCallExpression()
+        {
+            SyntaxToken identifier = TryConsume(SyntaxKind.IdentifierToken);
+            SyntaxToken openParen = TryConsume(SyntaxKind.OpenParenToken);
+            SeparatedSyntaxList<ExpressionSyntax> arguments = ParseArguments();
+            SyntaxToken closeParen = TryConsume(SyntaxKind.CloseParenToken);
+            return new CallExpressionSyntax(identifier, openParen, arguments, closeParen);
+        }
+
+        private SeparatedSyntaxList<ExpressionSyntax> ParseArguments()
+        {
+            ImmutableArray<SyntaxNode>.Builder nodesAndSeparators = ImmutableArray.CreateBuilder<SyntaxNode>();
+            while (Current.Kind != SyntaxKind.CloseParenToken && Current.Kind != SyntaxKind.EndOfFileToken)
+            {
+                SyntaxToken startToken = Current;
+                nodesAndSeparators.Add(ParseExpression());
+
+                if (Current.Kind != SyntaxKind.CloseParenToken)
+                {
+                    SyntaxToken comma = TryConsume(SyntaxKind.CommaToken);
+                    nodesAndSeparators.Add(comma);
+                }
+
+                if (Current == startToken)
+                    Consume();
+            }
+            return new SeparatedSyntaxList<ExpressionSyntax>(nodesAndSeparators.ToImmutable());
         }
 
         private ParenthesizedExpressionSyntax ParseParenthesizedExpression()

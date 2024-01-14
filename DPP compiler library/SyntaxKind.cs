@@ -7,6 +7,7 @@
         EndOfFileToken,
         WhitespaceToken,
         SemicolonToken,
+        CommaToken,
         PlusToken,
         MinusToken,
         StarToken,
@@ -51,6 +52,7 @@
         ParenthesizedExpression,
         UnaryExpression,
         AssignmentExpression,
+        CallExpression,
 
         //Statements
         BlockStatement,

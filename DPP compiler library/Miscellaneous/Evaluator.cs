@@ -1,6 +1,5 @@
 ﻿using DPP_Compiler.Binding;
 using DPP_Compiler.Symbols;
-using System.Xml.Linq;
 
 namespace DPP_Compiler.Miscellaneuos
 {
@@ -10,7 +9,7 @@ namespace DPP_Compiler.Miscellaneuos
         private readonly BoundBlockStatement _root;
         private readonly Dictionary<VariableSymbol, object?> _variables;
 
-        private object _lastValue;
+        private object? _lastValue;
 
         internal Evaluator(BoundBlockStatement root, Dictionary<VariableSymbol, object?> variables)
         {
@@ -19,7 +18,7 @@ namespace DPP_Compiler.Miscellaneuos
             _lastValue = 0;
         }
 
-        public object Evaluate()
+        public object? Evaluate()
         {
             Dictionary<BoundLabel, int> labelToIndex = new Dictionary<BoundLabel, int>();
 
@@ -47,7 +46,9 @@ namespace DPP_Compiler.Miscellaneuos
                         break;
                     case BoundNodeKind.ConditionalGotoStatement:
                         BoundConditionalGotoStatement conditional = (BoundConditionalGotoStatement)statement;
-                        bool condition = (bool) EvaluateExpression(conditional.Condition);
+                        object? evaluated = EvaluateExpression(conditional.Condition);
+                        if (evaluated == null) break;
+                        bool condition = (bool) evaluated;
                         if (condition && !conditional.JumpIfFalse || !condition && conditional.JumpIfFalse)
                             i = labelToIndex[conditional.Label] - 1;
                         break;
@@ -106,7 +107,7 @@ namespace DPP_Compiler.Miscellaneuos
 
         private void EvaluateVariableDeclarationStatement(BoundVariableDeclarationStatement node)
         {
-            object value = EvaluateExpression(node.Initializer);
+            object? value = EvaluateExpression(node.Initializer);
             _variables[node.Variable] = value;
             _lastValue = value;
         }
@@ -124,7 +125,7 @@ namespace DPP_Compiler.Miscellaneuos
         }
         */
 
-        private object EvaluateExpression(BoundExpression node)
+        private object? EvaluateExpression(BoundExpression node)
         {
             switch (node.Kind)
             {
@@ -138,9 +139,26 @@ namespace DPP_Compiler.Miscellaneuos
                     return EvaluateUnaryExpression((BoundUnaryExpression)node);
                 case BoundNodeKind.BinaryExpression:
                     return EvaluateBinaryExpression((BoundBinaryExpression)node);
+                case BoundNodeKind.CallExpression:
+                    return EvaluateCallExpression((BoundCallExpression)node);
                 default:
                     throw new Exception($"Unexpected node {node.Kind}");
             }
+        }
+
+        private object? EvaluateCallExpression(BoundCallExpression node)
+        {
+            if (node.Function == BuiltInFunction.Input)
+                return Console.ReadLine();
+            else if (node.Function == BuiltInFunction.Print)
+            {
+                string? message = (string?) EvaluateExpression(node.Arguments[0]);
+                if (message != null)
+                    Console.WriteLine(message);
+                return null;
+            }
+            else
+                throw new Exception($"Unexpected function {node.Function.Name}");
         }
 
         private object EvaluateLiteral(BoundLiteralExpression literal) => literal.Value;
@@ -153,16 +171,19 @@ namespace DPP_Compiler.Miscellaneuos
             return value;
         }
 
-        private object EvaluateAssignmentExpression(BoundAssignmentExpression assignment)
+        private object? EvaluateAssignmentExpression(BoundAssignmentExpression assignment)
         {
-            object value = EvaluateExpression(assignment.Expression);
+            object? value = EvaluateExpression(assignment.Expression);
             _variables[assignment.Variable] = value;
             return value;
         }
 
-        private object EvaluateUnaryExpression(BoundUnaryExpression unary)
+        private object? EvaluateUnaryExpression(BoundUnaryExpression unary)
         {
-            object operand = EvaluateExpression(unary.Operand);
+            object? operand = EvaluateExpression(unary.Operand);
+
+            if (operand == null)
+                return null;
 
             switch (unary.Operator.OperatorKind)
             {
@@ -177,10 +198,13 @@ namespace DPP_Compiler.Miscellaneuos
             }
         }
 
-        private object EvaluateBinaryExpression(BoundBinaryExpression binary)
+        private object? EvaluateBinaryExpression(BoundBinaryExpression binary)
         {
-            object left = EvaluateExpression(binary.Left);
-            object right = EvaluateExpression(binary.Right);
+            object? left = EvaluateExpression(binary.Left);
+            object? right = EvaluateExpression(binary.Right);
+
+            if (left == null || right == null)
+                return null;
 
             switch (binary.Operator.OperatorKind)
             {

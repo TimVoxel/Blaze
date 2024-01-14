@@ -105,6 +105,8 @@ namespace DPP_Compiler
                     return "for";
                 case SyntaxKind.SemicolonToken:
                     return ";";
+                case SyntaxKind.CommaToken:
+                    return ",";
                 case SyntaxKind.OpenBraceToken:
                     return "{";
                 case SyntaxKind.CloseBraceToken:

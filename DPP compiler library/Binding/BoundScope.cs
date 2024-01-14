@@ -3,6 +3,7 @@ using DPP_Compiler.Symbols;
 
 namespace DPP_Compiler.Binding
 {
+
     internal sealed class BoundScope
     {
         private readonly Dictionary<string, VariableSymbol> _variables = new Dictionary<string, VariableSymbol>();

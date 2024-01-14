@@ -9,6 +9,7 @@
         AssignmentExpression,
         UnaryExpression,
         BinaryExpression,
+        CallExpression,
 
         //Statements
         ExpressionStatement,
@@ -19,6 +20,6 @@
         VariableDeclarationStatement,
         IfStatement,
         WhileStatement,
-        ForStatement,
+        ForStatement,  
     }
 }

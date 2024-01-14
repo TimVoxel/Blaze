@@ -4,6 +4,7 @@ using DPP_Compiler.Syntax_Nodes;
 using DPP_Compiler.SyntaxTokens;
 using System.Collections.Immutable;
 using System.Net.Http.Headers;
+using System.Reflection.Metadata.Ecma335;
 
 namespace DPP_Compiler.Binding
 {
@@ -79,6 +80,14 @@ namespace DPP_Compiler.Binding
         private BoundStatement BindVariableDeclarationStatement(VariableDeclarationStatementSyntax syntax)
         {
             BoundExpression initializer = BindExpression(syntax.Initializer);
+
+            /*
+            if (initializer.Type == TypeSymbol.Void)
+            {
+                _diagnostics.ReportVoidDeclaration(syntax.Span, syntax.Identifier.Text);
+                
+            }
+            */
             VariableSymbol variable = BindVariable(syntax.Identifier, initializer.Type);
             return new BoundVariableDeclarationStatement(variable, initializer);
         }
@@ -154,6 +163,8 @@ namespace DPP_Compiler.Binding
                     return BindIdentifierExpression((IdentifierExpressionSyntax)expression);
                 case SyntaxKind.AssignmentExpression:
                     return BindAssignmentExpression((AssignmentExpressionSyntax)expression);
+                case SyntaxKind.CallExpression:
+                    return BindCallExpression((CallExpressionSyntax)expression);
                 default:
                     throw new Exception($"Unexpected syntax {expression.Kind}");
             }
@@ -220,6 +231,39 @@ namespace DPP_Compiler.Binding
                 return new BoundErrorExpression();
             }
             return (variable == null) ? new BoundErrorExpression() : new BoundVariableExpression(variable);
+        }
+
+        private BoundExpression BindCallExpression(CallExpressionSyntax expression)
+        {
+            ImmutableArray<BoundExpression>.Builder boundArguments = ImmutableArray.CreateBuilder<BoundExpression>();
+
+            foreach (ExpressionSyntax argument in expression.Arguments)
+                boundArguments.Add(BindExpression(argument));
+
+            IEnumerable<FunctionSymbol> functions = BuiltInFunction.GetAll();
+            FunctionSymbol? function = functions.FirstOrDefault(f => f.Name == expression.Identifier.Text);
+            if (function == null)
+            {
+                _diagnostics.ReportUndefinedFunction(expression.Identifier.Span, expression.Identifier.Text);
+                return new BoundErrorExpression();
+            }
+            if (function.Parameters.Length != expression.Arguments.Count)
+            {
+                _diagnostics.ReportWrongArgumentCount(expression.Span, function.Name, function.Parameters.Length, expression.Arguments.Count);
+                return new BoundErrorExpression();
+            }
+            for (int i = 0; i < expression.Arguments.Count; i++)
+            {
+                ParameterSymbol parameter = function.Parameters[i];
+                BoundExpression boundArgument = boundArguments[i];
+
+                if (boundArgument.Type != parameter.Type)
+                {
+                    _diagnostics.ReportWrongArgumentType(expression.Arguments[i].Span, function.Name, parameter.Name, parameter.Type, boundArgument.Type);
+                    return new BoundErrorExpression();
+                }
+            }
+            return new BoundCallExpression(function, boundArguments.ToImmutable());
         }
 
         private BoundExpression BindAssignmentExpression(AssignmentExpressionSyntax expression)

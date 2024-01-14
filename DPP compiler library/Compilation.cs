@@ -4,7 +4,6 @@ using DPP_Compiler.Lowering;
 using DPP_Compiler.Miscellaneuos;
 using DPP_Compiler.Symbols;
 using System.Collections.Immutable;
-using System.Security.Cryptography;
 
 namespace DPP_Compiler
 {
@@ -46,7 +45,7 @@ namespace DPP_Compiler
                 return new EvaluationResult(diagnostics, null);
 
             Evaluator evaluator = new Evaluator(GetLoweredStatement(), variables);
-            object value = evaluator.Evaluate();
+            object? value = evaluator.Evaluate();
             return new EvaluationResult(ImmutableArray<Diagnostic>.Empty, value);
         }
 

@@ -41,6 +41,9 @@ namespace DPP_Compiler
                 case ';':
                     ConsumeOfKind(SyntaxKind.SemicolonToken);
                     break;
+                case ',':
+                    ConsumeOfKind(SyntaxKind.CommaToken);
+                    break;
                 case '+':
                     ConsumeOfKind(SyntaxKind.PlusToken);
                     break;

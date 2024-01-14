@@ -137,10 +137,13 @@ namespace DPP_Compiler.Lowering
                     return RewriteBinaryExpression((BoundBinaryExpression)node);
                 case BoundNodeKind.AssignmentExpression:
                     return RewriteAssignmentExpression((BoundAssignmentExpression)node);
+                case BoundNodeKind.CallExpression:
+                    return RewriteCallExpression((BoundCallExpression)node);
                 default:
                     throw new Exception($"Unexpected node {node.Kind}");
             }
         }
+
 
         protected virtual BoundExpression RewriteErrorExpression(BoundErrorExpression node) => node;
 
@@ -175,6 +178,32 @@ namespace DPP_Compiler.Lowering
                 return node;
 
             return new BoundAssignmentExpression(node.Variable, expression);
+        }
+
+        protected virtual BoundExpression RewriteCallExpression(BoundCallExpression node)
+        {
+            ImmutableArray<BoundExpression>.Builder? builder = null;
+
+            for (int i = 0; i < node.Arguments.Length; i++)
+            {
+                BoundExpression oldArgument = node.Arguments[i];
+                BoundExpression rewritenArgument = RewriteExpression(oldArgument);
+                if (rewritenArgument != oldArgument)
+                {
+                    if (builder == null)
+                    {
+                        builder = ImmutableArray.CreateBuilder<BoundExpression>(node.Arguments.Length);
+                        for (int j = 0; j < i; j++)
+                            builder.Add(node.Arguments[j]);
+                    }
+                }
+                if (builder != null)
+                    builder.Add(rewritenArgument);
+            }
+            if (builder == null)
+                return node;
+
+            return new BoundCallExpression(node.Function, builder.MoveToImmutable());
         }
     }
 }
