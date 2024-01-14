@@ -106,14 +106,23 @@ namespace DPP_Compiler.Lowering
             BoundBinaryOperator plusOp = BoundBinaryOperator.SafeBind(BoundBinaryOperatorKind.Addition, typeof(int), typeof(int));
 
             BoundVariableDeclarationStatement declarationStatement = new BoundVariableDeclarationStatement(node.Variable, node.LowerBound);
-            BoundVariableExpression variableExpression = new BoundVariableExpression(node.Variable);
 
-            BoundBinaryExpression condition = new BoundBinaryExpression(variableExpression, op, node.UpperBound);
+            VariableSymbol upperBound = new VariableSymbol("upperBound", typeof(int));
+            BoundVariableDeclarationStatement upperBoundDeclarationStatement = new BoundVariableDeclarationStatement(upperBound, node.UpperBound);
+
+            BoundVariableExpression variableExpression = new BoundVariableExpression(node.Variable);
+            BoundVariableExpression upperBoundExpression = new BoundVariableExpression(upperBound);
+
+            BoundBinaryExpression condition = new BoundBinaryExpression(variableExpression, op, upperBoundExpression);
             BoundExpressionStatement increment = new BoundExpressionStatement(new BoundAssignmentExpression(node.Variable, new BoundBinaryExpression(variableExpression, plusOp, new BoundLiteralExpression(1))));
 
             BoundBlockStatement whileBlock = new BoundBlockStatement(ImmutableArray.Create(node.Body, increment));
             BoundWhileStatement whileStatement = new BoundWhileStatement(condition, whileBlock);
-            BoundStatement result = new BoundBlockStatement(ImmutableArray.Create<BoundStatement>(declarationStatement, whileStatement));
+            BoundStatement result = new BoundBlockStatement(ImmutableArray.Create<BoundStatement>(
+                declarationStatement,
+                upperBoundDeclarationStatement,
+                whileStatement
+            ));
             return RewriteStatement(result);
         }
     }
