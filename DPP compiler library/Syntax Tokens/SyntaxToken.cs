@@ -1,5 +1,6 @@
 ﻿using DPP_Compiler.Syntax_Nodes;
 using DPP_Compiler.Text;
+using System.Security.Cryptography.X509Certificates;
 
 namespace DPP_Compiler.SyntaxTokens
 {
@@ -13,12 +14,11 @@ namespace DPP_Compiler.SyntaxTokens
         public override TextSpan Span => new TextSpan(Position, Text.Length);
         public bool IsMissingText => string.IsNullOrEmpty(Text);
 
-
-        public SyntaxToken(SyntaxKind kind, int position, string text, object? value)
+        public SyntaxToken(SyntaxKind kind, int position, string? text, object? value)
         {
             Kind = kind;
             Position = position;
-            Text = text;
+            Text = text ?? string.Empty;
             Value = value;
         }
 

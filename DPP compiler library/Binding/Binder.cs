@@ -1,6 +1,7 @@
 ﻿using DPP_Compiler.Diagnostics;
 using DPP_Compiler.Symbols;
 using DPP_Compiler.Syntax_Nodes;
+using DPP_Compiler.SyntaxTokens;
 using System.Collections.Immutable;
 using System.Net.Http.Headers;
 
@@ -77,14 +78,8 @@ namespace DPP_Compiler.Binding
 
         private BoundStatement BindVariableDeclarationStatement(VariableDeclarationStatementSyntax syntax)
         {
-            string name = syntax.Identifier.Text;
             BoundExpression initializer = BindExpression(syntax.Initializer);
-            VariableSymbol variable = new VariableSymbol(name, initializer.Type);
-
-            if (!_scope.TryDeclare(variable))
-            {
-                _diagnostics.ReportVariableAlreadyDeclared(syntax.Identifier.Span, name);
-            }
+            VariableSymbol variable = BindVariable(syntax.Identifier, initializer.Type);
             return new BoundVariableDeclarationStatement(variable, initializer);
         }
 
@@ -113,20 +108,16 @@ namespace DPP_Compiler.Binding
         {
             BoundExpression lowerBound = BindExpression(syntax.LowerBound, TypeSymbol.Int);
             BoundExpression upperBound = BindExpression(syntax.UpperBound, TypeSymbol.Int);
-            
+
             BoundScope previous = _scope;
             _scope = new BoundScope(previous);
 
-            string name = syntax.Identifier.Text;
-            VariableSymbol variable = new VariableSymbol(name, TypeSymbol.Int);
-            if (!_scope.TryDeclare(variable))
-                _diagnostics.ReportVariableAlreadyDeclared(syntax.Identifier.Span, name);
-
+            VariableSymbol variable = BindVariable(syntax.Identifier, TypeSymbol.Int);
             BoundStatement body = BindStatement(syntax.Body);
 
             _scope = previous;
-
-            return new BoundForStatement(variable, lowerBound, upperBound, body);   
+            
+            return new BoundForStatement(variable, lowerBound, upperBound, body);
         }
 
         private BoundStatement BindBlockStatement(BlockStatementSyntax syntax)
@@ -171,7 +162,7 @@ namespace DPP_Compiler.Binding
         private BoundExpression BindExpression(ExpressionSyntax expression, TypeSymbol desiredType)
         {
             BoundExpression boundExpression = BindExpression(expression);
-            if (boundExpression.Type != desiredType)
+            if (!boundExpression.Type.IsError && !desiredType.IsError && boundExpression.Type != desiredType)
                 _diagnostics.ReportCannotConvert(expression.Span, boundExpression.Type, desiredType);
             
             return boundExpression;
@@ -220,7 +211,7 @@ namespace DPP_Compiler.Binding
         private BoundExpression BindIdentifierExpression(IdentifierExpressionSyntax expression)
         {
             string name = expression.IdentifierToken.Text;
-            if (string.IsNullOrEmpty(name))
+            if (expression.IdentifierToken.IsMissingText)
                 return new BoundErrorExpression();
 
             if (!_scope.TryLookup(name, out VariableSymbol? variable))
@@ -252,6 +243,17 @@ namespace DPP_Compiler.Binding
                 return new BoundAssignmentExpression(variable, boundExpression);
             }
             throw new Exception("Somehow the variable is null");
+        }
+
+        private VariableSymbol BindVariable(SyntaxToken identifier, TypeSymbol type)
+        {
+            string name = identifier.Text;
+            bool declare = !identifier.IsMissingText;
+
+            VariableSymbol variable = new VariableSymbol(name, type);
+            if (declare && !_scope.TryDeclare(variable))
+                _diagnostics.ReportVariableAlreadyDeclared(identifier.Span, name);
+            return variable;
         }
     }
 }

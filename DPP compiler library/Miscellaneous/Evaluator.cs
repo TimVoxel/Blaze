@@ -185,7 +185,10 @@ namespace DPP_Compiler.Miscellaneuos
             switch (binary.Operator.OperatorKind)
             {
                 case BoundBinaryOperatorKind.Addition:
-                    return (int)left + (int)right;
+                    if (binary.Left.Type == TypeSymbol.Int)
+                        return (int)left + (int)right;
+                    else
+                        return (string)left + (string)right;
                 case BoundBinaryOperatorKind.Subtraction:
                     return (int)left - (int)right;
                 case BoundBinaryOperatorKind.Multiplication:

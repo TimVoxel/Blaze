@@ -303,7 +303,6 @@ namespace TestProgram
 
         private void HandleControlEnter(ObservableCollection<string> document, SubmissionView view)
         {
-            InsertLine(document, view);
             _done = true;
         }
 

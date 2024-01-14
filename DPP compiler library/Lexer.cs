@@ -129,7 +129,7 @@ namespace DPP_Compiler
                         ConsumeOfKind(SyntaxKind.EqualsToken);
                     break;
                 case '"':
-                    ReadString();
+                    ReadStringLiteral();
                     break;
                 default:
                     if (char.IsDigit(Current))
@@ -208,7 +208,7 @@ namespace DPP_Compiler
             _kind = SyntaxFacts.GetKeywordKind(text);
         }
 
-        private void ReadString()
+        private void ReadStringLiteral()
         {
             _position++;
             StringBuilder value = new StringBuilder();

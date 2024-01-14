@@ -6,7 +6,7 @@
 
         public abstract SymbolKind Kind { get; }
 
-        private protected Symbol(string name)
+        internal Symbol(string name)
         {
             Name = name;
         }

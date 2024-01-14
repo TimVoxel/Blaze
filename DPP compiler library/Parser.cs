@@ -42,7 +42,7 @@ namespace DPP_Compiler
                 return Consume();
 
             _diagnostics.ReportUnexpectedToken(Current.Span, Current.Kind, kind);
-            return new SyntaxToken(kind, _position++, string.Empty, null);
+            return new SyntaxToken(kind, _position++, null, null);
         }
 
         private SyntaxToken Consume()

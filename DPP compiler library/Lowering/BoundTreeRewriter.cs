@@ -125,6 +125,8 @@ namespace DPP_Compiler.Lowering
         {
             switch (node.Kind)
             {
+                case BoundNodeKind.ErrorExpression:
+                    return RewriteErrorExpression((BoundErrorExpression)node);
                 case BoundNodeKind.LiteralExpression:
                     return RewriteLiteralExpression((BoundLiteralExpression)node);
                 case BoundNodeKind.VariableExpression:
@@ -139,6 +141,8 @@ namespace DPP_Compiler.Lowering
                     throw new Exception($"Unexpected node {node.Kind}");
             }
         }
+
+        protected virtual BoundExpression RewriteErrorExpression(BoundErrorExpression node) => node;
 
         protected virtual BoundExpression RewriteLiteralExpression(BoundLiteralExpression node) => node;
 
