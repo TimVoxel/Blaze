@@ -2,6 +2,7 @@
 using DPP_Compiler.Syntax_Nodes;
 using DPP_Compiler.SyntaxTokens;
 using DPP_Compiler.Text;
+using System.Collections.Generic;
 using System.Collections.Immutable;
 
 namespace DPP_Compiler
@@ -30,16 +31,27 @@ namespace DPP_Compiler
 
         public static SyntaxTree Parse(string text) => Parse(SourceText.From(text));
 
-        public static IEnumerable<SyntaxToken> ParseTokens(string text)
+        
+        public static ImmutableArray<SyntaxToken> ParseTokens(string text) => ParseTokens(SourceText.From(text), out _);
+        public static ImmutableArray<SyntaxToken> ParseTokens(string text, out ImmutableArray<Diagnostic> diagnostics) => ParseTokens(SourceText.From(text), out diagnostics);
+        public static ImmutableArray<SyntaxToken> ParseTokens(SourceText text) => ParseTokens(text, out _);
+        public static ImmutableArray<SyntaxToken> ParseTokens(SourceText text, out ImmutableArray<Diagnostic> diagnostics)
         {
-            Lexer lexer = new Lexer(SourceText.From(text));
-            while (true)
+            IEnumerable<SyntaxToken> LexTokens(Lexer lexer)
             {
-                SyntaxToken token = lexer.Lex();
-                if (token.Kind == SyntaxKind.EndOfFileToken)
-                    break;
-                yield return token;
+                while (true)
+                {
+                    SyntaxToken token = lexer.Lex();
+                    if (token.Kind == SyntaxKind.EndOfFileToken)
+                        break;
+                    yield return token;
+                }
             }
+
+            Lexer lexer = new Lexer(text);
+            ImmutableArray<SyntaxToken> result = LexTokens(lexer).ToImmutableArray();
+            diagnostics = lexer.Diagnostics.ToImmutableArray();
+            return result;
         }
     }
 }

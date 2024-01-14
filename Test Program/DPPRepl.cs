@@ -18,30 +18,15 @@ namespace TestProgram
                 return false;
 
             SyntaxTree syntaxTree = SyntaxTree.Parse(text);
-            return !syntaxTree.Diagnostics.Any();
+            return !syntaxTree.Root.Statement.GetLastToken().IsMissingText;
         }
 
         protected override void RenderLine(string line)
         {
             IEnumerable<SyntaxToken> tokens = SyntaxTree.ParseTokens(line);
             foreach (SyntaxToken token in tokens)
-            {   
-                switch (token.Kind)
-                {
-                    case SyntaxKind.IntegerLiteralToken:
-                        Console.ForegroundColor = ConsoleColor.Yellow;
-                        break;
-                    case SyntaxKind.IdentifierToken:
-                        Console.ForegroundColor = ConsoleColor.White;
-                        break;
-                    default:
-                        if (token.Kind.ToString().EndsWith("Keyword"))
-                            Console.ForegroundColor = ConsoleColor.Blue;
-                        else
-                            Console.ForegroundColor = ConsoleColor.Gray;
-                        break;
-                }
-
+            {
+                Console.ForegroundColor = token.GetConsoleColor();
                 Console.Write(token.Text);
                 Console.ResetColor();
             }

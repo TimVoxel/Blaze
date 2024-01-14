@@ -42,7 +42,7 @@ namespace DPP_Compiler
                 return Consume();
 
             _diagnostics.ReportUnexpectedToken(Current.Span, Current.Kind, kind);
-            return new SyntaxToken(kind, _position++, Current.Text, null);
+            return new SyntaxToken(kind, _position++, string.Empty, null);
         }
 
         private SyntaxToken Consume()
@@ -221,6 +221,8 @@ namespace DPP_Compiler
                     return ParseBooleanLiteral();
                 case SyntaxKind.IntegerLiteralToken:
                     return ParseIntegerLiteral();
+                case SyntaxKind.StringLiteralToken:
+                    return ParseStringLiteral();
                 default:
                     return ParseIdentifierExpression();
             }
@@ -237,6 +239,12 @@ namespace DPP_Compiler
             bool isTrue = Current.Kind == SyntaxKind.TrueKeyword;
             SyntaxToken keywordToken = (isTrue) ? TryConsume(SyntaxKind.TrueKeyword) : TryConsume(SyntaxKind.FalseKeyword);
             return new LiteralExpressionSyntax(keywordToken, isTrue);
+        }
+
+        private ExpressionSyntax ParseStringLiteral()
+        {
+            SyntaxToken stringToken = TryConsume(SyntaxKind.StringLiteralToken);
+            return new LiteralExpressionSyntax(stringToken);
         }
 
         private ExpressionSyntax ParseIdentifierExpression()

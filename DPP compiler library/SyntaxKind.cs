@@ -30,6 +30,7 @@
 
         //Literals
         IntegerLiteralToken,
+        StringLiteralToken,
 
         //Keywords
         FalseKeyword,

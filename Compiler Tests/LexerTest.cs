@@ -1,9 +1,27 @@
+using DPP_Compiler.Diagnostics;
 using DPP_Compiler.SyntaxTokens;
+using DPP_Compiler.Text;
+using NuGet.Frameworks;
+using System.Collections.Immutable;
 
 namespace DPP_Compiler.Tests
 {
     public class LexerTest
     {
+        [Fact]
+        public void Lexer_Lexes_UnterminatedString()
+        {
+            IEnumerable<SyntaxToken> tokens = SyntaxTree.ParseTokens("\"test", out ImmutableArray<Diagnostic> diagnostics);
+
+            SyntaxToken token = Assert.Single(tokens);
+            Assert.Equal(SyntaxKind.StringLiteralToken, token.Kind);
+            Assert.Equal("\"test", token.Text);
+
+            Diagnostic diagnostic = Assert.Single(diagnostics);
+            Assert.Equal(new TextSpan(0, 1), diagnostic.Span);
+            Assert.Equal("Unterminated string literal", diagnostic.Message);
+        }
+
         [Fact]
         public void Lexer_Tests_All_Tokens()
         {
@@ -76,6 +94,8 @@ namespace DPP_Compiler.Tests
                 (SyntaxKind.IntegerLiteralToken, "69"),
                 (SyntaxKind.IntegerLiteralToken, "420"),
                 (SyntaxKind.IntegerLiteralToken, "1000000"),
+                (SyntaxKind.StringLiteralToken, "\"Test\""),
+                (SyntaxKind.StringLiteralToken, "\"Te\\\"st\""),
             };
 #pragma warning disable CS8620
             return fixedTokens.Concat(dynamicTokens);
@@ -124,6 +144,9 @@ namespace DPP_Compiler.Tests
                 return true;
 
             if (t1Kind == SyntaxKind.GreaterToken && t2Kind == SyntaxKind.EqualsToken)
+                return true;
+
+            if (t1Kind == SyntaxKind.StringLiteralToken && t2Kind == SyntaxKind.StringLiteralToken)
                 return true;
 
             return false;

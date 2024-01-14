@@ -22,6 +22,12 @@ namespace DPP_Compiler.Diagnostics
             Report(span, message);
         }
 
+        public void ReportUnterminatedString(TextSpan span)
+        {
+            string message = $"Unterminated string literal";
+            Report(span, message);
+        }
+
         public void ReportStrayCharacter(int position, char character)
         {
             string message = $"Stray \'{character}\' in input\"";

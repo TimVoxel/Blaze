@@ -1,4 +1,6 @@
-﻿namespace DPP_Compiler
+﻿using DPP_Compiler.SyntaxTokens;
+
+namespace DPP_Compiler
 {
     public static class SyntaxFacts
     {
@@ -143,6 +145,24 @@
                     return "!=";  
                 default:
                     return null;
+            }
+        }
+
+        public static ConsoleColor GetConsoleColor(this SyntaxToken token)
+        {
+            switch (token.Kind)
+            {
+                case SyntaxKind.IntegerLiteralToken:
+                    return ConsoleColor.Yellow;
+                case SyntaxKind.IdentifierToken:
+                    return ConsoleColor.White;
+                case SyntaxKind.StringLiteralToken:
+                    return ConsoleColor.DarkYellow;
+                default:
+                    if (token.Kind.ToString().EndsWith("Keyword"))
+                        return ConsoleColor.Blue;
+                    else
+                        return ConsoleColor.Gray;
             }
         }
     }

@@ -1,6 +1,7 @@
 ﻿using DPP_Compiler.SyntaxTokens;
 using DPP_Compiler.Diagnostics;
 using DPP_Compiler.Text;
+using System.Text;
 
 namespace DPP_Compiler
 {
@@ -121,6 +122,9 @@ namespace DPP_Compiler
                     else                        
                         ConsumeOfKind(SyntaxKind.EqualsToken);
                     break;
+                case '"':
+                    ReadString();
+                    break;
                 default:
                     if (char.IsDigit(Current))
                     {
@@ -193,6 +197,48 @@ namespace DPP_Compiler
             int length = _position - _start;
             string text = _text.ToString(_start, length);
             _kind = SyntaxFacts.GetKeywordKind(text);
+        }
+
+        private void ReadString()
+        {
+            _position++;
+            StringBuilder value = new StringBuilder();
+
+            bool done = false;
+            while (!done)
+            {
+                switch (Current)
+                {
+                    case '\0':
+                    case '\r':
+                    case '\n':
+                        TextSpan span = new TextSpan(_start, 1);
+                        _diagnostics.ReportUnterminatedString(span);
+                        done = true;
+                        break;
+
+                    case '"':
+                        _position++;
+                        done = true;
+                        break;
+                    case '\\':
+                        if (Next == '"' || Next == '\\')
+                        {
+                            value.Append(Next);
+                            _position += 2;
+                        }
+                        else
+                            _position++;
+                        break;
+                    default:
+                        value.Append(Current);
+                        _position++;
+                        break;
+                }
+            }
+
+            _kind = SyntaxKind.StringLiteralToken;
+            _value = value.ToString();
         }
     }
 }

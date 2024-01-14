@@ -7,8 +7,6 @@ namespace TestProgram
     {
         private List<string> _submissionHistory = new List<string>();
         private int _submissionHistoryIndex;
-
-        private ObservableCollection<string> _document = new ObservableCollection<string>();
         private bool _done;
 
         protected abstract bool IsCompleteSubmission(string text);
@@ -221,6 +219,9 @@ namespace TestProgram
 
         private void UpdateDocumentFromHistory(ObservableCollection<string> document, SubmissionView view)
         {
+            if (_submissionHistory.Count == 0)
+                return;
+
             document.Clear();
 
             string historyItem = _submissionHistory[_submissionHistoryIndex];
@@ -268,7 +269,7 @@ namespace TestProgram
             int lineIndex = view.CurrentLine;
             string line = document[lineIndex];
             int start = view.CurrentCharacter;
-            if (start > line.Length - 1)
+            if (start >= line.Length)
                 return;
 
             string before = line.Substring(0, start);
