@@ -1,4 +1,5 @@
 ﻿using System.Collections.Immutable;
+using DPP_Compiler.Symbols;
 
 namespace DPP_Compiler.Binding
 {

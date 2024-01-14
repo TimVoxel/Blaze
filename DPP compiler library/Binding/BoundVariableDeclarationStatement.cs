@@ -1,4 +1,6 @@
-﻿namespace DPP_Compiler.Binding
+﻿using DPP_Compiler.Symbols;
+
+namespace DPP_Compiler.Binding
 {
     internal sealed class BoundVariableDeclarationStatement : BoundStatement
     {

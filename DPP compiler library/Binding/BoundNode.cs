@@ -102,9 +102,4 @@ namespace DPP_Compiler.Binding
             return node.Kind.ToString();
         }
     }
-
-    internal abstract class BoundExpression : BoundNode
-    {
-        public abstract Type Type { get; }
-    }
 }

@@ -1,4 +1,6 @@
-﻿namespace DPP_Compiler.Binding
+﻿using DPP_Compiler.Symbols;
+
+namespace DPP_Compiler.Binding
 {
     internal sealed class BoundUnaryExpression : BoundExpression 
     {
@@ -6,7 +8,7 @@
         public BoundExpression Operand { get; private set; }
 
         public override BoundNodeKind Kind => BoundNodeKind.UnaryExpression;
-        public override Type Type => Operand.Type;
+        public override TypeSymbol Type => Operand.Type;
 
         public BoundUnaryExpression(BoundUnaryOperator op, BoundExpression operand)
         {

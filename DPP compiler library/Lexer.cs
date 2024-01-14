@@ -2,6 +2,7 @@
 using DPP_Compiler.Diagnostics;
 using DPP_Compiler.Text;
 using System.Text;
+using DPP_Compiler.Symbols;
 
 namespace DPP_Compiler
 {
@@ -79,6 +80,8 @@ namespace DPP_Compiler
                         _kind = SyntaxKind.DoubleAmpersandToken;
                         _position += 2;
                     }
+                    else
+                        ConsumeStray();
                     break;
                 case '|':
                     if (Next == '|')
@@ -86,6 +89,8 @@ namespace DPP_Compiler
                         _kind = SyntaxKind.DoublePipeToken;
                         _position += 2;
                     }
+                    else
+                        ConsumeStray();
                     break; 
                 case '.':
                     if (Next == '.')
@@ -93,8 +98,9 @@ namespace DPP_Compiler
                         _kind = SyntaxKind.DoubleDotToken;
                         _position += 2;
                     }
+                    else
+                        ConsumeStray();
                     break;
-
                 case '<':
                     if (Next == '=')
                     {
@@ -139,10 +145,7 @@ namespace DPP_Compiler
                         ReadIdentifierOrKeyword();
                     }
                     else
-                    {
-                        _diagnostics.ReportStrayCharacter(_position, Current);
-                        _position++;
-                    }
+                        ConsumeStray();
                     break;
             }
 
@@ -152,6 +155,12 @@ namespace DPP_Compiler
                 text = _text.ToString(_start, length);
 
             return new SyntaxToken(_kind, _start, text, _value);
+        }
+
+        private void ConsumeStray()
+        {
+            _diagnostics.ReportStrayCharacter(_position, Current);
+            _position++;
         }
 
         private void ConsumeOfKind(SyntaxKind kind)
@@ -176,7 +185,7 @@ namespace DPP_Compiler
             int length = _position - _start;
             string text = _text.ToString(_start, length);
             if (!int.TryParse(text, out int value))
-                _diagnostics.ReportInvalidNumber(new TextSpan(_start, length), text, typeof(int));
+                _diagnostics.ReportInvalidNumber(new TextSpan(_start, length), text, TypeSymbol.Int);
 
             _value = value;
             _kind = SyntaxKind.IntegerLiteralToken;

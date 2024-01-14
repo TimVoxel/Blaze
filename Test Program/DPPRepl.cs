@@ -1,5 +1,6 @@
 ﻿using DPP_Compiler;
 using DPP_Compiler.Diagnostics;
+using DPP_Compiler.Symbols;
 using DPP_Compiler.SyntaxTokens;
 using DPP_Compiler.Text;
 

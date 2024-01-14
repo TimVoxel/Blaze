@@ -1,33 +1,35 @@
-﻿namespace DPP_Compiler.Binding
+﻿using DPP_Compiler.Symbols;
+
+namespace DPP_Compiler.Binding
 {
     internal sealed class BoundBinaryOperator
     {
         private static BoundBinaryOperator[] _operators =
         {
-            new BoundBinaryOperator(SyntaxKind.PlusToken, BoundBinaryOperatorKind.Addition, typeof(int)),
-            new BoundBinaryOperator(SyntaxKind.MinusToken, BoundBinaryOperatorKind.Subtraction, typeof(int)),
-            new BoundBinaryOperator(SyntaxKind.StarToken, BoundBinaryOperatorKind.Multiplication, typeof(int)),
-            new BoundBinaryOperator(SyntaxKind.SlashToken, BoundBinaryOperatorKind.Division, typeof(int)),
-            new BoundBinaryOperator(SyntaxKind.DoubleEqualsToken, BoundBinaryOperatorKind.Equals, typeof(int), typeof(bool)),
-            new BoundBinaryOperator(SyntaxKind.NotEqualsToken, BoundBinaryOperatorKind.NotEquals, typeof(int), typeof(bool)),
-            new BoundBinaryOperator(SyntaxKind.LessToken, BoundBinaryOperatorKind.Less, typeof(int), typeof(bool)),
-            new BoundBinaryOperator(SyntaxKind.LessOrEqualsToken, BoundBinaryOperatorKind.LessOrEquals, typeof(int), typeof(bool)),
-            new BoundBinaryOperator(SyntaxKind.GreaterToken, BoundBinaryOperatorKind.Greater, typeof(int), typeof(bool)),
-            new BoundBinaryOperator(SyntaxKind.GreaterOrEqualsToken, BoundBinaryOperatorKind.GreaterOrEquals, typeof(int), typeof(bool)),
+            new BoundBinaryOperator(SyntaxKind.PlusToken, BoundBinaryOperatorKind.Addition, TypeSymbol.Int),
+            new BoundBinaryOperator(SyntaxKind.MinusToken, BoundBinaryOperatorKind.Subtraction, TypeSymbol.Int),
+            new BoundBinaryOperator(SyntaxKind.StarToken, BoundBinaryOperatorKind.Multiplication, TypeSymbol.Int),
+            new BoundBinaryOperator(SyntaxKind.SlashToken, BoundBinaryOperatorKind.Division, TypeSymbol.Int),
+            new BoundBinaryOperator(SyntaxKind.DoubleEqualsToken, BoundBinaryOperatorKind.Equals, TypeSymbol.Int, TypeSymbol.Bool),
+            new BoundBinaryOperator(SyntaxKind.NotEqualsToken, BoundBinaryOperatorKind.NotEquals, TypeSymbol.Int, TypeSymbol.Bool),
+            new BoundBinaryOperator(SyntaxKind.LessToken, BoundBinaryOperatorKind.Less, TypeSymbol.Int, TypeSymbol.Bool),
+            new BoundBinaryOperator(SyntaxKind.LessOrEqualsToken, BoundBinaryOperatorKind.LessOrEquals, TypeSymbol.Int, TypeSymbol.Bool),
+            new BoundBinaryOperator(SyntaxKind.GreaterToken, BoundBinaryOperatorKind.Greater, TypeSymbol.Int, TypeSymbol.Bool),
+            new BoundBinaryOperator(SyntaxKind.GreaterOrEqualsToken, BoundBinaryOperatorKind.GreaterOrEquals, TypeSymbol.Int, TypeSymbol.Bool),
 
-            new BoundBinaryOperator(SyntaxKind.DoubleAmpersandToken, BoundBinaryOperatorKind.LogicalMultiplication, typeof(bool)),
-            new BoundBinaryOperator(SyntaxKind.DoublePipeToken, BoundBinaryOperatorKind.LogicalAddition, typeof(bool)),
-            new BoundBinaryOperator(SyntaxKind.DoubleEqualsToken, BoundBinaryOperatorKind.Equals, typeof(bool)),
-            new BoundBinaryOperator(SyntaxKind.NotEqualsToken, BoundBinaryOperatorKind.NotEquals, typeof(bool)),
+            new BoundBinaryOperator(SyntaxKind.DoubleAmpersandToken, BoundBinaryOperatorKind.LogicalMultiplication, TypeSymbol.Bool),
+            new BoundBinaryOperator(SyntaxKind.DoublePipeToken, BoundBinaryOperatorKind.LogicalAddition, TypeSymbol.Bool),
+            new BoundBinaryOperator(SyntaxKind.DoubleEqualsToken, BoundBinaryOperatorKind.Equals, TypeSymbol.Bool),
+            new BoundBinaryOperator(SyntaxKind.NotEqualsToken, BoundBinaryOperatorKind.NotEquals, TypeSymbol.Bool),
         };
 
         public SyntaxKind SyntaxKind { get; private set; }
         public BoundBinaryOperatorKind OperatorKind { get; private set; }
-        public Type LeftType { get; private set; }
-        public Type RightType { get; private set; }
-        public Type ResultType { get; private set; }
+        public TypeSymbol LeftType { get; private set; }
+        public TypeSymbol RightType { get; private set; }
+        public TypeSymbol ResultType { get; private set; }
 
-        private BoundBinaryOperator(SyntaxKind kind, BoundBinaryOperatorKind operatorKind, Type leftType, Type rightType, Type resultType)
+        private BoundBinaryOperator(SyntaxKind kind, BoundBinaryOperatorKind operatorKind, TypeSymbol leftType, TypeSymbol rightType, TypeSymbol resultType)
         {
             SyntaxKind = kind;
             OperatorKind = operatorKind;
@@ -36,10 +38,10 @@
             ResultType = resultType;
         }
 
-        private BoundBinaryOperator(SyntaxKind kind, BoundBinaryOperatorKind operatorKind, Type type) : this(kind, operatorKind, type, type, type) { }
-        private BoundBinaryOperator(SyntaxKind kind, BoundBinaryOperatorKind operatorKind, Type operandType, Type resultType) : this(kind, operatorKind, operandType, operandType, resultType) { }
+        private BoundBinaryOperator(SyntaxKind kind, BoundBinaryOperatorKind operatorKind, TypeSymbol type) : this(kind, operatorKind, type, type, type) { }
+        private BoundBinaryOperator(SyntaxKind kind, BoundBinaryOperatorKind operatorKind, TypeSymbol operandType, TypeSymbol resultType) : this(kind, operatorKind, operandType, operandType, resultType) { }
 
-        internal static BoundBinaryOperator? Bind(SyntaxKind kind, Type leftType, Type rightType)
+        internal static BoundBinaryOperator? Bind(SyntaxKind kind, TypeSymbol leftType, TypeSymbol rightType)
         {
             foreach (BoundBinaryOperator binary in _operators)
             {
@@ -49,7 +51,7 @@
             return null;
         }
 
-        internal static BoundBinaryOperator SafeBind(BoundBinaryOperatorKind kind, Type leftType, Type rightType)
+        internal static BoundBinaryOperator SafeBind(BoundBinaryOperatorKind kind, TypeSymbol leftType, TypeSymbol rightType)
         {
             foreach (BoundBinaryOperator binary in _operators)
             {

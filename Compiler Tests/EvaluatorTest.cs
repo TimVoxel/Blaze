@@ -1,4 +1,5 @@
-﻿using DPP_Compiler.Text;
+﻿using DPP_Compiler.Symbols;
+using DPP_Compiler.Text;
 
 namespace DPP_Compiler.Tests.CodeAnalysis
 {
@@ -127,7 +128,7 @@ namespace DPP_Compiler.Tests.CodeAnalysis
                 let a = 10;
                 a = [true];
             }";
-            string diagnosticText = "Can not convert type System.Boolean to type System.Int32";
+            string diagnosticText = "Can not convert type bool to type int";
 
             AssertDiagnostics(text, diagnosticText);
         }
@@ -136,7 +137,7 @@ namespace DPP_Compiler.Tests.CodeAnalysis
         public void Unary_Reports_Undefined_Operator()
         {
             string text = @"[+]true;";
-            string diagnosticText = "Unary operator '+' is not defined for type System.Boolean";
+            string diagnosticText = "Unary operator '+' is not defined for type bool";
             AssertDiagnostics(text, diagnosticText);
         }
 
@@ -144,7 +145,7 @@ namespace DPP_Compiler.Tests.CodeAnalysis
         public void Binary_Reports_Undefined_Operator()
         {
             string text = @"true [&&] 10;";
-            string diagnosticText = "Binary operator '&&' is not defined for types System.Boolean and System.Int32";
+            string diagnosticText = "Binary operator '&&' is not defined for types bool and int";
             AssertDiagnostics(text, diagnosticText);
         }
 
@@ -157,7 +158,7 @@ namespace DPP_Compiler.Tests.CodeAnalysis
                 if ([a])
                     a = 20;
             }";
-            string diagnosticText = "Can not convert type System.Int32 to type System.Boolean";
+            string diagnosticText = "Can not convert type int to type bool";
 
             AssertDiagnostics(text, diagnosticText);
         }
@@ -170,7 +171,7 @@ namespace DPP_Compiler.Tests.CodeAnalysis
                 while ([a])
                     a = a - 1;
             }";
-            string diagnosticText = "Can not convert type System.Int32 to type System.Boolean";
+            string diagnosticText = "Can not convert type int to type bool";
 
             AssertDiagnostics(text, diagnosticText);
         }
@@ -183,7 +184,7 @@ namespace DPP_Compiler.Tests.CodeAnalysis
                 for (i = [false] .. 10)
                     a = a - 1;
             }";
-            string diagnosticText = "Can not convert type System.Boolean to type System.Int32";
+            string diagnosticText = "Can not convert type bool to type int";
 
             AssertDiagnostics(text, diagnosticText);
         }
@@ -196,7 +197,7 @@ namespace DPP_Compiler.Tests.CodeAnalysis
                 for (i = 10 .. [true])
                     a = a - 1;
             }";
-            string diagnosticText = "Can not convert type System.Boolean to type System.Int32";
+            string diagnosticText = "Can not convert type bool to type int";
 
             AssertDiagnostics(text, diagnosticText);
         }

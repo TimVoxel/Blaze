@@ -1,4 +1,6 @@
-﻿namespace DPP_Compiler.Binding
+﻿using DPP_Compiler.Symbols;
+
+namespace DPP_Compiler.Binding
 {
     internal sealed class BoundBinaryExpression : BoundExpression
     {
@@ -7,7 +9,7 @@
         public BoundExpression Right { get; private set; }
 
         public override BoundNodeKind Kind => BoundNodeKind.BinaryExpression;
-        public override Type Type => Operator.ResultType;
+        public override TypeSymbol Type => Operator.ResultType;
 
         public BoundBinaryExpression(BoundExpression left, BoundBinaryOperator op, BoundExpression right)
         {

@@ -1,8 +1,8 @@
 ﻿using DPP_Compiler.Diagnostics;
+using DPP_Compiler.Symbols;
 using DPP_Compiler.Syntax_Nodes;
 using System.Collections.Immutable;
-using System.Reflection;
-using System.Security.Cryptography.X509Certificates;
+using System.Net.Http.Headers;
 
 namespace DPP_Compiler.Binding
 {
@@ -96,7 +96,7 @@ namespace DPP_Compiler.Binding
 
         private BoundStatement BindIfStatement(IfStatementSyntax syntax)
         {
-            BoundExpression boundCondition = BindExpression(syntax.Condition, typeof(bool));
+            BoundExpression boundCondition = BindExpression(syntax.Condition, TypeSymbol.Bool);
             BoundStatement body = BindStatement(syntax.Body);
             BoundStatement? elseBody = (syntax.ElseClause == null) ? null : BindStatement(syntax.ElseClause.Body);
             return new BoundIfStatement(boundCondition, body, elseBody);
@@ -104,21 +104,21 @@ namespace DPP_Compiler.Binding
 
         private BoundStatement BindWhileStatement(WhileStatementSyntax syntax)
         {
-            BoundExpression boundCondition = BindExpression(syntax.Condition, typeof(bool));
+            BoundExpression boundCondition = BindExpression(syntax.Condition, TypeSymbol.Bool);
             BoundStatement body = BindStatement(syntax.Body);
             return new BoundWhileStatement(boundCondition, body);
         }
 
         private BoundStatement BindForStatement(ForStatementSyntax syntax)
         {
-            BoundExpression lowerBound = BindExpression(syntax.LowerBound, typeof(int));
-            BoundExpression upperBound = BindExpression(syntax.UpperBound, typeof(int));
+            BoundExpression lowerBound = BindExpression(syntax.LowerBound, TypeSymbol.Int);
+            BoundExpression upperBound = BindExpression(syntax.UpperBound, TypeSymbol.Int);
             
             BoundScope previous = _scope;
             _scope = new BoundScope(previous);
 
             string name = syntax.Identifier.Text;
-            VariableSymbol variable = new VariableSymbol(name, typeof(int));
+            VariableSymbol variable = new VariableSymbol(name, TypeSymbol.Int);
             if (!_scope.TryDeclare(variable))
                 _diagnostics.ReportVariableAlreadyDeclared(syntax.Identifier.Span, name);
 
@@ -168,13 +168,12 @@ namespace DPP_Compiler.Binding
             }
         }
 
-        private BoundExpression BindExpression(ExpressionSyntax expression, Type desiredType)
+        private BoundExpression BindExpression(ExpressionSyntax expression, TypeSymbol desiredType)
         {
             BoundExpression boundExpression = BindExpression(expression);
             if (boundExpression.Type != desiredType)
-            {
                 _diagnostics.ReportCannotConvert(expression.Span, boundExpression.Type, desiredType);
-            }
+            
             return boundExpression;
         }
 
@@ -188,12 +187,16 @@ namespace DPP_Compiler.Binding
         {
             BoundExpression boundLeft = BindExpression(expression.Left);
             BoundExpression boundRight = BindExpression(expression.Right);
+
+            if (boundLeft.Type.IsError || boundRight.Type.IsError)
+                return new BoundErrorExpression();
+
             BoundBinaryOperator? op = BoundBinaryOperator.Bind(expression.OperatorToken.Kind, boundLeft.Type, boundRight.Type);
-                
+
             if (op == null)
             {
                 _diagnostics.ReportUndefinedBinaryOperator(expression.OperatorToken.Span, expression.OperatorToken.Text, boundLeft.Type, boundRight.Type);
-                return boundLeft;
+                return new BoundErrorExpression();
             }
             return new BoundBinaryExpression(boundLeft, op, boundRight);
         }
@@ -201,11 +204,15 @@ namespace DPP_Compiler.Binding
         private BoundExpression BindUnaryExpression(UnaryExpressionSyntax expression)
         {
             BoundExpression operand = BindExpression(expression.Operand);
-            BoundUnaryOperator? op = BoundUnaryOperator.Bind(expression.OperatorToken.Kind, operand.Type); 
+            if (operand.Type.IsError)
+                return new BoundErrorExpression();
+
+            BoundUnaryOperator? op = BoundUnaryOperator.Bind(expression.OperatorToken.Kind, operand.Type);
+
             if (op == null)
             {
                 _diagnostics.ReportUndefinedUnaryOperator(expression.OperatorToken.Span, expression.OperatorToken.Text, operand.Type);
-                return operand;
+                return new BoundErrorExpression();
             }
             return new BoundUnaryExpression(op, operand);
         }
@@ -214,14 +221,14 @@ namespace DPP_Compiler.Binding
         {
             string name = expression.IdentifierToken.Text;
             if (string.IsNullOrEmpty(name))
-                return new BoundLiteralExpression(0);
+                return new BoundErrorExpression();
 
             if (!_scope.TryLookup(name, out VariableSymbol? variable))
             {
                 _diagnostics.ReportUndefinedName(expression.IdentifierToken.Span, name);
-                return new BoundLiteralExpression(0);
+                return new BoundErrorExpression();
             }
-            return (variable == null) ? new BoundLiteralExpression(0) : new BoundVariableExpression(variable);
+            return (variable == null) ? new BoundErrorExpression() : new BoundVariableExpression(variable);
         }
 
         private BoundExpression BindAssignmentExpression(AssignmentExpressionSyntax expression)

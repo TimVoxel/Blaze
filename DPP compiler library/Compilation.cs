@@ -2,6 +2,7 @@
 using DPP_Compiler.Diagnostics;
 using DPP_Compiler.Lowering;
 using DPP_Compiler.Miscellaneuos;
+using DPP_Compiler.Symbols;
 using System.Collections.Immutable;
 using System.Security.Cryptography;
 

@@ -3,6 +3,7 @@
     internal enum BoundNodeKind
     {
         //Expessions
+        ErrorExpression,
         LiteralExpression,
         VariableExpression,
         AssignmentExpression,

@@ -1,4 +1,5 @@
 ﻿using System.Collections;
+using DPP_Compiler.Symbols;
 using DPP_Compiler.Text;
 
 namespace DPP_Compiler.Diagnostics
@@ -16,7 +17,7 @@ namespace DPP_Compiler.Diagnostics
             _diagnostics.Add(diagnostic);
         }
 
-        public void ReportInvalidNumber(TextSpan span, string text, Type type)
+        public void ReportInvalidNumber(TextSpan span, string text, TypeSymbol type)
         {
             string message = $"The number \"{text}\" can not be represented by <{type}>";
             Report(span, message);
@@ -41,13 +42,13 @@ namespace DPP_Compiler.Diagnostics
             Report(span, message);
         }
 
-        public void ReportUndefinedUnaryOperator(TextSpan span, string operatorText, Type operandType)
+        public void ReportUndefinedUnaryOperator(TextSpan span, string operatorText, TypeSymbol operandType)
         {
             string message = $"Unary operator '{operatorText}' is not defined for type {operandType}";
             Report(span, message);
         }
 
-        public void ReportUndefinedBinaryOperator(TextSpan span, string operatorText, Type leftType, Type rightType)
+        public void ReportUndefinedBinaryOperator(TextSpan span, string operatorText, TypeSymbol leftType, TypeSymbol rightType)
         {
             string message = $"Binary operator '{operatorText}' is not defined for types {leftType} and {rightType}";
             Report(span, message);
@@ -59,7 +60,7 @@ namespace DPP_Compiler.Diagnostics
             Report(span, message);
         }
 
-        public void ReportCannotConvert(TextSpan span, Type from, Type to)
+        public void ReportCannotConvert(TextSpan span, TypeSymbol from, TypeSymbol to)
         {
             string message = $"Can not convert type {from} to type {to}";
             Report(span, message);

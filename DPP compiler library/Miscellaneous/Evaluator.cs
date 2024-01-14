@@ -1,4 +1,5 @@
 ﻿using DPP_Compiler.Binding;
+using DPP_Compiler.Symbols;
 using System.Xml.Linq;
 
 namespace DPP_Compiler.Miscellaneuos
@@ -20,7 +21,7 @@ namespace DPP_Compiler.Miscellaneuos
 
         public object Evaluate()
         {
-            Dictionary<LabelSymbol, int> labelToIndex = new Dictionary<LabelSymbol, int>();
+            Dictionary<BoundLabel, int> labelToIndex = new Dictionary<BoundLabel, int>();
 
             for (int i = 0; i < _root.Statements.Length; i++)
             {

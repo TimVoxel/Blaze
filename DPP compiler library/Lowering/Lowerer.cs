@@ -1,4 +1,5 @@
 ﻿using DPP_Compiler.Binding;
+using DPP_Compiler.Symbols;
 using System.Collections.Immutable;
 
 namespace DPP_Compiler.Lowering
@@ -39,17 +40,17 @@ namespace DPP_Compiler.Lowering
             return new BoundBlockStatement(builder.ToImmutable());
         }
 
-        private LabelSymbol GenerateLabel()
+        private BoundLabel GenerateLabel()
         {
             var name = $"label{++_labelCount}";
-            return new LabelSymbol(name);
+            return new BoundLabel(name);
         }
 
         protected override BoundStatement RewriteIfStatement(BoundIfStatement node)
         {
             if (node.ElseBody == null)
             {
-                LabelSymbol endLabel = GenerateLabel();
+                BoundLabel endLabel = GenerateLabel();
                 BoundConditionalGotoStatement gotoFalse = new BoundConditionalGotoStatement(endLabel, node.Condition, true);
                 BoundLabelStatement endLabelStatement = new BoundLabelStatement(endLabel);
                 BoundBlockStatement result = new BoundBlockStatement(ImmutableArray.Create(gotoFalse, node.Body, endLabelStatement));
@@ -57,8 +58,8 @@ namespace DPP_Compiler.Lowering
             }
             else
             {
-                LabelSymbol elseLabel = GenerateLabel();
-                LabelSymbol endLabel = GenerateLabel();
+                BoundLabel elseLabel = GenerateLabel();
+                BoundLabel endLabel = GenerateLabel();
 
                 BoundConditionalGotoStatement gotoFalse = new BoundConditionalGotoStatement(elseLabel, node.Condition, true);
                 BoundGotoStatement gotoEnd = new BoundGotoStatement(endLabel);
@@ -78,9 +79,9 @@ namespace DPP_Compiler.Lowering
 
         protected override BoundStatement RewriteWhileStatement(BoundWhileStatement node)
         {
-            LabelSymbol continueLabel = GenerateLabel();
-            LabelSymbol checkLabel = GenerateLabel();
-            LabelSymbol endLabel = GenerateLabel();
+            BoundLabel continueLabel = GenerateLabel();
+            BoundLabel checkLabel = GenerateLabel();
+            BoundLabel endLabel = GenerateLabel();
 
             BoundGotoStatement gotoCheck = new BoundGotoStatement(checkLabel);
 
@@ -102,12 +103,12 @@ namespace DPP_Compiler.Lowering
 
         protected override BoundStatement RewriteForStatement(BoundForStatement node)
         {
-            BoundBinaryOperator op = BoundBinaryOperator.SafeBind(BoundBinaryOperatorKind.LessOrEquals, typeof(int), typeof(int));
-            BoundBinaryOperator plusOp = BoundBinaryOperator.SafeBind(BoundBinaryOperatorKind.Addition, typeof(int), typeof(int));
+            BoundBinaryOperator op = BoundBinaryOperator.SafeBind(BoundBinaryOperatorKind.LessOrEquals, TypeSymbol.Int, TypeSymbol.Int);
+            BoundBinaryOperator plusOp = BoundBinaryOperator.SafeBind(BoundBinaryOperatorKind.Addition, TypeSymbol.Int, TypeSymbol.Int);
 
             BoundVariableDeclarationStatement declarationStatement = new BoundVariableDeclarationStatement(node.Variable, node.LowerBound);
 
-            VariableSymbol upperBound = new VariableSymbol("upperBound", typeof(int));
+            VariableSymbol upperBound = new VariableSymbol("upperBound", TypeSymbol.Int);
             BoundVariableDeclarationStatement upperBoundDeclarationStatement = new BoundVariableDeclarationStatement(upperBound, node.UpperBound);
 
             BoundVariableExpression variableExpression = new BoundVariableExpression(node.Variable);

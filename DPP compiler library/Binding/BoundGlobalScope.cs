@@ -1,4 +1,5 @@
 ﻿using DPP_Compiler.Diagnostics;
+using DPP_Compiler.Symbols;
 using System.Collections.Immutable;
 
 namespace DPP_Compiler.Binding
