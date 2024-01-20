@@ -64,6 +64,8 @@ namespace DPP_Compiler
                     return SyntaxKind.ElseKeyword;
                 case "while":
                     return SyntaxKind.WhileKeyword;
+                case "do":
+                    return SyntaxKind.DoKeyword;
                 case "for":
                     return SyntaxKind.ForKeyword;
                 default: 
@@ -101,6 +103,8 @@ namespace DPP_Compiler
                     return "else";
                 case SyntaxKind.WhileKeyword:
                     return "while";
+                case SyntaxKind.DoKeyword:
+                    return "do";
                 case SyntaxKind.ForKeyword:
                     return "for";
                 case SyntaxKind.SemicolonToken:

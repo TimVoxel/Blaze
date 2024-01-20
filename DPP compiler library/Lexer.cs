@@ -143,7 +143,7 @@ namespace DPP_Compiler
                     {
                         ReadWhitespace();
                     }
-                    else if (char.IsLetter(Current))
+                    else if (char.IsLetter(Current) || Current == '_')
                     {
                         ReadIdentifierOrKeyword();
                     }
@@ -204,7 +204,7 @@ namespace DPP_Compiler
 
         private void ReadIdentifierOrKeyword()
         {
-            while (char.IsLetter(Current))
+            while (char.IsLetter(Current) || Current == '_')
                 _position++;
             int length = _position - _start;
             string text = _text.ToString(_start, length);

@@ -8,6 +8,7 @@ namespace DPP_Compiler.Miscellaneuos
     {
         private readonly BoundBlockStatement _root;
         private readonly Dictionary<VariableSymbol, object?> _variables;
+        private Random? _random;
 
         private object? _lastValue;
 
@@ -141,9 +142,26 @@ namespace DPP_Compiler.Miscellaneuos
                     return EvaluateBinaryExpression((BoundBinaryExpression)node);
                 case BoundNodeKind.CallExpression:
                     return EvaluateCallExpression((BoundCallExpression)node);
+                case BoundNodeKind.ConversionExpression:
+                    return EvaluateConversionExpression((BoundConversionExpression)node);
                 default:
                     throw new Exception($"Unexpected node {node.Kind}");
             }
+        }
+
+        private object? EvaluateConversionExpression(BoundConversionExpression node)
+        {
+            object? value = EvaluateExpression(node.Expression);
+            if (value == null) return null;
+
+            if (node.Type == TypeSymbol.Bool)
+                return Convert.ToBoolean(value);
+            if (node.Type == TypeSymbol.Int)
+                return Convert.ToInt32(value);
+            if (node.Type == TypeSymbol.String)
+                return Convert.ToString(value);
+
+            throw new Exception($"Unexpected type {node.Type}");
         }
 
         private object? EvaluateCallExpression(BoundCallExpression node)
@@ -156,6 +174,17 @@ namespace DPP_Compiler.Miscellaneuos
                 if (message != null)
                     Console.WriteLine(message);
                 return null;
+            }
+            else if (node.Function == BuiltInFunction.Random)
+            {
+                if (_random == null)
+                    _random = new Random();
+                int? origin = (int?) EvaluateExpression(node.Arguments[0]);
+                int? bound = (int?)EvaluateExpression(node.Arguments[1]);
+                if (origin == null || bound == null)
+                    return null;
+                int value = _random.Next((int)origin, (int)bound);
+                return value;
             }
             else
                 throw new Exception($"Unexpected function {node.Function.Name}");

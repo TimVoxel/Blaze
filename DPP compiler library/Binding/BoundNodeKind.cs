@@ -10,6 +10,7 @@
         UnaryExpression,
         BinaryExpression,
         CallExpression,
+        ConversionExpression,
 
         //Statements
         ExpressionStatement,
@@ -20,6 +21,7 @@
         VariableDeclarationStatement,
         IfStatement,
         WhileStatement,
-        ForStatement,  
+        DoWhileStatement,
+        ForStatement,
     }
 }

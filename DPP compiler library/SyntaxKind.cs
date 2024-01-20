@@ -40,6 +40,7 @@
         IfKeyword,
         ElseKeyword,
         WhileKeyword,
+        DoKeyword,
         ForKeyword,
 
         //Misc
@@ -61,6 +62,7 @@
         IfStatement,
         ElseClause,
         WhileStatement,
+        DoWhileStatement,
         ForStatement,
     }
 }

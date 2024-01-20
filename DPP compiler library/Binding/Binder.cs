@@ -80,9 +80,18 @@ namespace DPP_Compiler.Binding
                     return BindWhileStatement((WhileStatementSyntax)syntax);
                 case SyntaxKind.ForStatement:
                     return BindForStatement((ForStatementSyntax)syntax);
+                case SyntaxKind.DoWhileStatement:
+                    return BindDoWhileStatement((DoWhileStatementSyntax)syntax);
                 default:
                     throw new Exception($"Unexpected syntax {syntax.Kind}");
             }
+        }
+
+        private BoundStatement BindDoWhileStatement(DoWhileStatementSyntax syntax)
+        {
+            BoundStatement body = BindStatement(syntax.Body);
+            BoundExpression condition = BindExpression(syntax.Condition);
+            return new BoundDoWhileStatement(body, condition); 
         }
 
         private BoundStatement BindVariableDeclarationStatement(VariableDeclarationStatementSyntax syntax)
@@ -247,6 +256,10 @@ namespace DPP_Compiler.Binding
 
         private BoundExpression BindCallExpression(CallExpressionSyntax expression)
         {
+            string name = expression.Identifier.Text;
+            if (expression.Arguments.Count == 1 && LookupType(name) is TypeSymbol type)
+                return BindConversion(type, expression.Arguments[0]);
+
             ImmutableArray<BoundExpression>.Builder boundArguments = ImmutableArray.CreateBuilder<BoundExpression>();
 
             foreach (ExpressionSyntax argument in expression.Arguments)
@@ -255,7 +268,7 @@ namespace DPP_Compiler.Binding
             FunctionSymbol? function = _scope.TryLookupFunction(expression.Identifier.Text);
             if (function == null)
             {
-                _diagnostics.ReportUndefinedFunction(expression.Identifier.Span, expression.Identifier.Text);
+                _diagnostics.ReportUndefinedFunction(expression.Identifier.Span, name);
                 return new BoundErrorExpression();
             }
             if (function.Parameters.Length != expression.Arguments.Count)
@@ -275,6 +288,19 @@ namespace DPP_Compiler.Binding
                 }
             }
             return new BoundCallExpression(function, boundArguments.ToImmutable());
+        }
+
+        private BoundExpression BindConversion(TypeSymbol type, ExpressionSyntax syntax)
+        {
+            BoundExpression expression = BindExpression(syntax);
+            Conversion conversion = Conversion.Classify(expression.Type, type);
+            if (!conversion.Exists)
+            {
+                _diagnostics.ReportCannotConvert(syntax.Span, expression.Type, type);
+                return new BoundErrorExpression();
+            }
+
+            return new BoundConversionExpression(type, expression);
         }
 
         private BoundExpression BindAssignmentExpression(AssignmentExpressionSyntax expression)
@@ -306,6 +332,21 @@ namespace DPP_Compiler.Binding
             if (declare && !_scope.TryDeclareVariable(variable))
                 _diagnostics.ReportVariableAlreadyDeclared(identifier.Span, name);
             return variable;
+        }
+
+        private TypeSymbol? LookupType(string name)
+        {
+            switch (name)
+            {
+                case "bool":
+                    return TypeSymbol.Bool;
+                case "string":
+                    return TypeSymbol.String;
+                case "int":
+                    return TypeSymbol.Int;
+                default:
+                    return null;
+            }
         }
     }
 }

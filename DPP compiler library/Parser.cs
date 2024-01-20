@@ -79,6 +79,8 @@ namespace DPP_Compiler
                     return ParseIfStatement();
                 case SyntaxKind.WhileKeyword:
                     return ParseWhileStatement();
+                case SyntaxKind.DoKeyword:
+                    return ParseDoWhileStatement();
                 case SyntaxKind.ForKeyword:
                     return ParseForStatement();
                 default:
@@ -112,6 +114,18 @@ namespace DPP_Compiler
             ExpressionSyntax condition = ParseParenthesizedExpression().Expression;
             StatementSyntax body = ParseStatement();
             return new WhileStatementSyntax(keyword, condition, body);
+        }
+
+        private DoWhileStatementSyntax ParseDoWhileStatement()
+        {
+            SyntaxToken doKeyword = TryConsume(SyntaxKind.DoKeyword);
+            StatementSyntax body = ParseStatement();
+            SyntaxToken whileKeyword = TryConsume(SyntaxKind.WhileKeyword);
+            SyntaxToken openParen = TryConsume(SyntaxKind.OpenParenToken);
+            ExpressionSyntax condition = ParseExpression();
+            SyntaxToken closeParen = TryConsume(SyntaxKind.CloseParenToken);
+            SyntaxToken semicolon = TryConsume(SyntaxKind.SemicolonToken);
+            return new DoWhileStatementSyntax(doKeyword, body, whileKeyword, openParen, condition, closeParen, semicolon);
         }
 
         private StatementSyntax ParseForStatement()

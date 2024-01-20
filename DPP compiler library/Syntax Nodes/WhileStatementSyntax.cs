@@ -1,7 +1,6 @@
-﻿using DPP_Compiler.Syntax_Nodes;
-using DPP_Compiler.SyntaxTokens;
+﻿using DPP_Compiler.SyntaxTokens;
 
-namespace DPP_Compiler
+namespace DPP_Compiler.Syntax_Nodes
 {
     public sealed class WhileStatementSyntax : StatementSyntax
     {

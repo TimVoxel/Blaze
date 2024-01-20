@@ -81,13 +81,10 @@ namespace DPP_Compiler.Lowering
         {
             BoundLabel continueLabel = GenerateLabel();
             BoundLabel checkLabel = GenerateLabel();
-            BoundLabel endLabel = GenerateLabel();
-
-            BoundGotoStatement gotoCheck = new BoundGotoStatement(checkLabel);
-
             BoundLabelStatement continueLabelStatement = new BoundLabelStatement(continueLabel);
             BoundLabelStatement checkLabelStatement = new BoundLabelStatement(checkLabel);
-            BoundLabelStatement endLabelStatement = new BoundLabelStatement(endLabel);
+
+            BoundGotoStatement gotoCheck = new BoundGotoStatement(checkLabel);
 
             BoundConditionalGotoStatement gotoTrue = new BoundConditionalGotoStatement(continueLabel, node.Condition, false);
             BoundBlockStatement result = new BoundBlockStatement(ImmutableArray.Create(
@@ -95,8 +92,21 @@ namespace DPP_Compiler.Lowering
                 continueLabelStatement,
                 node.Body,
                 checkLabelStatement,
-                gotoTrue,
-                endLabelStatement
+                gotoTrue
+            ));
+            return RewriteStatement(result);
+        }
+
+        protected override BoundStatement RewriteDoWhileStatement(BoundDoWhileStatement node)
+        {
+            BoundLabel continueLabel = GenerateLabel();
+            BoundLabelStatement continueLabelStatement = new BoundLabelStatement(continueLabel);
+
+            BoundConditionalGotoStatement gotoTrue = new BoundConditionalGotoStatement(continueLabel, node.Condition, false);
+            BoundBlockStatement result = new BoundBlockStatement(ImmutableArray.Create(
+                continueLabelStatement,
+                node.Body,
+                gotoTrue
             ));
             return RewriteStatement(result);
         }

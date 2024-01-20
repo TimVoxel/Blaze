@@ -19,6 +19,8 @@ namespace DPP_Compiler.Lowering
                     return RewriteIfStatement((BoundIfStatement)node);
                 case BoundNodeKind.WhileStatement:
                     return RewriteWhileStatement((BoundWhileStatement)node);
+                case BoundNodeKind.DoWhileStatement:
+                    return RewriteDoWhileStatement((BoundDoWhileStatement)node);
                 case BoundNodeKind.ForStatement:
                     return RewriteForStatement((BoundForStatement)node);
                 case BoundNodeKind.LabelStatement:
@@ -30,6 +32,17 @@ namespace DPP_Compiler.Lowering
                 default:
                     throw new Exception($"Unexpected node {node.Kind}");
             }
+        }
+
+        protected virtual BoundStatement RewriteDoWhileStatement(BoundDoWhileStatement node)
+        {
+            BoundStatement statement = RewriteStatement(node.Body);
+            BoundExpression condition = RewriteExpression(node.Condition);
+
+            if (statement == node.Body && condition == node.Condition)
+                return node;
+
+            return new BoundDoWhileStatement(statement, condition);
         }
 
         protected virtual BoundStatement RewriteGotoStatement(BoundGotoStatement node) => node;
@@ -139,11 +152,20 @@ namespace DPP_Compiler.Lowering
                     return RewriteAssignmentExpression((BoundAssignmentExpression)node);
                 case BoundNodeKind.CallExpression:
                     return RewriteCallExpression((BoundCallExpression)node);
+                case BoundNodeKind.ConversionExpression:
+                    return RewriteConversionExpression((BoundConversionExpression)node);
                 default:
                     throw new Exception($"Unexpected node {node.Kind}");
             }
         }
 
+        protected virtual BoundExpression RewriteConversionExpression(BoundConversionExpression node)
+        {
+            BoundExpression expression = RewriteExpression(node.Expression);
+            if (expression == node.Expression)
+                return node;
+            return new BoundConversionExpression(node.Type, expression);
+        }
 
         protected virtual BoundExpression RewriteErrorExpression(BoundErrorExpression node) => node;
 
