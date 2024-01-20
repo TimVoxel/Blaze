@@ -3,8 +3,6 @@ using DPP_Compiler.Symbols;
 using DPP_Compiler.Syntax_Nodes;
 using DPP_Compiler.SyntaxTokens;
 using System.Collections.Immutable;
-using System.Net.Http.Headers;
-using System.Reflection.Metadata.Ecma335;
 
 namespace DPP_Compiler.Binding
 {
@@ -23,6 +21,7 @@ namespace DPP_Compiler.Binding
         public static BoundGlobalScope BindGlobalScope(BoundGlobalScope? previous, CompilationUnitSyntax syntax)
         {
             BoundScope? parentScope = CreateParentScopes(previous);
+
             Binder binder = new Binder(parentScope);
             BoundStatement statement = binder.BindStatement(syntax.Statement);
             ImmutableArray<VariableSymbol> variables = binder._scope.GetDeclaredVariables();
@@ -43,17 +42,26 @@ namespace DPP_Compiler.Binding
                 previous = previous.Previous;
             }
 
-            BoundScope? parent = null;
+            BoundScope? parent = CreateRootScope();
+            
             while (stack.Count > 0)
             {
                 previous = stack.Pop();
                 BoundScope scope = new BoundScope(parent);
                 foreach (VariableSymbol variable in previous.Variables)
-                    scope.TryDeclare(variable);
+                    scope.TryDeclareVariable(variable);
 
                 parent = scope;
             }
             return parent;
+        }
+
+        private static BoundScope CreateRootScope()
+        {
+            BoundScope result = new BoundScope(null);
+            foreach (FunctionSymbol? builtInFunction in BuiltInFunction.GetAll())
+                result.TryDeclareFunction(builtInFunction);
+            return result;
         }
 
         private BoundStatement BindStatement(StatementSyntax syntax)
@@ -80,21 +88,13 @@ namespace DPP_Compiler.Binding
         private BoundStatement BindVariableDeclarationStatement(VariableDeclarationStatementSyntax syntax)
         {
             BoundExpression initializer = BindExpression(syntax.Initializer);
-
-            /*
-            if (initializer.Type == TypeSymbol.Void)
-            {
-                _diagnostics.ReportVoidDeclaration(syntax.Span, syntax.Identifier.Text);
-                
-            }
-            */
             VariableSymbol variable = BindVariable(syntax.Identifier, initializer.Type);
             return new BoundVariableDeclarationStatement(variable, initializer);
         }
 
         private BoundStatement BindExpressionStatement(ExpressionStatementSyntax syntax)
         {
-            BoundExpression boundExpression = BindExpression(syntax.Expression);
+            BoundExpression boundExpression = BindExpression(syntax.Expression, true);
             return new BoundExpressionStatement(boundExpression);
         }
 
@@ -147,7 +147,18 @@ namespace DPP_Compiler.Binding
             return new BoundBlockStatement(boundStatements.ToImmutable());
         }
 
-        private BoundExpression BindExpression(ExpressionSyntax expression)
+        private BoundExpression BindExpression(ExpressionSyntax expression, bool canBeVoid = false)
+        {
+            BoundExpression result = BindExpressionInternal(expression);
+            if (!canBeVoid && result.Type == TypeSymbol.Void)
+            {
+                _diagnostics.ReportExpressionMustHaveValue(expression.Span);
+                return new BoundErrorExpression();
+            }
+            return result;
+        }
+
+        private BoundExpression BindExpressionInternal(ExpressionSyntax expression)
         {
             switch (expression.Kind)
             {
@@ -225,12 +236,13 @@ namespace DPP_Compiler.Binding
             if (expression.IdentifierToken.IsMissingText)
                 return new BoundErrorExpression();
 
-            if (!_scope.TryLookup(name, out VariableSymbol? variable))
+            VariableSymbol? variable = _scope.TryLookupVariable(name);
+            if (variable == null)
             {
                 _diagnostics.ReportUndefinedName(expression.IdentifierToken.Span, name);
                 return new BoundErrorExpression();
             }
-            return (variable == null) ? new BoundErrorExpression() : new BoundVariableExpression(variable);
+            return new BoundVariableExpression(variable);
         }
 
         private BoundExpression BindCallExpression(CallExpressionSyntax expression)
@@ -240,8 +252,7 @@ namespace DPP_Compiler.Binding
             foreach (ExpressionSyntax argument in expression.Arguments)
                 boundArguments.Add(BindExpression(argument));
 
-            IEnumerable<FunctionSymbol> functions = BuiltInFunction.GetAll();
-            FunctionSymbol? function = functions.FirstOrDefault(f => f.Name == expression.Identifier.Text);
+            FunctionSymbol? function = _scope.TryLookupFunction(expression.Identifier.Text);
             if (function == null)
             {
                 _diagnostics.ReportUndefinedFunction(expression.Identifier.Span, expression.Identifier.Text);
@@ -270,23 +281,20 @@ namespace DPP_Compiler.Binding
         {
             BoundExpression boundExpression = BindExpression(expression.Expression);
             string name = expression.IdentifierToken.Text;
-            
-            if (!_scope.TryLookup(name, out VariableSymbol? variable))
+
+            VariableSymbol? variable = _scope.TryLookupVariable(name);
+            if (variable == null)
             {
                 _diagnostics.ReportUndefinedName(expression.IdentifierToken.Span, name);
                 return boundExpression;
             }
 
-            if (variable != null)
+            if (boundExpression.Type != variable.Type)
             {
-                if (boundExpression.Type != variable.Type)
-                {
-                    _diagnostics.ReportCannotConvert(expression.Expression.Span, boundExpression.Type, variable.Type);
-                    return boundExpression;
-                }
-                return new BoundAssignmentExpression(variable, boundExpression);
+                _diagnostics.ReportCannotConvert(expression.Expression.Span, boundExpression.Type, variable.Type);
+                return boundExpression;
             }
-            throw new Exception("Somehow the variable is null");
+            return new BoundAssignmentExpression(variable, boundExpression);
         }
 
         private VariableSymbol BindVariable(SyntaxToken identifier, TypeSymbol type)
@@ -295,7 +303,7 @@ namespace DPP_Compiler.Binding
             bool declare = !identifier.IsMissingText;
 
             VariableSymbol variable = new VariableSymbol(name, type);
-            if (declare && !_scope.TryDeclare(variable))
+            if (declare && !_scope.TryDeclareVariable(variable))
                 _diagnostics.ReportVariableAlreadyDeclared(identifier.Span, name);
             return variable;
         }

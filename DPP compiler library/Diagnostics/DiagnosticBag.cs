@@ -82,7 +82,7 @@ namespace DPP_Compiler.Diagnostics
 
         public void ReportWrongArgumentCount(TextSpan span, string name, int expectedCount, int actualCount)
         {
-            string message = $"Function {name} requires {expectedCount} arguments, but only {actualCount} were given";
+            string message = $"Function {name} requires {expectedCount} arguments, but {actualCount} were given";
             Report(span, message);
         }
 
@@ -92,9 +92,11 @@ namespace DPP_Compiler.Diagnostics
             Report(span, message);
         }
 
-        internal void ReportVoidDeclaration(TextSpan span, string name)
+
+        internal void ReportExpressionMustHaveValue(TextSpan span)
         {
-            string message = $"Can not declare variable \"{name}\" of type {TypeSymbol.Void}";
+            string message = $"Expression must have a value";
+            Report(span, message);
         }
     }
 }
