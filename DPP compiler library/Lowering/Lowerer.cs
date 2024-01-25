@@ -118,7 +118,7 @@ namespace DPP_Compiler.Lowering
 
             BoundVariableDeclarationStatement declarationStatement = new BoundVariableDeclarationStatement(node.Variable, node.LowerBound);
 
-            VariableSymbol upperBound = new VariableSymbol("upperBound", TypeSymbol.Int);
+            VariableSymbol upperBound = new LocalVariableSymbol("upperBound", TypeSymbol.Int);
             BoundVariableDeclarationStatement upperBoundDeclarationStatement = new BoundVariableDeclarationStatement(upperBound, node.UpperBound);
 
             BoundVariableExpression variableExpression = new BoundVariableExpression(node.Variable);

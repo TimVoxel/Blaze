@@ -68,6 +68,8 @@ namespace DPP_Compiler
                     return SyntaxKind.DoKeyword;
                 case "for":
                     return SyntaxKind.ForKeyword;
+                case "function":
+                    return SyntaxKind.FunctionKeyword;
                 default: 
                     return SyntaxKind.IdentifierToken;
             }
@@ -107,8 +109,12 @@ namespace DPP_Compiler
                     return "do";
                 case SyntaxKind.ForKeyword:
                     return "for";
+                case SyntaxKind.FunctionKeyword:
+                    return "function";
                 case SyntaxKind.SemicolonToken:
                     return ";";
+                case SyntaxKind.ColonToken:
+                    return ":";
                 case SyntaxKind.CommaToken:
                     return ",";
                 case SyntaxKind.OpenBraceToken:
@@ -148,7 +154,7 @@ namespace DPP_Compiler
                 case SyntaxKind.DoubleDotToken:
                     return "..";
                 case SyntaxKind.NotEqualsToken:
-                    return "!=";  
+                    return "!=";
                 default:
                     return null;
             }

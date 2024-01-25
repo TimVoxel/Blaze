@@ -4,7 +4,7 @@ namespace DPP_Compiler.Syntax_Nodes
 {
     public sealed class VariableDeclarationStatementSyntax : StatementSyntax {
 
-        public SyntaxToken DeclarationToken { get; private set; }
+        public SyntaxNode DeclarationNode { get; private set; }
         public SyntaxToken Identifier { get; private set; }
         public SyntaxToken EqualsToken { get; private set; }
         public ExpressionSyntax Initializer { get; private set; }
@@ -12,9 +12,9 @@ namespace DPP_Compiler.Syntax_Nodes
 
         public override SyntaxKind Kind => SyntaxKind.VariableDeclarationStatement;
 
-        public VariableDeclarationStatementSyntax(SyntaxToken declarationToken, SyntaxToken identifier, SyntaxToken equalsToken, ExpressionSyntax initializer, SyntaxToken semicolon)
+        public VariableDeclarationStatementSyntax(SyntaxNode declarationNode, SyntaxToken identifier, SyntaxToken equalsToken, ExpressionSyntax initializer, SyntaxToken semicolon)
         {
-            DeclarationToken = declarationToken;
+            DeclarationNode = declarationNode;
             Identifier = identifier;
             EqualsToken = equalsToken;
             Initializer = initializer;
@@ -23,7 +23,7 @@ namespace DPP_Compiler.Syntax_Nodes
 
         public override IEnumerable<SyntaxNode> GetChildren()
         {
-            yield return DeclarationToken;
+            yield return DeclarationNode;
             yield return Identifier;
             yield return EqualsToken;
             yield return Initializer;

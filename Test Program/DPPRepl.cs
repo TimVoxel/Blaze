@@ -19,7 +19,7 @@ namespace TestProgram
                 return false;
 
             SyntaxTree syntaxTree = SyntaxTree.Parse(text);
-            return !syntaxTree.Root.Statement.GetLastToken().IsMissingText;
+            return !syntaxTree.Root.Members.Last().GetLastToken().IsMissingText;
         }
 
         protected override void RenderLine(string line)

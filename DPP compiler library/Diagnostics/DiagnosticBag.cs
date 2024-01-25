@@ -11,6 +11,8 @@ namespace DPP_Compiler.Diagnostics
         public IEnumerator<Diagnostic> GetEnumerator() => _diagnostics.GetEnumerator();
         IEnumerator IEnumerable.GetEnumerator() => GetEnumerator();
 
+        public void AddRange(IEnumerable<Diagnostic> diagnostics) => _diagnostics.AddRange(diagnostics);
+
         private void Report(TextSpan span, string message)
         {
             Diagnostic diagnostic = new Diagnostic(span, message);
@@ -66,7 +68,11 @@ namespace DPP_Compiler.Diagnostics
             Report(span, message);
         }
 
-        public void AddRange(DiagnosticBag diagnostics) => _diagnostics.AddRange(diagnostics);
+        public void ReportCannotConvertImplicitly(TextSpan span, TypeSymbol from, TypeSymbol to)
+        {
+            string message = $"Can not implicitly convert type {from} to type {to}. An explicit conversion exists (are you missing a cast?)";
+            Report(span, message);
+        }
 
         public void ReportVariableAlreadyDeclared(TextSpan span, string name)
         {
@@ -77,6 +83,12 @@ namespace DPP_Compiler.Diagnostics
         public void ReportUndefinedFunction(TextSpan span, string text)
         {
             string message = $"Function \"{text}\" doesn't exist";
+            Report(span, message);
+        }
+
+        public void ReportUndefinedType(TextSpan span, string text)
+        {
+            string message = $"Type {text} doesn't exist";
             Report(span, message);
         }
 
@@ -93,9 +105,26 @@ namespace DPP_Compiler.Diagnostics
         }
 
 
-        internal void ReportExpressionMustHaveValue(TextSpan span)
+        public void ReportExpressionMustHaveValue(TextSpan span)
         {
             string message = $"Expression must have a value";
+            Report(span, message);
+        }
+
+        public void ReportParameterAlreadyDeclared(TextSpan span, string name)
+        {
+            string message = $"Parameter \"{name}\" is already declared";
+            Report(span, message);
+        }
+
+        public void ReportFunctionsAreUnsupported(TextSpan span)
+        {
+            Report(span, "Functions are unsupported for now");
+        }
+
+        public void ReportFunctionAlreadyDeclared(TextSpan span, string name)
+        {
+            string message = $"Function \"{name}\" is already declared ";
             Report(span, message);
         }
     }

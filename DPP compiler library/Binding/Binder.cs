@@ -1,7 +1,9 @@
 ﻿using DPP_Compiler.Diagnostics;
+using DPP_Compiler.Lowering;
 using DPP_Compiler.Symbols;
 using DPP_Compiler.Syntax_Nodes;
 using DPP_Compiler.SyntaxTokens;
+using DPP_Compiler.Text;
 using System.Collections.Immutable;
 
 namespace DPP_Compiler.Binding
@@ -9,31 +11,46 @@ namespace DPP_Compiler.Binding
     internal sealed class Binder
     {
         private readonly DiagnosticBag _diagnostics = new DiagnosticBag();
+        private readonly FunctionSymbol? _function;
         private BoundScope _scope;
 
         public DiagnosticBag Diagnostics => _diagnostics;
 
-        public Binder(BoundScope? parent)
+        public Binder(BoundScope? parent, FunctionSymbol? function)
         {
             _scope = new BoundScope(parent);
+            _function = function;
+
+            if (_function != null)
+                foreach (var parameter in _function.Parameters)
+                    _scope.TryDeclareVariable(parameter);
         }
 
         public static BoundGlobalScope BindGlobalScope(BoundGlobalScope? previous, CompilationUnitSyntax syntax)
         {
-            BoundScope? parentScope = CreateParentScopes(previous);
+            BoundScope? parentScope = CreateParentScope(previous);
+            Binder binder = new Binder(parentScope, null);
 
-            Binder binder = new Binder(parentScope);
-            BoundStatement statement = binder.BindStatement(syntax.Statement);
+            foreach (FunctionDeclarationSyntax function in syntax.Members.OfType<FunctionDeclarationSyntax>())
+                binder.BindFunctionDeclaration(function);
+
+            //Bind global statements
+            ImmutableArray<BoundStatement>.Builder statementBuilder = ImmutableArray.CreateBuilder<BoundStatement>();
+            foreach (GlobalStatementSyntax globalStatement in syntax.Members.OfType<GlobalStatementSyntax>())
+                statementBuilder.Add(binder.BindStatement(globalStatement.Statement));
+            BoundStatement statement = new BoundBlockStatement(statementBuilder.ToImmutable());
+
+            ImmutableArray<FunctionSymbol> functions = binder._scope.GetDeclaredFunctions();
             ImmutableArray<VariableSymbol> variables = binder._scope.GetDeclaredVariables();
             ImmutableArray<Diagnostic> diagnostics = binder.Diagnostics.ToImmutableArray();
 
             if (previous != null)
                 diagnostics = diagnostics.InsertRange(0, previous.Diagnostics);
 
-            return new BoundGlobalScope(previous, diagnostics, variables, statement);
+            return new BoundGlobalScope(previous, diagnostics, variables, functions, statement);
         }
 
-        private static BoundScope? CreateParentScopes(BoundGlobalScope? previous)
+        private static BoundScope? CreateParentScope(BoundGlobalScope? previous)
         {
             Stack<BoundGlobalScope> stack = new Stack<BoundGlobalScope>();
             while (previous != null)
@@ -48,6 +65,10 @@ namespace DPP_Compiler.Binding
             {
                 previous = stack.Pop();
                 BoundScope scope = new BoundScope(parent);
+
+                foreach (FunctionSymbol function in previous.Functions)
+                    scope.TryDeclareFunction(function);
+
                 foreach (VariableSymbol variable in previous.Variables)
                     scope.TryDeclareVariable(variable);
 
@@ -62,6 +83,62 @@ namespace DPP_Compiler.Binding
             foreach (FunctionSymbol? builtInFunction in BuiltInFunction.GetAll())
                 result.TryDeclareFunction(builtInFunction);
             return result;
+        }
+
+        public static BoundProgram BindProgram(BoundGlobalScope globalScope)
+        {
+            BoundScope? parentScope = CreateParentScope(globalScope);
+            ImmutableDictionary<FunctionSymbol, BoundBlockStatement>.Builder functionBodies = ImmutableDictionary.CreateBuilder<FunctionSymbol, BoundBlockStatement>();
+            DiagnosticBag diagnostics = new DiagnosticBag();
+
+            BoundGlobalScope? scope = globalScope;
+            while (scope != null)
+            {
+                foreach (FunctionSymbol function in scope.Functions)
+                {
+                    Binder binder = new Binder(parentScope, function);
+                    if (function.Declaration != null)
+                    {
+                        BoundStatement body = binder.BindStatement(function.Declaration.Body);
+                        BoundBlockStatement loweredBody = Lowerer.Lower(body);
+                        functionBodies.Add(function, loweredBody);
+                        diagnostics.AddRange(binder.Diagnostics);
+                    }
+                }
+                scope = scope.Previous;
+            }
+        
+            return new BoundProgram(globalScope, diagnostics, functionBodies.ToImmutable());
+        }
+
+        private void BindFunctionDeclaration(FunctionDeclarationSyntax declaration)
+        {
+            ImmutableArray<ParameterSymbol>.Builder parameters = ImmutableArray.CreateBuilder<ParameterSymbol>();
+
+            var seenParameterNames = new HashSet<string>();
+            foreach (ParameterSyntax parameterSyntax in declaration.Parameters)
+            {
+                string name = parameterSyntax.Identifier.Text;
+                TypeSymbol? type = BindTypeClause(parameterSyntax.Type);
+                if (type == null)
+                    continue;
+
+                if (!seenParameterNames.Add(name))
+                    _diagnostics.ReportParameterAlreadyDeclared(parameterSyntax.Span, name);
+                else
+                    parameters.Add(new ParameterSymbol(name, type));
+            }
+
+            TypeSymbol? returnType = (declaration.ReturnTypeClause == null) ? TypeSymbol.Void : BindTypeClause(declaration.ReturnTypeClause);
+            if (returnType == null)
+                returnType = TypeSymbol.Void;
+
+            if (returnType != TypeSymbol.Void)
+                _diagnostics.ReportFunctionsAreUnsupported(declaration.Span);
+
+            FunctionSymbol function = new FunctionSymbol(declaration.Identifier.Text, parameters.ToImmutable(), returnType, declaration);
+            if (!_scope.TryDeclareFunction(function))
+                _diagnostics.ReportFunctionAlreadyDeclared(declaration.Identifier.Span, function.Name);
         }
 
         private BoundStatement BindStatement(StatementSyntax syntax)
@@ -97,7 +174,19 @@ namespace DPP_Compiler.Binding
         private BoundStatement BindVariableDeclarationStatement(VariableDeclarationStatementSyntax syntax)
         {
             BoundExpression initializer = BindExpression(syntax.Initializer);
-            VariableSymbol variable = BindVariable(syntax.Identifier, initializer.Type);
+            TypeSymbol? type = null;
+            if (syntax.DeclarationNode is TypeClauseSyntax typeClause)
+            {
+                type = BindTypeClause(typeClause);
+                if (type == null)
+                    type = initializer.Type;
+                else 
+                    initializer = BindConversion(initializer, type, syntax.Initializer.Span);
+            }
+            else
+                type = initializer.Type;
+
+            VariableSymbol variable = BindVariable(syntax.Identifier, type);
             return new BoundVariableDeclarationStatement(variable, initializer);
         }
 
@@ -190,14 +279,7 @@ namespace DPP_Compiler.Binding
             }
         }
 
-        private BoundExpression BindExpression(ExpressionSyntax expression, TypeSymbol desiredType)
-        {
-            BoundExpression boundExpression = BindExpression(expression);
-            if (!boundExpression.Type.IsError && !desiredType.IsError && boundExpression.Type != desiredType)
-                _diagnostics.ReportCannotConvert(expression.Span, boundExpression.Type, desiredType);
-            
-            return boundExpression;
-        }
+        private BoundExpression BindExpression(ExpressionSyntax expression, TypeSymbol desiredType) => BindConversion(expression, desiredType);
 
         private BoundExpression BindLiteralExpression(LiteralExpressionSyntax expression)
         {
@@ -258,8 +340,8 @@ namespace DPP_Compiler.Binding
         {
             string name = expression.Identifier.Text;
             if (expression.Arguments.Count == 1 && LookupType(name) is TypeSymbol type)
-                return BindConversion(type, expression.Arguments[0]);
-
+                return BindConversion(expression.Arguments[0], type, true);
+            
             ImmutableArray<BoundExpression>.Builder boundArguments = ImmutableArray.CreateBuilder<BoundExpression>();
 
             foreach (ExpressionSyntax argument in expression.Arguments)
@@ -289,20 +371,7 @@ namespace DPP_Compiler.Binding
             }
             return new BoundCallExpression(function, boundArguments.ToImmutable());
         }
-
-        private BoundExpression BindConversion(TypeSymbol type, ExpressionSyntax syntax)
-        {
-            BoundExpression expression = BindExpression(syntax);
-            Conversion conversion = Conversion.Classify(expression.Type, type);
-            if (!conversion.Exists)
-            {
-                _diagnostics.ReportCannotConvert(syntax.Span, expression.Type, type);
-                return new BoundErrorExpression();
-            }
-
-            return new BoundConversionExpression(type, expression);
-        }
-
+        
         private BoundExpression BindAssignmentExpression(AssignmentExpressionSyntax expression)
         {
             BoundExpression boundExpression = BindExpression(expression.Expression);
@@ -315,12 +384,34 @@ namespace DPP_Compiler.Binding
                 return boundExpression;
             }
 
-            if (boundExpression.Type != variable.Type)
+            BoundExpression convertedExpression = BindConversion(boundExpression, variable.Type, expression.Expression.Span);
+            return new BoundAssignmentExpression(variable, convertedExpression);
+        }
+
+        private BoundExpression BindConversion(ExpressionSyntax syntax, TypeSymbol type, bool allowExplicit = false)
+        {
+            BoundExpression expression = BindExpression(syntax);
+            return BindConversion(expression, type, syntax.Span, allowExplicit);
+        }
+
+        private BoundExpression BindConversion(BoundExpression expression, TypeSymbol type, TextSpan diagnosticSpan, bool allowExplicit = false)
+        {
+            Conversion conversion = Conversion.Classify(expression.Type, type);
+            if (!conversion.Exists)
             {
-                _diagnostics.ReportCannotConvert(expression.Expression.Span, boundExpression.Type, variable.Type);
-                return boundExpression;
+                if (!expression.Type.IsError && !type.IsError)
+                    _diagnostics.ReportCannotConvert(diagnosticSpan, expression.Type, type);
+
+                return new BoundErrorExpression();
             }
-            return new BoundAssignmentExpression(variable, boundExpression);
+
+            if (conversion == Conversion.Identity)
+                return expression;
+
+            if (conversion.IsExplicit && !allowExplicit)
+                _diagnostics.ReportCannotConvertImplicitly(diagnosticSpan, expression.Type, type);
+                
+            return new BoundConversionExpression(type, expression);
         }
 
         private VariableSymbol BindVariable(SyntaxToken identifier, TypeSymbol type)
@@ -328,10 +419,28 @@ namespace DPP_Compiler.Binding
             string name = identifier.Text;
             bool declare = !identifier.IsMissingText;
 
-            VariableSymbol variable = new VariableSymbol(name, type);
+            VariableSymbol variable = (_function == null) ? 
+                new GlobalVariableSymbol(name, type) 
+              : new LocalVariableSymbol(name, type);
             if (declare && !_scope.TryDeclareVariable(variable))
                 _diagnostics.ReportVariableAlreadyDeclared(identifier.Span, name);
             return variable;
+        }
+
+        private TypeSymbol? BindTypeClause(TypeClauseSyntax syntax)
+        {
+            TypeSymbol? type = LookupType(syntax.Identifier.Text);
+            if (type == null)
+                _diagnostics.ReportUndefinedType(syntax.Identifier.Span, syntax.Identifier.Text);
+            return type;
+        }
+
+        private TypeSymbol? BindTypeClause(ReturnTypeClauseSyntax syntax)
+        {
+            TypeSymbol? type = LookupType(syntax.Identifier.Text);
+            if (type == null)
+                _diagnostics.ReportUndefinedType(syntax.Identifier.Span, syntax.Identifier.Text);
+            return type;
         }
 
         private TypeSymbol? LookupType(string name)

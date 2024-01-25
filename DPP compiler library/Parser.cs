@@ -62,9 +62,56 @@ namespace DPP_Compiler
 
         public CompilationUnitSyntax ParseCompilationUnit()
         {
-            StatementSyntax expression = ParseStatement();
+            ImmutableArray<MemberSyntax> members = ParseMembers();
             SyntaxToken endOfFileToken = TryConsume(SyntaxKind.EndOfFileToken);
-            return new CompilationUnitSyntax(expression, endOfFileToken);
+            return new CompilationUnitSyntax(members, endOfFileToken);
+        }
+        
+        private ImmutableArray<MemberSyntax> ParseMembers()
+        {
+            ImmutableArray<MemberSyntax>.Builder members = ImmutableArray.CreateBuilder<MemberSyntax>();
+
+            while (Current.Kind != SyntaxKind.EndOfFileToken)
+            {
+                SyntaxToken startToken = Current;
+                members.Add(ParseMember());
+
+                if (Current == startToken)
+                    Consume();
+            }
+
+            return members.ToImmutable();
+        }
+
+        private MemberSyntax ParseMember()
+        {
+            if (Current.Kind == SyntaxKind.FunctionKeyword)
+                return ParseFunctionDeclaration();
+            else
+                return ParseGlobalStatement();
+        }
+
+        private MemberSyntax ParseFunctionDeclaration()
+        {
+            SyntaxToken functionKeyword = TryConsume(SyntaxKind.FunctionKeyword);
+            SyntaxToken identifier = TryConsume(SyntaxKind.IdentifierToken);
+
+            SyntaxToken openParen = TryConsume(SyntaxKind.OpenParenToken);
+            SeparatedSyntaxList<ParameterSyntax> parameters = ParseParameters();
+            SyntaxToken closeParen = TryConsume(SyntaxKind.CloseParenToken);
+
+            ReturnTypeClauseSyntax? returnTypeClause = null;
+            if (Current.Kind == SyntaxKind.ColonToken)
+                returnTypeClause = ParseReturnTypeClause();
+
+            BlockStatementSyntax body = ParseBlockStatement();
+            return new FunctionDeclarationSyntax(functionKeyword, identifier, openParen, parameters, closeParen, returnTypeClause, body);
+        }
+
+        private MemberSyntax ParseGlobalStatement()
+        {
+            StatementSyntax statement = ParseStatement();
+            return new GlobalStatementSyntax(statement);
         }
 
         private StatementSyntax ParseStatement()
@@ -84,7 +131,11 @@ namespace DPP_Compiler
                 case SyntaxKind.ForKeyword:
                     return ParseForStatement();
                 default:
-                    return ParseExpressionStatement();
+                    {
+                        if (Next.Kind == SyntaxKind.IdentifierToken)
+                            return ParseVariableDeclarationStatement();
+                        return ParseExpressionStatement();
+                    } 
             }
         }
 
@@ -167,12 +218,30 @@ namespace DPP_Compiler
         
         private VariableDeclarationStatementSyntax ParseVariableDeclarationStatement()
         {
-            SyntaxToken letKeyword = TryConsume(SyntaxKind.LetKeyword);
+            SyntaxNode declarationNode;
+            if (Current.Kind == SyntaxKind.IdentifierToken)
+                declarationNode = ParseTypeClause();
+            else
+                declarationNode = TryConsume(SyntaxKind.LetKeyword);
+
             SyntaxToken identifierToken = TryConsume(SyntaxKind.IdentifierToken);
             SyntaxToken equalsToken = TryConsume(SyntaxKind.EqualsToken);
             ExpressionSyntax initializer = ParseExpression();
             SyntaxToken semicolon = TryConsume(SyntaxKind.SemicolonToken);
-            return new VariableDeclarationStatementSyntax(letKeyword, identifierToken, equalsToken, initializer, semicolon);
+            return new VariableDeclarationStatementSyntax(declarationNode, identifierToken, equalsToken, initializer, semicolon);
+        }
+
+        private TypeClauseSyntax ParseTypeClause()
+        {
+            SyntaxToken identifier = TryConsume(SyntaxKind.IdentifierToken);
+            return new TypeClauseSyntax(identifier);
+        }
+
+        private ReturnTypeClauseSyntax ParseReturnTypeClause()
+        {
+            SyntaxToken colon = TryConsume(SyntaxKind.ColonToken);
+            SyntaxToken identifier = TryConsume(SyntaxKind.IdentifierToken);
+            return new ReturnTypeClauseSyntax(colon, identifier);
         }
 
         private ExpressionStatementSyntax ParseExpressionStatement()
@@ -302,6 +371,24 @@ namespace DPP_Compiler
                     Consume();
             }
             return new SeparatedSyntaxList<ExpressionSyntax>(nodesAndSeparators.ToImmutable());
+        }
+
+        private SeparatedSyntaxList<ParameterSyntax> ParseParameters()
+        {
+            ImmutableArray<SyntaxNode>.Builder nodesAndSeparators = ImmutableArray.CreateBuilder<SyntaxNode>();
+            while (Current.Kind != SyntaxKind.CloseParenToken && Current.Kind != SyntaxKind.EndOfFileToken)
+            {
+                TypeClauseSyntax typeClause = ParseTypeClause();
+                SyntaxToken identifier = TryConsume(SyntaxKind.IdentifierToken);
+                nodesAndSeparators.Add(new ParameterSyntax(typeClause, identifier));
+
+                if (Current.Kind != SyntaxKind.CloseParenToken)
+                {
+                    SyntaxToken comma = TryConsume(SyntaxKind.CommaToken);
+                    nodesAndSeparators.Add(comma);
+                }
+            }
+            return new SeparatedSyntaxList<ParameterSyntax>(nodesAndSeparators.ToImmutable());
         }
 
         private ParenthesizedExpressionSyntax ParseParenthesizedExpression()

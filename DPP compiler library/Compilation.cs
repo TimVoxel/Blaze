@@ -44,11 +44,14 @@ namespace DPP_Compiler
             if (diagnostics.Any())
                 return new EvaluationResult(diagnostics, null);
 
-            Evaluator evaluator = new Evaluator(GetLoweredStatement(), variables);
+            BoundProgram program = Binder.BindProgram(GlobalScope);
+            if (program.Diagnostics.Any())
+                return new EvaluationResult(program.Diagnostics.ToImmutableArray(), null);
+
+            Evaluator evaluator = new Evaluator(program.FunctionBodies, GetLoweredStatement(), variables);
             object? value = evaluator.Evaluate();
             return new EvaluationResult(ImmutableArray<Diagnostic>.Empty, value);
         }
-
 
         public void EmitTree(TextWriter writer)
         {

@@ -7,6 +7,7 @@
         EndOfFileToken,
         WhitespaceToken,
         SemicolonToken,
+        ColonToken,
         CommaToken,
         PlusToken,
         MinusToken,
@@ -42,9 +43,16 @@
         WhileKeyword,
         DoKeyword,
         ForKeyword,
+        FunctionKeyword,
 
-        //Misc
+        //Nodes
         CompilationUnit,
+        TypeClause,
+        ReturnTypeClause,
+        ElseClause,
+        GlobalStatement,
+        FunctionDeclaration,
+        Parameter,
 
         //Expressions
         LiteralExpression,
@@ -60,7 +68,6 @@
         ExpressionStatement,
         VariableDeclarationStatement,
         IfStatement,
-        ElseClause,
         WhileStatement,
         DoWhileStatement,
         ForStatement,

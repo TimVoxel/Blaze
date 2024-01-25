@@ -1,24 +1,31 @@
 ﻿using DPP_Compiler.SyntaxTokens;
+using System.Collections.Immutable;
 
 namespace DPP_Compiler.Syntax_Nodes
 {
     public sealed class CompilationUnitSyntax : SyntaxNode
     {
-        public StatementSyntax Statement { get; private set; }
+        public ImmutableArray<MemberSyntax> Members { get; private set; }
         public SyntaxToken EndOfFileToken { get; private set; }
 
         public override SyntaxKind Kind => SyntaxKind.CompilationUnit;
 
-        public CompilationUnitSyntax(StatementSyntax expression, SyntaxToken endOfFileToken)
+        public CompilationUnitSyntax(ImmutableArray<MemberSyntax> members, SyntaxToken endOfFileToken)
         {
-            Statement = expression;
+            Members = members;
             EndOfFileToken = endOfFileToken;
         }
 
         public override IEnumerable<SyntaxNode> GetChildren()
         {
-            yield return Statement;
+            foreach (MemberSyntax member in Members)
+                yield return member;
             yield return EndOfFileToken;
         }
+    }
+
+    public abstract class MemberSyntax : SyntaxNode
+    {
+
     }
 }

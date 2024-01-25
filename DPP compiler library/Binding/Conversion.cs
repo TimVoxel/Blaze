@@ -12,7 +12,7 @@ namespace DPP_Compiler.Binding
         public bool Exists { get; private set; }
         public bool IsIdentity { get; private set; }
         public bool IsImplicit { get; private set; }
-        public bool IsExplicit => Exists && IsImplicit;
+        public bool IsExplicit => Exists && !IsImplicit;                  
 
         public Conversion(bool exists, bool isIdentity, bool isImplicit)
         {

@@ -1,37 +1,41 @@
 ﻿using DPP_Compiler.Binding;
 using DPP_Compiler.Symbols;
+using System.Collections.Immutable;
 
 namespace DPP_Compiler.Miscellaneuos
 {
-
     internal class Evaluator
     {
+        private readonly ImmutableDictionary<FunctionSymbol, BoundBlockStatement> _functionBodies;
         private readonly BoundBlockStatement _root;
-        private readonly Dictionary<VariableSymbol, object?> _variables;
+        private readonly Dictionary<VariableSymbol, object?> _globals;
+        private readonly Stack<Dictionary<VariableSymbol, object?>> _locals = new Stack<Dictionary<VariableSymbol, object?>>();
         private Random? _random;
 
         private object? _lastValue;
 
-        internal Evaluator(BoundBlockStatement root, Dictionary<VariableSymbol, object?> variables)
+        internal Evaluator(ImmutableDictionary<FunctionSymbol, BoundBlockStatement> functionBodies, BoundBlockStatement root, Dictionary<VariableSymbol, object?> variables)
         {
+            _functionBodies = functionBodies;
             _root = root;
-            _variables = variables;
+            _globals = variables;
             _lastValue = 0;
         }
 
-        public object? Evaluate()
+        public object? Evaluate() => EvaluateStatement(_root);
+
+        private object? EvaluateStatement(BoundBlockStatement body)
         {
+
             Dictionary<BoundLabel, int> labelToIndex = new Dictionary<BoundLabel, int>();
 
-            for (int i = 0; i < _root.Statements.Length; i++)
-            {
-                if (_root.Statements[i] is BoundLabelStatement l)
+            for (int i = 0; i < body.Statements.Length; i++)
+                if (body.Statements[i] is BoundLabelStatement l)
                     labelToIndex.Add(l.Label, i + 1);
-            }
 
-            for (int i = 0; i < _root.Statements.Length; i++)
+            for (int i = 0; i < body.Statements.Length; i++)
             {
-                BoundStatement statement = _root.Statements[i];
+                BoundStatement statement = body.Statements[i];
 
                 switch (statement.Kind)
                 {
@@ -49,7 +53,7 @@ namespace DPP_Compiler.Miscellaneuos
                         BoundConditionalGotoStatement conditional = (BoundConditionalGotoStatement)statement;
                         object? evaluated = EvaluateExpression(conditional.Condition);
                         if (evaluated == null) break;
-                        bool condition = (bool) evaluated;
+                        bool condition = (bool)evaluated;
                         if (condition && !conditional.JumpIfFalse || !condition && conditional.JumpIfFalse)
                             i = labelToIndex[conditional.Label] - 1;
                         break;
@@ -59,7 +63,7 @@ namespace DPP_Compiler.Miscellaneuos
                         throw new Exception($"Unexpected node {statement.Kind}");
                 }
             }
-            
+
             return _lastValue;
         }
 
@@ -109,8 +113,8 @@ namespace DPP_Compiler.Miscellaneuos
         private void EvaluateVariableDeclarationStatement(BoundVariableDeclarationStatement node)
         {
             object? value = EvaluateExpression(node.Initializer);
-            _variables[node.Variable] = value;
             _lastValue = value;
+            Assign(node.Variable, value);
         }
 
         private void EvaluateExpressionStatement(BoundExpressionStatement statement)
@@ -170,7 +174,7 @@ namespace DPP_Compiler.Miscellaneuos
                 return Console.ReadLine();
             else if (node.Function == BuiltInFunction.Print)
             {
-                string? message = (string?) EvaluateExpression(node.Arguments[0]);
+                string? message = (string?)EvaluateExpression(node.Arguments[0]);
                 if (message != null)
                     Console.WriteLine(message);
                 return null;
@@ -179,7 +183,7 @@ namespace DPP_Compiler.Miscellaneuos
             {
                 if (_random == null)
                     _random = new Random();
-                int? origin = (int?) EvaluateExpression(node.Arguments[0]);
+                int? origin = (int?)EvaluateExpression(node.Arguments[0]);
                 int? bound = (int?)EvaluateExpression(node.Arguments[1]);
                 if (origin == null || bound == null)
                     return null;
@@ -187,24 +191,48 @@ namespace DPP_Compiler.Miscellaneuos
                 return value;
             }
             else
-                throw new Exception($"Unexpected function {node.Function.Name}");
+            {
+                if (node.Function.Declaration == null) return null;
+
+                Dictionary<VariableSymbol, object?> locals = new Dictionary<VariableSymbol, object?>();
+                for (int i = 0; i < node.Arguments.Length; i++)
+                {
+                    ParameterSymbol parameter = node.Function.Parameters[i];
+                    object? value = EvaluateExpression(node.Arguments[i]);
+                    locals.Add(parameter, value);
+                }
+
+                _locals.Push(locals);
+                BoundBlockStatement statement = _functionBodies[node.Function];
+                object? result = EvaluateStatement(statement);
+                _locals.Pop();
+                return result;
+            }
         }
 
         private object EvaluateLiteral(BoundLiteralExpression literal) => literal.Value;
-        
-        private object EvaluateVariableExpression(BoundVariableExpression variable)
+
+        private object? EvaluateVariableExpression(BoundVariableExpression variable)
         {
-            object? value = _variables[variable.Variable];
-            if (value == null)
-                throw new Exception("Unassigned variable");
-            return value;
+            if (variable.Variable.Kind == SymbolKind.GlobalVariable)
+                return _globals[variable.Variable];
+
+            return _locals.Peek()[variable.Variable];
         }
 
         private object? EvaluateAssignmentExpression(BoundAssignmentExpression assignment)
         {
             object? value = EvaluateExpression(assignment.Expression);
-            _variables[assignment.Variable] = value;
+            Assign(assignment.Variable, value);
             return value;
+        }
+
+        private void Assign(VariableSymbol variable, object? value)
+        {
+            if (variable.Kind == SymbolKind.GlobalVariable)
+                _globals[variable] = value;
+            else
+                _locals.Peek()[variable] = value;
         }
 
         private object? EvaluateUnaryExpression(BoundUnaryExpression unary)

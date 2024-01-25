@@ -100,7 +100,7 @@ namespace DPP_Compiler.Tests
         {
             SyntaxTree syntaxTree = SyntaxTree.Parse(text);
             CompilationUnitSyntax root = syntaxTree.Root;
-            StatementSyntax statement = root.Statement;
+            StatementSyntax statement = root.Members;
             return Assert.IsType<ExpressionStatementSyntax>(statement).Expression;
         }
 
