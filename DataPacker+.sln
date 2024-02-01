@@ -5,9 +5,9 @@ VisualStudioVersion = 17.7.34024.191
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "DPP compiler", "DPP compiler library\DPP compiler.csproj", "{0D596CD1-CBA7-4169-9C1E-D482F2B6525A}"
 EndProject
-Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Test Program", "Test Program\Test Program.csproj", "{68C705B2-8C56-462E-AAFE-9599824CD918}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Repl experience", "Test Program\Repl experience.csproj", "{68C705B2-8C56-462E-AAFE-9599824CD918}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Compiler Tests", "Compiler Tests\Compiler Tests.csproj", "{67B2D08F-A793-42EA-9FD1-CFF9924E9DC5}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Compiler Tests", "Compiler Tests\Compiler Tests.csproj", "{67B2D08F-A793-42EA-9FD1-CFF9924E9DC5}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution

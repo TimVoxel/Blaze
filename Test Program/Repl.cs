@@ -1,7 +1,7 @@
 ﻿using System.Collections.ObjectModel;
 using System.Collections.Specialized;
 
-namespace TestProgram
+namespace ReplExperience
 {
     internal abstract class Repl
     {

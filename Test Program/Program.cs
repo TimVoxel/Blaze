@@ -1,4 +1,4 @@
-﻿namespace TestProgram
+﻿namespace ReplExperience
 {
     internal static class Program
     {

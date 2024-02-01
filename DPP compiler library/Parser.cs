@@ -42,7 +42,7 @@ namespace DPP_Compiler
                 return Consume();
 
             _diagnostics.ReportUnexpectedToken(Current.Span, Current.Kind, kind);
-            return new SyntaxToken(kind, _position++, null, null);
+            return new SyntaxToken(kind, Current.Position, null, null);
         }
 
         private SyntaxToken Consume()
@@ -356,19 +356,18 @@ namespace DPP_Compiler
         private SeparatedSyntaxList<ExpressionSyntax> ParseArguments()
         {
             ImmutableArray<SyntaxNode>.Builder nodesAndSeparators = ImmutableArray.CreateBuilder<SyntaxNode>();
-            while (Current.Kind != SyntaxKind.CloseParenToken && Current.Kind != SyntaxKind.EndOfFileToken)
+            bool done = false;
+            while (!done && Current.Kind != SyntaxKind.CloseParenToken && Current.Kind != SyntaxKind.EndOfFileToken)
             {
-                SyntaxToken startToken = Current;
                 nodesAndSeparators.Add(ParseExpression());
 
-                if (Current.Kind != SyntaxKind.CloseParenToken)
+                if (Current.Kind == SyntaxKind.CommaToken)
                 {
                     SyntaxToken comma = TryConsume(SyntaxKind.CommaToken);
                     nodesAndSeparators.Add(comma);
                 }
-
-                if (Current == startToken)
-                    Consume();
+                else
+                    done = true;
             }
             return new SeparatedSyntaxList<ExpressionSyntax>(nodesAndSeparators.ToImmutable());
         }
@@ -376,17 +375,20 @@ namespace DPP_Compiler
         private SeparatedSyntaxList<ParameterSyntax> ParseParameters()
         {
             ImmutableArray<SyntaxNode>.Builder nodesAndSeparators = ImmutableArray.CreateBuilder<SyntaxNode>();
-            while (Current.Kind != SyntaxKind.CloseParenToken && Current.Kind != SyntaxKind.EndOfFileToken)
+            bool done = false;
+            while (!done && Current.Kind != SyntaxKind.CloseParenToken && Current.Kind != SyntaxKind.EndOfFileToken)
             {
                 TypeClauseSyntax typeClause = ParseTypeClause();
                 SyntaxToken identifier = TryConsume(SyntaxKind.IdentifierToken);
                 nodesAndSeparators.Add(new ParameterSyntax(typeClause, identifier));
 
-                if (Current.Kind != SyntaxKind.CloseParenToken)
+                if (Current.Kind == SyntaxKind.CommaToken)
                 {
                     SyntaxToken comma = TryConsume(SyntaxKind.CommaToken);
                     nodesAndSeparators.Add(comma);
                 }
+                else
+                    done = true;
             }
             return new SeparatedSyntaxList<ParameterSyntax>(nodesAndSeparators.ToImmutable());
         }

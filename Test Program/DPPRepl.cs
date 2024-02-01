@@ -4,7 +4,7 @@ using DPP_Compiler.Symbols;
 using DPP_Compiler.SyntaxTokens;
 using DPP_Compiler.Text;
 
-namespace TestProgram
+namespace ReplExperience
 {
     internal sealed class DPPRepl : Repl
     {
@@ -55,7 +55,7 @@ namespace TestProgram
             else
             {
                 SourceText text = syntaxTree.Text;
-                foreach (Diagnostic diagnostic in diagnostics)
+                foreach (Diagnostic diagnostic in diagnostics.OrderBy(d => d.Span, new TextSpanComparer()))
                 {
                     int lineIndex = text.GetLineIndex(diagnostic.Span.Start);
                     TextLine line = text.Lines[lineIndex];
