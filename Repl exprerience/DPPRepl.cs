@@ -37,14 +37,15 @@ namespace ReplExperience
         {
             SyntaxTree syntaxTree = SyntaxTree.Parse(inputText);
             Compilation compilation = (_previous == null) ? new Compilation(syntaxTree) : _previous.ContinueWith(syntaxTree);
-            EvaluationResult result = compilation.Evaluate(_variables);
-            IReadOnlyList<Diagnostic> diagnostics = result.Diagnostics;
 
             if (_showTree)
                 syntaxTree.Root.WriteTo(Console.Out);
 
             if (_showProgram)
                 compilation.EmitTree(Console.Out);
+
+            EvaluationResult result = compilation.Evaluate(_variables);
+            IReadOnlyList<Diagnostic> diagnostics = result.Diagnostics;
 
             if (!diagnostics.Any())
             {

@@ -17,11 +17,5 @@ namespace DPP_Compiler.Binding
             Operator = op;
             Right = right;
         }
-
-        public override IEnumerable<BoundNode> GetChildren()
-        {
-            yield return Left;
-            yield return Right;
-        }
     }
 }

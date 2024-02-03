@@ -13,10 +13,5 @@ namespace DPP_Compiler.Binding
         {
             Variable = symbol;
         }
-
-        public override IEnumerable<BoundNode> GetChildren()
-        {
-            return Enumerable.Empty<BoundNode>();
-        }
     }
 }

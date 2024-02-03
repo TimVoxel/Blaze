@@ -14,10 +14,5 @@ namespace DPP_Compiler.Binding
             Variable = variable;
             Initializer = initializer;
         }
-
-        public override IEnumerable<BoundNode> GetChildren()
-        {
-            yield return Initializer;
-        }
     }
 }

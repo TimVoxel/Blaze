@@ -12,11 +12,5 @@
             Condition = condition;
             Body = body;
         }
-
-        public override IEnumerable<BoundNode> GetChildren()
-        {
-            yield return Body;
-            yield return Condition;
-        }
     }
 }

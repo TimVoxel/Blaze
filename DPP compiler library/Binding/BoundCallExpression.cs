@@ -16,11 +16,5 @@ namespace DPP_Compiler.Binding
             Function = function;
             Arguments = arguments;
         }
-
-        public override IEnumerable<BoundNode> GetChildren()
-        {
-            foreach (BoundExpression expression in Arguments)
-                yield return expression;
-        }
     }
 }

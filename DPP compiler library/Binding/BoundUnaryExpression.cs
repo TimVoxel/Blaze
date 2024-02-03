@@ -15,10 +15,5 @@ namespace DPP_Compiler.Binding
             Operator = op;
             Operand = operand;
         }
-
-        public override IEnumerable<BoundNode> GetChildren()
-        {
-            yield return Operand;
-        }
     }
 }

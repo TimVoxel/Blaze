@@ -6,6 +6,5 @@ namespace DPP_Compiler.Binding
     {
         public override TypeSymbol Type => TypeSymbol.Error;
         public override BoundNodeKind Kind => BoundNodeKind.ErrorExpression;
-        public override IEnumerable<BoundNode> GetChildren() => Enumerable.Empty<BoundNode>();
     }
 }

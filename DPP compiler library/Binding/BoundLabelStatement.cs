@@ -10,7 +10,5 @@
         {
             Label = label;
         }
-
-        public override IEnumerable<BoundNode> GetChildren() => Enumerable.Empty<BoundNode>();
     }
 }

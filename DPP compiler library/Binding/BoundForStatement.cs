@@ -18,12 +18,5 @@ namespace DPP_Compiler.Binding
             UpperBound = upperBound;
             Body = body;
         }
-
-        public override IEnumerable<BoundNode> GetChildren()
-        {
-            yield return LowerBound;
-            yield return UpperBound;
-            yield return Body;
-        }
     }
 }

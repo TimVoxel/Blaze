@@ -12,11 +12,5 @@ namespace DPP_Compiler.Binding
         {
             Statements = statements;
         }
-
-        public override IEnumerable<BoundNode> GetChildren()
-        {
-            foreach (BoundStatement statement in Statements)
-                yield return statement;
-        }
     }
 }

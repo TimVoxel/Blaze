@@ -14,10 +14,5 @@
             Condition = condition;
             JumpIfFalse = jumpIfFalse;
         }
-
-        public override IEnumerable<BoundNode> GetChildren()
-        {
-            yield return Condition;
-        }
     }
 }
