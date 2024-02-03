@@ -141,9 +141,6 @@ namespace DPP_Compiler.Binding
             if (returnType == null)
                 returnType = TypeSymbol.Void;
 
-            if (returnType != TypeSymbol.Void)
-                _diagnostics.ReportFunctionsAreUnsupported(declaration.Span);
-
             FunctionSymbol function = new FunctionSymbol(declaration.Identifier.Text, parameters.ToImmutable(), returnType, declaration);
             if (!_scope.TryDeclareFunction(function))
                 _diagnostics.ReportFunctionAlreadyDeclared(declaration.Identifier.Span, function.Name);
@@ -171,6 +168,8 @@ namespace DPP_Compiler.Binding
                     return BindBreakStatement((BreakStatementSyntax)syntax);
                 case SyntaxKind.ContinueStatement:
                     return BindContinueStatement((ContinueStatementSyntax)syntax);
+                case SyntaxKind.ReturnStatement:
+                    return BindReturnStatement((ReturnStatementSyntax)syntax);
                 default:
                     throw new Exception($"Unexpected syntax {syntax.Kind}");
             }
@@ -238,7 +237,33 @@ namespace DPP_Compiler.Binding
 
             return new BoundForStatement(variable, lowerBound, upperBound, body, breakLabel, continueLabel);
         }
-        
+
+        private BoundStatement BindReturnStatement(ReturnStatementSyntax syntax)
+        {
+            BoundExpression? expression = (syntax.Expression == null) ? null : BindExpression(syntax.Expression);
+
+            if (_function == null)
+            {
+                _diagnostics.ReportReturnOutsideFunction(syntax.Keyword.Span);
+            }
+            else
+            {
+                if (_function.ReturnType == TypeSymbol.Void)
+                {
+                    if (syntax.Expression != null)
+                        _diagnostics.ReportInvalidReturnExpression(syntax.Expression.Span, _function.Name);
+                }
+                else
+                {
+                    if (syntax.Expression == null || expression == null)
+                        _diagnostics.ReportMissingReturnExpression(syntax.Keyword.Span, _function.Name, _function.ReturnType);
+                    else
+                        expression = BindConversion(expression, _function.ReturnType, syntax.Expression.Span);
+                }
+            }
+            return new BoundReturnStatement(expression);
+        }
+
         private BoundStatement BindLoopBody(StatementSyntax body, out BoundLabel breakLabel, out BoundLabel continueLabel)
         {
             _labelCounter++;
@@ -406,6 +431,7 @@ namespace DPP_Compiler.Binding
                 _diagnostics.ReportWrongArgumentCount(expression.Span, function.Name, function.Parameters.Length, expression.Arguments.Count);
                 return new BoundErrorExpression();
             }
+            bool hasErrors = false;
             for (int i = 0; i < expression.Arguments.Count; i++)
             {
                 ParameterSymbol parameter = function.Parameters[i];
@@ -413,10 +439,14 @@ namespace DPP_Compiler.Binding
 
                 if (boundArgument.Type != parameter.Type)
                 {
-                    _diagnostics.ReportWrongArgumentType(expression.Arguments[i].Span, function.Name, parameter.Name, parameter.Type, boundArgument.Type);
-                    return new BoundErrorExpression();
+                    if (boundArgument.Type != TypeSymbol.Error)
+                        _diagnostics.ReportWrongArgumentType(expression.Arguments[i].Span, function.Name, parameter.Name, parameter.Type, boundArgument.Type);
+                    hasErrors = true;
                 }
             }
+            if (hasErrors)
+                return new BoundErrorExpression();
+
             return new BoundCallExpression(function, boundArguments.ToImmutable());
         }
         

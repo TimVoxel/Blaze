@@ -55,6 +55,10 @@ namespace DPP_Compiler.Miscellaneuos
                         break;
                     case BoundNodeKind.LabelStatement:
                         break;
+                    case BoundNodeKind.ReturnStatement:
+                        BoundReturnStatement returnStatement = (BoundReturnStatement)statement;
+                        _lastValue = returnStatement.Expression == null ? null : EvaluateExpression(returnStatement.Expression);
+                        return _lastValue;
                     default:
                         throw new Exception($"Unexpected node {statement.Kind}");
                 }

@@ -117,11 +117,6 @@ namespace DPP_Compiler.Diagnostics
             Report(span, message);
         }
 
-        public void ReportFunctionsAreUnsupported(TextSpan span)
-        {
-            Report(span, "Functions are unsupported for now");
-        }
-
         public void ReportFunctionAlreadyDeclared(TextSpan span, string name)
         {
             string message = $"Function \"{name}\" is already declared ";
@@ -131,6 +126,24 @@ namespace DPP_Compiler.Diagnostics
         public void ReportInvalidBreakOrContinue(TextSpan span, string text)
         {
             string message = $"No enclosing loop of which to {text}";
+            Report(span, message);
+        }
+
+        internal void ReportReturnOutsideFunction(TextSpan span)
+        {
+            string message = "Return statements can't be used outside of functions";
+            Report(span, message);
+        }
+
+        public void ReportInvalidReturnExpression(TextSpan span, string functionName)
+        {
+            string message = $"Function \"{functionName}\" does not return a value, return can not be followed by an expression";
+            Report(span, message);
+        }
+
+        public void ReportMissingReturnExpression(TextSpan span, string functionName, TypeSymbol typeSymbol)
+        {
+            string message = $"Function \"{functionName}\" must return a value of type {typeSymbol}, but no expression was given after return";
             Report(span, message);
         }
     }

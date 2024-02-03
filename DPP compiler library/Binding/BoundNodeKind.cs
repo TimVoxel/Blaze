@@ -23,5 +23,6 @@
         WhileStatement,
         DoWhileStatement,
         ForStatement,
+        ReturnStatement,
     }
 }

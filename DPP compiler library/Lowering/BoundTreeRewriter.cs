@@ -29,6 +29,8 @@ namespace DPP_Compiler.Lowering
                     return RewriteConditionalLabelStatement((BoundConditionalGotoStatement)node);
                 case BoundNodeKind.GoToStatement:
                     return RewriteGotoStatement((BoundGotoStatement)node);
+                case BoundNodeKind.ReturnStatement:
+                    return RewriteReturnStatement((BoundReturnStatement)node);
                 default:
                     throw new Exception($"Unexpected node {node.Kind}");
             }
@@ -81,6 +83,18 @@ namespace DPP_Compiler.Lowering
                 return node;
 
             return new BoundBlockStatement(builder.MoveToImmutable());
+        }
+
+        protected virtual BoundStatement RewriteReturnStatement(BoundReturnStatement node)
+        {
+            if (node.Expression == null)
+                return node;
+
+            BoundExpression rewrittenExression = RewriteExpression(node.Expression);
+            if (node.Expression == rewrittenExression)
+                return node;
+
+            return new BoundReturnStatement(rewrittenExression);
         }
 
         protected virtual BoundStatement RewriteExpressionStatement(BoundExpressionStatement node)

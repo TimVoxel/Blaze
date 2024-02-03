@@ -46,6 +46,7 @@
         BreakKeyword,
         ContinueKeyword,
         FunctionKeyword,
+        ReturnKeyword,
 
         //Nodes
         CompilationUnit,
@@ -75,5 +76,6 @@
         ForStatement,
         BreakStatement,
         ContinueStatement,
+        ReturnStatement
     }
 }

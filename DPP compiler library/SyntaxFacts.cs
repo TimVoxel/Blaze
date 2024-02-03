@@ -74,6 +74,8 @@ namespace DPP_Compiler
                     return SyntaxKind.ContinueKeyword;
                 case "function":
                     return SyntaxKind.FunctionKeyword;
+                case "return":
+                    return SyntaxKind.ReturnKeyword;
                 default: 
                     return SyntaxKind.IdentifierToken;
             }
@@ -119,6 +121,8 @@ namespace DPP_Compiler
                     return "continue";
                 case SyntaxKind.FunctionKeyword:
                     return "function";
+                case SyntaxKind.ReturnKeyword:
+                    return "return";
                 case SyntaxKind.SemicolonToken:
                     return ";";
                 case SyntaxKind.ColonToken:

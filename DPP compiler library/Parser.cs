@@ -134,6 +134,8 @@ namespace DPP_Compiler
                     return ParseBreakStatement();
                 case SyntaxKind.ContinueKeyword:
                     return ParseContinueStatement();
+                case SyntaxKind.ReturnKeyword:
+                    return ParseReturnStatement();
                 default:
                     {
                         if (Next.Kind == SyntaxKind.IdentifierToken)
@@ -141,6 +143,17 @@ namespace DPP_Compiler
                         return ParseExpressionStatement();
                     } 
             }
+        }
+
+        private StatementSyntax ParseReturnStatement()
+        {
+            SyntaxToken returnKeyword = TryConsume(SyntaxKind.ReturnKeyword);
+            ExpressionSyntax? expression = null;
+            if (Current.Kind != SyntaxKind.SemicolonToken)
+                expression = ParseExpression();
+
+            SyntaxToken semicolon = TryConsume(SyntaxKind.SemicolonToken);
+            return new ReturnStatementSyntax(returnKeyword, expression, semicolon);
         }
 
         private StatementSyntax ParseIfStatement()
