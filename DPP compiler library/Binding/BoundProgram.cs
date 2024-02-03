@@ -6,15 +6,15 @@ namespace DPP_Compiler.Binding
 {
     internal class BoundProgram
     {
-        public BoundGlobalScope GlobalScope { get; private set; }
-        public DiagnosticBag Diagnostics { get; private set; }
-        public ImmutableDictionary<FunctionSymbol, BoundBlockStatement> FunctionBodies { get; private set; }
+        public ImmutableArray<Diagnostic> Diagnostics { get; private set; }
+        public ImmutableDictionary<FunctionSymbol, BoundBlockStatement> Functions { get; private set; }
+        public BoundBlockStatement Statement { get; private set; }
 
-        public BoundProgram(BoundGlobalScope globalScope, DiagnosticBag diagnostics, ImmutableDictionary<FunctionSymbol, BoundBlockStatement> immutableDictionary)
+        public BoundProgram(ImmutableArray<Diagnostic> diagnostics, ImmutableDictionary<FunctionSymbol, BoundBlockStatement> functions, BoundBlockStatement statement)
         {
-            GlobalScope = globalScope;
             Diagnostics = diagnostics;
-            FunctionBodies = immutableDictionary;
+            Functions = functions;
+            Statement = statement;
         }
     }
 }

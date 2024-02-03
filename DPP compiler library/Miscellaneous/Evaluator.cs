@@ -1,32 +1,28 @@
 ﻿using DPP_Compiler.Binding;
 using DPP_Compiler.Symbols;
-using System.Collections.Immutable;
 
 namespace DPP_Compiler.Miscellaneuos
 {
     internal class Evaluator
     {
-        private readonly ImmutableDictionary<FunctionSymbol, BoundBlockStatement> _functionBodies;
-        private readonly BoundBlockStatement _root;
+        private readonly BoundProgram _program;
         private readonly Dictionary<VariableSymbol, object?> _globals;
         private readonly Stack<Dictionary<VariableSymbol, object?>> _locals = new Stack<Dictionary<VariableSymbol, object?>>();
         private Random? _random;
 
         private object? _lastValue;
 
-        internal Evaluator(ImmutableDictionary<FunctionSymbol, BoundBlockStatement> functionBodies, BoundBlockStatement root, Dictionary<VariableSymbol, object?> variables)
+        internal Evaluator(BoundProgram program, Dictionary<VariableSymbol, object?> variables)
         {
-            _functionBodies = functionBodies;
-            _root = root;
+            _program = program;
             _globals = variables;
             _lastValue = 0;
         }
 
-        public object? Evaluate() => EvaluateStatement(_root);
+        public object? Evaluate() => EvaluateStatement(_program.Statement);
 
         private object? EvaluateStatement(BoundBlockStatement body)
         {
-
             Dictionary<BoundLabel, int> labelToIndex = new Dictionary<BoundLabel, int>();
 
             for (int i = 0; i < body.Statements.Length; i++)
@@ -203,7 +199,7 @@ namespace DPP_Compiler.Miscellaneuos
                 }
 
                 _locals.Push(locals);
-                BoundBlockStatement statement = _functionBodies[node.Function];
+                BoundBlockStatement statement = _program.Functions[node.Function];
                 object? result = EvaluateStatement(statement);
                 _locals.Pop();
                 return result;

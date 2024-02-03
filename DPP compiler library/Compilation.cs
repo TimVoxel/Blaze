@@ -48,20 +48,27 @@ namespace DPP_Compiler
             if (program.Diagnostics.Any())
                 return new EvaluationResult(program.Diagnostics.ToImmutableArray(), null);
 
-            Evaluator evaluator = new Evaluator(program.FunctionBodies, GetLoweredStatement(), variables);
+            Evaluator evaluator = new Evaluator(program, variables);
             object? value = evaluator.Evaluate();
             return new EvaluationResult(ImmutableArray<Diagnostic>.Empty, value);
         }
 
         public void EmitTree(TextWriter writer)
         {
-            GetLoweredStatement().WriteTo(writer);
-        }
+            BoundProgram program = Binder.BindProgram(GlobalScope);
 
-        private BoundBlockStatement GetLoweredStatement()
-        {
-            BoundStatement result = GlobalScope.Statement;
-            return Lowerer.Lower(result);
+            if (program.Statement.Statements.Any())
+                program.Statement.WriteTo(writer);
+            else
+            {
+                foreach (var functionBody in program.Functions)
+                {
+                    if (!GlobalScope.Functions.Contains(functionBody.Key))
+                        continue;
+                    functionBody.Key.WriteTo(writer);
+                    functionBody.Value.WriteTo(writer);
+                }
+            }
         }
     }
 }

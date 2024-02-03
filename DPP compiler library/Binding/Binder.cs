@@ -39,10 +39,12 @@ namespace DPP_Compiler.Binding
                 binder.BindFunctionDeclaration(function);
 
             //Bind global statements
-            ImmutableArray<BoundStatement>.Builder statementBuilder = ImmutableArray.CreateBuilder<BoundStatement>();
-            foreach (GlobalStatementSyntax globalStatement in syntax.Members.OfType<GlobalStatementSyntax>())
-                statementBuilder.Add(binder.BindStatement(globalStatement.Statement));
-            BoundStatement statement = new BoundBlockStatement(statementBuilder.ToImmutable());
+            ImmutableArray<BoundStatement>.Builder statements = ImmutableArray.CreateBuilder<BoundStatement>();
+            foreach (var globalStatement in syntax.Members.OfType<GlobalStatementSyntax>())
+            {
+                BoundStatement statement = binder.BindStatement(globalStatement.Statement);
+                statements.Add(statement);
+            }
 
             ImmutableArray<FunctionSymbol> functions = binder._scope.GetDeclaredFunctions();
             ImmutableArray<VariableSymbol> variables = binder._scope.GetDeclaredVariables();
@@ -51,7 +53,7 @@ namespace DPP_Compiler.Binding
             if (previous != null)
                 diagnostics = diagnostics.InsertRange(0, previous.Diagnostics);
 
-            return new BoundGlobalScope(previous, diagnostics, variables, functions, statement);
+            return new BoundGlobalScope(previous, diagnostics, variables, functions, statements.ToImmutable());
         }
 
         private static BoundScope? CreateParentScope(BoundGlobalScope? previous)
@@ -93,7 +95,8 @@ namespace DPP_Compiler.Binding
         {
             BoundScope? parentScope = CreateParentScope(globalScope);
             ImmutableDictionary<FunctionSymbol, BoundBlockStatement>.Builder functionBodies = ImmutableDictionary.CreateBuilder<FunctionSymbol, BoundBlockStatement>();
-            DiagnosticBag diagnostics = new DiagnosticBag();
+           
+            ImmutableArray<Diagnostic>.Builder diagnostics = ImmutableArray.CreateBuilder<Diagnostic>();
 
             BoundGlobalScope? scope = globalScope;
             while (scope != null)
@@ -111,8 +114,9 @@ namespace DPP_Compiler.Binding
                 }
                 scope = scope.Previous;
             }
-        
-            return new BoundProgram(globalScope, diagnostics, functionBodies.ToImmutable());
+
+            BoundBlockStatement statement = Lowerer.Lower(new BoundBlockStatement(globalScope.Statements));
+            return new BoundProgram(diagnostics.ToImmutable(), functionBodies.ToImmutable(), statement);
         }
 
         private void BindFunctionDeclaration(FunctionDeclarationSyntax declaration)
