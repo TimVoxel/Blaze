@@ -12,6 +12,10 @@ namespace DPP_Compiler.Binding
     {
         private readonly DiagnosticBag _diagnostics = new DiagnosticBag();
         private readonly FunctionSymbol? _function;
+
+        private Stack<(BoundLabel breakLabel, BoundLabel continueLabel)> _loopStack = new Stack<(BoundLabel breakLabel, BoundLabel continueLabel)>();
+        private int _labelCounter = 0;
+
         private BoundScope _scope;
 
         public DiagnosticBag Diagnostics => _diagnostics;
@@ -159,16 +163,13 @@ namespace DPP_Compiler.Binding
                     return BindForStatement((ForStatementSyntax)syntax);
                 case SyntaxKind.DoWhileStatement:
                     return BindDoWhileStatement((DoWhileStatementSyntax)syntax);
+                case SyntaxKind.BreakStatement:
+                    return BindBreakStatement((BreakStatementSyntax)syntax);
+                case SyntaxKind.ContinueStatement:
+                    return BindContinueStatement((ContinueStatementSyntax)syntax);
                 default:
                     throw new Exception($"Unexpected syntax {syntax.Kind}");
             }
-        }
-
-        private BoundStatement BindDoWhileStatement(DoWhileStatementSyntax syntax)
-        {
-            BoundStatement body = BindStatement(syntax.Body);
-            BoundExpression condition = BindExpression(syntax.Condition);
-            return new BoundDoWhileStatement(body, condition); 
         }
 
         private BoundStatement BindVariableDeclarationStatement(VariableDeclarationStatementSyntax syntax)
@@ -207,8 +208,15 @@ namespace DPP_Compiler.Binding
         private BoundStatement BindWhileStatement(WhileStatementSyntax syntax)
         {
             BoundExpression boundCondition = BindExpression(syntax.Condition, TypeSymbol.Bool);
-            BoundStatement body = BindStatement(syntax.Body);
-            return new BoundWhileStatement(boundCondition, body);
+            BoundStatement body = BindLoopBody(syntax.Body, out BoundLabel breakLabel, out BoundLabel continueLabel);
+            return new BoundWhileStatement(boundCondition, body, breakLabel, continueLabel);
+        }
+
+        private BoundStatement BindDoWhileStatement(DoWhileStatementSyntax syntax)
+        {
+            BoundStatement body = BindLoopBody(syntax.Body, out BoundLabel breakLabel, out BoundLabel continueLabel);
+            BoundExpression condition = BindExpression(syntax.Condition);
+            return new BoundDoWhileStatement(body, condition, breakLabel, continueLabel);
         }
 
         private BoundStatement BindForStatement(ForStatementSyntax syntax)
@@ -220,11 +228,45 @@ namespace DPP_Compiler.Binding
             _scope = new BoundScope(previous);
 
             VariableSymbol variable = BindVariable(syntax.Identifier, TypeSymbol.Int);
-            BoundStatement body = BindStatement(syntax.Body);
+            BoundStatement body = BindLoopBody(syntax.Body, out BoundLabel breakLabel, out BoundLabel continueLabel);
 
             _scope = previous;
-            
-            return new BoundForStatement(variable, lowerBound, upperBound, body);
+
+            return new BoundForStatement(variable, lowerBound, upperBound, body, breakLabel, continueLabel);
+        }
+        
+        private BoundStatement BindLoopBody(StatementSyntax body, out BoundLabel breakLabel, out BoundLabel continueLabel)
+        {
+            _labelCounter++;
+            breakLabel = new BoundLabel($"break{_labelCounter}");
+            continueLabel = new BoundLabel($"continue{_labelCounter}");
+
+            _loopStack.Push((breakLabel, continueLabel));
+            BoundStatement boundBody = BindStatement(body);
+            _loopStack.Pop();
+            return boundBody;
+        }
+
+        private BoundStatement BindBreakStatement(BreakStatementSyntax syntax)
+        {
+            if (_loopStack.Count == 0)
+            {
+                _diagnostics.ReportInvalidBreakOrContinue(syntax.Keyword.Span, syntax.Keyword.Text);
+                return BindErrorStatement();
+            }
+            BoundLabel breakLabel = _loopStack.Peek().breakLabel;
+            return new BoundGotoStatement(breakLabel);
+        }
+
+        private BoundStatement BindContinueStatement(ContinueStatementSyntax syntax)
+        {
+            if (_loopStack.Count == 0)
+            {
+                _diagnostics.ReportInvalidBreakOrContinue(syntax.Keyword.Span, syntax.Keyword.Text);
+                return BindErrorStatement();
+            }
+            BoundLabel continueLabel = _loopStack.Peek().continueLabel;
+            return new BoundGotoStatement(continueLabel);
         }
 
         private BoundStatement BindBlockStatement(BlockStatementSyntax syntax)
@@ -244,6 +286,8 @@ namespace DPP_Compiler.Binding
 
             return new BoundBlockStatement(boundStatements.ToImmutable());
         }
+
+        private BoundStatement BindErrorStatement() => new BoundExpressionStatement(new BoundErrorExpression());
 
         private BoundExpression BindExpression(ExpressionSyntax expression, bool canBeVoid = false)
         {

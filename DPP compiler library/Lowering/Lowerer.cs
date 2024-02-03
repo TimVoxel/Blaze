@@ -79,34 +79,35 @@ namespace DPP_Compiler.Lowering
 
         protected override BoundStatement RewriteWhileStatement(BoundWhileStatement node)
         {
-            BoundLabel continueLabel = GenerateLabel();
             BoundLabel checkLabel = GenerateLabel();
-            BoundLabelStatement continueLabelStatement = new BoundLabelStatement(continueLabel);
+            BoundLabelStatement breakLabelStatement = new BoundLabelStatement(node.BreakLabel);
+            BoundLabelStatement continueLabelStatement = new BoundLabelStatement(node.ContinueLabel);
             BoundLabelStatement checkLabelStatement = new BoundLabelStatement(checkLabel);
-
             BoundGotoStatement gotoCheck = new BoundGotoStatement(checkLabel);
 
-            BoundConditionalGotoStatement gotoTrue = new BoundConditionalGotoStatement(continueLabel, node.Condition, false);
+            BoundConditionalGotoStatement gotoTrue = new BoundConditionalGotoStatement(node.ContinueLabel, node.Condition, false);
             BoundBlockStatement result = new BoundBlockStatement(ImmutableArray.Create(
                 gotoCheck,
                 continueLabelStatement,
                 node.Body,
                 checkLabelStatement,
-                gotoTrue
+                gotoTrue,
+                breakLabelStatement
             ));
             return RewriteStatement(result);
         }
 
         protected override BoundStatement RewriteDoWhileStatement(BoundDoWhileStatement node)
         {
-            BoundLabel continueLabel = GenerateLabel();
-            BoundLabelStatement continueLabelStatement = new BoundLabelStatement(continueLabel);
-
-            BoundConditionalGotoStatement gotoTrue = new BoundConditionalGotoStatement(continueLabel, node.Condition, false);
+            BoundLabelStatement breakLabelStatement = new BoundLabelStatement(node.BreakLabel);
+            BoundLabelStatement continueLabelStatement = new BoundLabelStatement(node.ContinueLabel);
+            
+            BoundConditionalGotoStatement gotoTrue = new BoundConditionalGotoStatement(node.ContinueLabel, node.Condition, false);
             BoundBlockStatement result = new BoundBlockStatement(ImmutableArray.Create(
                 continueLabelStatement,
                 node.Body,
-                gotoTrue
+                gotoTrue,
+                breakLabelStatement
             ));
             return RewriteStatement(result);
         }
@@ -125,10 +126,11 @@ namespace DPP_Compiler.Lowering
             BoundVariableExpression upperBoundExpression = new BoundVariableExpression(upperBound);
 
             BoundBinaryExpression condition = new BoundBinaryExpression(variableExpression, op, upperBoundExpression);
+            BoundLabelStatement continueLabelStatement = new BoundLabelStatement(node.ContinueLabel);
             BoundExpressionStatement increment = new BoundExpressionStatement(new BoundAssignmentExpression(node.Variable, new BoundBinaryExpression(variableExpression, plusOp, new BoundLiteralExpression(1))));
 
-            BoundBlockStatement whileBlock = new BoundBlockStatement(ImmutableArray.Create(node.Body, increment));
-            BoundWhileStatement whileStatement = new BoundWhileStatement(condition, whileBlock);
+            BoundBlockStatement whileBlock = new BoundBlockStatement(ImmutableArray.Create(node.Body, continueLabelStatement, increment));
+            BoundWhileStatement whileStatement = new BoundWhileStatement(condition, whileBlock, node.BreakLabel, GenerateLabel());
             BoundStatement result = new BoundBlockStatement(ImmutableArray.Create<BoundStatement>(
                 declarationStatement,
                 upperBoundDeclarationStatement,

@@ -68,6 +68,10 @@ namespace DPP_Compiler
                     return SyntaxKind.DoKeyword;
                 case "for":
                     return SyntaxKind.ForKeyword;
+                case "break":
+                    return SyntaxKind.BreakKeyword;
+                case "continue":
+                    return SyntaxKind.ContinueKeyword;
                 case "function":
                     return SyntaxKind.FunctionKeyword;
                 default: 
@@ -109,6 +113,10 @@ namespace DPP_Compiler
                     return "do";
                 case SyntaxKind.ForKeyword:
                     return "for";
+                case SyntaxKind.BreakKeyword:
+                    return "break";
+                case SyntaxKind.ContinueKeyword:
+                    return "continue";
                 case SyntaxKind.FunctionKeyword:
                     return "function";
                 case SyntaxKind.SemicolonToken:

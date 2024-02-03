@@ -1,16 +1,13 @@
 ﻿namespace DPP_Compiler.Binding
 {
-    internal sealed class BoundDoWhileStatement : BoundStatement
+    internal sealed class BoundDoWhileStatement : BoundLoopStatement
     {
-        public BoundStatement Body { get; private set; }
         public BoundExpression Condition { get; private set; }
-        
         public override BoundNodeKind Kind => BoundNodeKind.DoWhileStatement;
 
-        public BoundDoWhileStatement(BoundStatement body, BoundExpression condition)
+        public BoundDoWhileStatement(BoundStatement body, BoundExpression condition, BoundLabel breakLabel, BoundLabel continueLabel) : base(body, breakLabel, continueLabel)
         {
             Condition = condition;
-            Body = body;
         }
     }
 }

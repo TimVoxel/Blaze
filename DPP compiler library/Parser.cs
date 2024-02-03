@@ -130,6 +130,10 @@ namespace DPP_Compiler
                     return ParseDoWhileStatement();
                 case SyntaxKind.ForKeyword:
                     return ParseForStatement();
+                case SyntaxKind.BreakKeyword:
+                    return ParseBreakStatement();
+                case SyntaxKind.ContinueKeyword:
+                    return ParseContinueStatement();
                 default:
                     {
                         if (Next.Kind == SyntaxKind.IdentifierToken)
@@ -229,6 +233,20 @@ namespace DPP_Compiler
             ExpressionSyntax initializer = ParseExpression();
             SyntaxToken semicolon = TryConsume(SyntaxKind.SemicolonToken);
             return new VariableDeclarationStatementSyntax(declarationNode, identifierToken, equalsToken, initializer, semicolon);
+        }
+
+        private BreakStatementSyntax ParseBreakStatement()
+        {
+            SyntaxToken keyword = TryConsume(SyntaxKind.BreakKeyword);
+            SyntaxToken semicolon = TryConsume(SyntaxKind.SemicolonToken);
+            return new BreakStatementSyntax(keyword, semicolon);
+        }
+
+        private ContinueStatementSyntax ParseContinueStatement()
+        {
+            SyntaxToken keyword = TryConsume(SyntaxKind.ContinueKeyword);
+            SyntaxToken semicolon = TryConsume(SyntaxKind.SemicolonToken);
+            return new ContinueStatementSyntax(keyword, semicolon);
         }
 
         private TypeClauseSyntax ParseTypeClause()

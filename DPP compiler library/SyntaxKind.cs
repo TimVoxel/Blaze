@@ -43,6 +43,8 @@
         WhileKeyword,
         DoKeyword,
         ForKeyword,
+        BreakKeyword,
+        ContinueKeyword,
         FunctionKeyword,
 
         //Nodes
@@ -71,5 +73,7 @@
         WhileStatement,
         DoWhileStatement,
         ForStatement,
+        BreakStatement,
+        ContinueStatement,
     }
 }

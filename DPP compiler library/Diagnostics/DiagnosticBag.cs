@@ -127,5 +127,11 @@ namespace DPP_Compiler.Diagnostics
             string message = $"Function \"{name}\" is already declared ";
             Report(span, message);
         }
+
+        public void ReportInvalidBreakOrContinue(TextSpan span, string text)
+        {
+            string message = $"No enclosing loop of which to {text}";
+            Report(span, message);
+        }
     }
 }
