@@ -35,5 +35,15 @@ namespace DPP_Compiler.Binding
             }
             return null;
         } 
+
+        internal static BoundUnaryOperator SafeBind(SyntaxKind kind, TypeSymbol operandType)
+        {
+            foreach (BoundUnaryOperator unaryOperator in _operators)
+            {
+                if (unaryOperator.SyntaxKind == kind && unaryOperator.OperandType == operandType)
+                    return unaryOperator;
+            }
+            throw new Exception($"Operator for syntax {kind} and operand type {operandType} does not exist");
+        }
     }
 }

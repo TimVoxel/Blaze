@@ -1,6 +1,5 @@
 ﻿using DPP_Compiler.Binding;
 using DPP_Compiler.Diagnostics;
-using DPP_Compiler.Lowering;
 using DPP_Compiler.Miscellaneuos;
 using DPP_Compiler.Symbols;
 using System.Collections.Immutable;
@@ -45,6 +44,21 @@ namespace DPP_Compiler
                 return new EvaluationResult(diagnostics, null);
 
             BoundProgram program = Binder.BindProgram(GlobalScope);
+
+            BoundBlockStatement controlFlowGraphStatement = !program.Statement.Statements.Any() && program.Functions.Any()
+                ? program.Functions.Last().Value
+                : program.Statement;
+            ControlFlowGraph cfg = ControlFlowGraph.Create(controlFlowGraphStatement);
+
+            string appPath = Environment.GetCommandLineArgs()[0];
+            string? appDirectory = Path.GetDirectoryName(appPath);
+            if (appDirectory != null)
+            {
+                string cfgPath = Path.Combine(appDirectory, "cfg.dot");
+                using (StreamWriter writer = new StreamWriter(cfgPath))
+                    cfg.WriteTo(writer);
+            }
+
             if (program.Diagnostics.Any())
                 return new EvaluationResult(program.Diagnostics.ToImmutableArray(), null);
 

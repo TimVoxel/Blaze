@@ -146,5 +146,11 @@ namespace DPP_Compiler.Diagnostics
             string message = $"Function \"{functionName}\" must return a value of type {typeSymbol}, but no expression was given after return";
             Report(span, message);
         }
+
+        public void ReportAllPathsMustReturn(TextSpan span)
+        {
+            string message = $"Not all code paths return a value";
+            Report(span, message);
+        }
     }
 }

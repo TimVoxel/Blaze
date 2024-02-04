@@ -8,6 +8,8 @@ using System.Collections.Immutable;
 
 namespace DPP_Compiler.Binding
 {
+
+
     internal sealed class Binder
     {
         private readonly DiagnosticBag _diagnostics = new DiagnosticBag();
@@ -108,6 +110,10 @@ namespace DPP_Compiler.Binding
                     {
                         BoundStatement body = binder.BindStatement(function.Declaration.Body);
                         BoundBlockStatement loweredBody = Lowerer.Lower(body);
+
+                        if (function.ReturnType != TypeSymbol.Void && !ControlFlowGraph.AllPathsReturn(loweredBody))
+                            binder._diagnostics.ReportAllPathsMustReturn(function.Declaration.Identifier.Span);
+
                         functionBodies.Add(function, loweredBody);
                         diagnostics.AddRange(binder.Diagnostics);
                     }

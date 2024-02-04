@@ -1,7 +1,6 @@
 ﻿using DPP_Compiler.IO;
 using DPP_Compiler.Symbols;
 using System.CodeDom.Compiler;
-using System.Linq.Expressions;
 
 namespace DPP_Compiler.Binding
 {
@@ -73,9 +72,20 @@ namespace DPP_Compiler.Binding
                 case BoundNodeKind.ForStatement:
                     WriteForStatement((BoundForStatement)node, writer);
                     break;
+                case BoundNodeKind.ReturnStatement:
+                    WriteReturnStatement((BoundReturnStatement)node, writer);
+                    break;
                 default:
                     throw new Exception($"Unexpected node kind {node.Kind}");
             }
+        }
+
+        private static void WriteReturnStatement(BoundReturnStatement node, IndentedTextWriter writer)
+        {
+            writer.WriteKeyword("return ");
+            if (node.Expression != null)
+                node.Expression.WriteTo(writer);
+            writer.WriteLine();
         }
 
         private static void WriteNestedStatement(this IndentedTextWriter writer, BoundStatement node)
@@ -275,7 +285,6 @@ namespace DPP_Compiler.Binding
                 writer.WritePunctuation(operatorText);
 
             writer.WriteNestedExpression(precedence, node.Operand);
-            node.Operand.WriteTo(writer);
         }
 
         private static void WriteBinaryExpression(BoundBinaryExpression node, IndentedTextWriter writer)
