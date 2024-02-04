@@ -1,0 +1,9 @@
+{
+    print("Enter a natural n: ");
+    int n = 0;
+    n = int(input());
+    while (n > 9) {
+        n = n / 10;
+    }
+    print(string(n));
+}

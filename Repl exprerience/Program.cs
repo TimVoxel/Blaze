@@ -4,7 +4,7 @@
     {
         private static void Main()
         {
-            Repl repl = new DPPRepl();
+            Repl repl = new BlazeRepl();
             repl.Run();
         }
     }

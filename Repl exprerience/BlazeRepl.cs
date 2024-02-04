@@ -2,11 +2,11 @@
 using Blaze.Diagnostics;
 using Blaze.Symbols;
 using Blaze.SyntaxTokens;
-using Blaze.Text;
+using Blaze.IO;
 
 namespace ReplExperience
 {
-    internal sealed class DPPRepl : Repl
+    internal sealed class BlazeRepl : Repl
     {
         private Compilation? _previous;
         private bool _showTree;
@@ -54,41 +54,7 @@ namespace ReplExperience
                     Console.WriteLine(result.Value);
             }
             else
-            {
-                SourceText text = syntaxTree.Text;
-                foreach (Diagnostic diagnostic in diagnostics.OrderBy(d => d.Span, new TextSpanComparer()))
-                {
-                    int lineIndex = text.GetLineIndex(diagnostic.Span.Start);
-                    TextLine line = text.Lines[lineIndex];
-                    int lineNumber = lineIndex + 1;
-                    int character = diagnostic.Span.Start - text.Lines[lineIndex].Start + 1;
-
-                    Console.WriteLine();
-                    Console.ForegroundColor = ConsoleColor.DarkGray;
-                    Console.Write($"Line {lineNumber}, Char {character}: ");
-                    Console.WriteLine(diagnostic);
-                    Console.ResetColor();
-
-                    TextSpan prefixSpan = TextSpan.FromBounds(line.Start, diagnostic.Span.Start);
-                    TextSpan suffixSpan = TextSpan.FromBounds(diagnostic.Span.End, line.End);
-
-                    string prefix = text.ToString(prefixSpan);
-                    string error = text.ToString(diagnostic.Span);
-                    string suffix = text.ToString(suffixSpan);
-
-                    Console.Write("    ");
-                    Console.Write(prefix);
-
-                    Console.ForegroundColor = ConsoleColor.Red;
-                    Console.Write(error);
-                    Console.ResetColor();
-
-                    Console.Write(suffix);
-                    Console.WriteLine();
-                }
-                Console.WriteLine();
-                Console.ResetColor();
-            }
+                Console.Out.WriteDiagnostics(result.Diagnostics, syntaxTree);
         }
 
         protected override void EvaluateMetaCommand(string inputLine)
