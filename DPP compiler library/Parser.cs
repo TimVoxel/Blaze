@@ -136,6 +136,8 @@ namespace DPP_Compiler
                     return ParseContinueStatement();
                 case SyntaxKind.ReturnKeyword:
                     return ParseReturnStatement();
+                case SyntaxKind.OpenParenToken:
+                    return ParseExpressionStatement();
                 default:
                     {
                         if (Next.Kind == SyntaxKind.IdentifierToken)

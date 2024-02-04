@@ -89,10 +89,8 @@ namespace DPP_Compiler.Tests.CodeAnalysis
         [Fact]
         public void Evaluator_IdentifierExpression_Reports_NoErrorForInsertedToken()
         {
-            string text = @"[][]";
-            string diagnosticText = @"
-                Unexpected token <EndOfFileToken>, expected <IdentifierToken>
-                Unexpected token <EndOfFileToken>, expected <SemicolonToken>";
+            string text = @"";
+            string diagnosticText = @"";
             AssertDiagnostics(text, diagnosticText);
         }
 

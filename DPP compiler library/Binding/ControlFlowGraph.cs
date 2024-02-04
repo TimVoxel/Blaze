@@ -301,8 +301,8 @@ namespace DPP_Compiler.Binding
 
             foreach (BasicBlockBranch branch in graph.End.Incoming)
             {
-                BoundStatement last = branch.From.Statements.Last();
-                if (last.Kind != BoundNodeKind.ReturnStatement)
+                BoundStatement? last = branch.From.Statements.LastOrDefault();
+                if (last == null || last.Kind != BoundNodeKind.ReturnStatement)
                     return false;
             }
             return true;

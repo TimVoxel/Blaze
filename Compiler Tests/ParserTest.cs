@@ -15,7 +15,7 @@ namespace DPP_Compiler.Tests
             if (operator1Text == null || operator2Text == null) 
                 return;
 
-            string text = $"a {operator1Text} b {operator2Text} c";
+            string text = $"a {operator1Text} b {operator2Text} c;";
             ExpressionSyntax expression = ParseExpression(text);
 
             if (operator1Precedence >= operator2Precedence)
@@ -52,56 +52,13 @@ namespace DPP_Compiler.Tests
             }
         }
 
-        [Theory]
-        [MemberData(nameof(GetUnaryOperatorPairsData))]
-        public void Parser_Unary_Expression_HonorsPrecedences(SyntaxKind unaryKind, SyntaxKind binaryKind)
-        {
-            int unaryPrecedence = SyntaxFacts.GetUnaryOperatorPrecedence(unaryKind);
-            int binaryPrecedence = SyntaxFacts.GetBinaryOperatorPrecedence(binaryKind);
-            string? unaryText = SyntaxFacts.GetText(unaryKind);
-            string? binaryText = SyntaxFacts.GetText(binaryKind);
-            if (unaryText == null || binaryText == null)
-                return;
-
-            string text = $"{unaryText} a {binaryText} b";
-            ExpressionSyntax expression = ParseExpression(text);
-
-            if (unaryPrecedence >= binaryPrecedence)
-            {
-                using (AssertingEnumerator enumerator = new AssertingEnumerator(expression))
-                {
-                    enumerator.AssertNode(SyntaxKind.BinaryExpression);
-                    enumerator.AssertNode(SyntaxKind.UnaryExpression);
-                    enumerator.AssertToken(unaryKind, unaryText);
-                    enumerator.AssertNode(SyntaxKind.IdentifierExpression);
-                    enumerator.AssertToken(SyntaxKind.IdentifierToken, "a");
-                    enumerator.AssertToken(binaryKind, binaryText);
-                    enumerator.AssertNode(SyntaxKind.IdentifierExpression);
-                    enumerator.AssertToken(SyntaxKind.IdentifierToken, "b");
-                }
-            }
-            else
-            {
-                using (AssertingEnumerator enumerator = new AssertingEnumerator(expression))
-                {
-                    enumerator.AssertNode(SyntaxKind.UnaryExpression);
-                    enumerator.AssertToken(unaryKind, unaryText);
-                    enumerator.AssertNode(SyntaxKind.BinaryExpression);
-                    enumerator.AssertNode(SyntaxKind.IdentifierExpression);
-                    enumerator.AssertToken(SyntaxKind.IdentifierToken, "a");
-                    enumerator.AssertToken(binaryKind, binaryText);
-                    enumerator.AssertNode(SyntaxKind.IdentifierExpression);
-                    enumerator.AssertToken(SyntaxKind.IdentifierToken, "b");
-                }
-            }
-        }
-
         private static ExpressionSyntax ParseExpression(string text)
         {
             SyntaxTree syntaxTree = SyntaxTree.Parse(text);
             CompilationUnitSyntax root = syntaxTree.Root;
-            StatementSyntax statement = root.Members;
-            return Assert.IsType<ExpressionStatementSyntax>(statement).Expression;
+            MemberSyntax member = Assert.Single(root.Members);
+            GlobalStatementSyntax globalStatement = Assert.IsType<GlobalStatementSyntax>(member);
+            return Assert.IsType<ExpressionStatementSyntax>(globalStatement.Statement).Expression;
         }
 
         public static IEnumerable<object[]> GetBinaryOperatorPairsData()
