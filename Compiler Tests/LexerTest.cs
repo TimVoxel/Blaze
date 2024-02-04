@@ -1,10 +1,10 @@
-using DPP_Compiler.Diagnostics;
-using DPP_Compiler.SyntaxTokens;
-using DPP_Compiler.Text;
+using Blaze.Diagnostics;
+using Blaze.SyntaxTokens;
+using Blaze.Text;
 using NuGet.Frameworks;
 using System.Collections.Immutable;
 
-namespace DPP_Compiler.Tests
+namespace Blaze.Tests
 {
     public class LexerTest
     {

@@ -1,7 +1,7 @@
-﻿using DPP_Compiler.Syntax_Nodes;
-using DPP_Compiler.SyntaxTokens;
+﻿using Blaze.Syntax_Nodes;
+using Blaze.SyntaxTokens;
 
-namespace DPP_Compiler.Tests
+namespace Blaze.Tests
 {
     internal sealed class AssertingEnumerator : IDisposable
     {

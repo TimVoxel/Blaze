@@ -1,6 +1,6 @@
-﻿using DPP_Compiler.Text;
+﻿using Blaze.Text;
 
-namespace DPP_Compiler.Tests
+namespace Blaze.Tests
 {
     public class SourceTextTest
     {

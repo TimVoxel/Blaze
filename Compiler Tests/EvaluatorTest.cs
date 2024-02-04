@@ -1,7 +1,7 @@
-﻿using DPP_Compiler.Symbols;
-using DPP_Compiler.Text;
+﻿using Blaze.Symbols;
+using Blaze.Text;
 
-namespace DPP_Compiler.Tests.CodeAnalysis
+namespace Blaze.Tests.CodeAnalysis
 {
     public class EvaluatorTest
     {

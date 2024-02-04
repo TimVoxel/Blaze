@@ -1,6 +1,6 @@
-﻿using DPP_Compiler.Syntax_Nodes;
+﻿using Blaze.Syntax_Nodes;
 
-namespace DPP_Compiler.Tests
+namespace Blaze.Tests
 {
     public class ParserTest
     {

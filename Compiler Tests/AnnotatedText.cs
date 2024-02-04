@@ -1,8 +1,8 @@
-﻿using DPP_Compiler.Text;
+﻿using Blaze.Text;
 using System.Collections.Immutable;
 using System.Text;
 
-namespace DPP_Compiler.Tests.CodeAnalysis
+namespace Blaze.Tests.CodeAnalysis
 {
     internal sealed class AnnotatedText
     {

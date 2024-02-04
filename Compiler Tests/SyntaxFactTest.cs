@@ -1,6 +1,6 @@
-﻿using DPP_Compiler.SyntaxTokens;
+﻿using Blaze.SyntaxTokens;
 
-namespace DPP_Compiler.Tests
+namespace Blaze.Tests
 {
     public class SyntaxFactTest
     {
