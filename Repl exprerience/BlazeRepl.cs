@@ -24,6 +24,14 @@ namespace ReplExperience
 
         protected override void RenderLine(string line)
         {
+            if (line.StartsWith("#"))
+            {
+                Console.ForegroundColor = ConsoleColor.Yellow;
+                Console.Write(line);
+                Console.ResetColor();
+                return;
+            }
+
             IEnumerable<SyntaxToken> tokens = SyntaxTree.ParseTokens(line);
             foreach (SyntaxToken token in tokens)
             {
@@ -54,34 +62,35 @@ namespace ReplExperience
                     Console.WriteLine(result.Value);
             }
             else
-                Console.Out.WriteDiagnostics(result.Diagnostics, syntaxTree);
+                Console.Out.WriteDiagnostics(result.Diagnostics);
         }
 
-        protected override void EvaluateMetaCommand(string inputLine)
+        [MetaCommand("showTree", "Shows/Hides the parse tree")]
+        private void EvaluateShowTree()
         {
-            if (inputLine == "#showTree")
-            {
-                _showTree = !_showTree;
-                Console.WriteLine(_showTree ? "Showing parse trees" : "Not showing parse trees");
-            }
-            else if (inputLine == "#showProgram")
-            {
-                _showProgram = !_showProgram;
-                Console.WriteLine(_showProgram ? "Showing bound trees" : "Not showing bound trees");
-            }
-            else if (inputLine == "#clear")
-            {
-                Console.Clear();
-            }
-            else if (inputLine == "#reset")
-            {
-                _previous = null;
-            }
-            else
-            {
-                Console.ForegroundColor = ConsoleColor.Red;
-                Console.WriteLine($"Invalid command {inputLine}");
-            }
+            _showTree = !_showTree;
+            Console.WriteLine(_showTree ? "Showing parse trees" : "Not showing parse trees");
+        }
+
+
+        [MetaCommand("showProgram", "Shows/Hides the bound program")]
+        private void EvaluateShowProgram()
+        {
+            _showProgram = !_showProgram;
+            Console.WriteLine(_showProgram ? "Showing bound trees" : "Not showing bound trees");
+        }
+
+        [MetaCommand("clear", "Clears the console")]
+        private void EvaluateClear()
+        {
+            Console.Clear();
+        }
+
+
+        [MetaCommand("reset", "Clears all previous submissions")]
+        private void EvaluateReset()
+        {
+            _previous = null;
         }
     }
 }

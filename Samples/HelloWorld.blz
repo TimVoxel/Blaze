@@ -3,7 +3,10 @@
     int n = 0;
     n = int(input());
     while (n > 9) {
-        n = n / 10
+        n = n / 10;
     }
     print(string(n));
+
+    string name = get_name();
+    print("Hello, " + name + ", the number is " + string(n));
 }

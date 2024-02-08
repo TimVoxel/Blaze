@@ -7,38 +7,46 @@ namespace Blaze.IO
 {
     public static class TextWriterExtensions
     {
-        public static bool IsConsoleOut(this TextWriter writer)
+        public static bool IsConsole(this TextWriter writer)
         {
             if (writer == Console.Out)
                 return true;
 
-            return writer is IndentedTextWriter iw && iw.InnerWriter == Console.Out;
+            if (writer == Console.Error)
+                return !Console.IsErrorRedirected && !Console.IsOutputRedirected;
+
+            return writer is IndentedTextWriter iw && iw.InnerWriter.IsConsole();
         }
 
-        public static void WriteDiagnostics(this TextWriter writer, ImmutableArray<Diagnostic> diagnostics, SyntaxTree syntaxTree)
+        public static void WriteDiagnostics(this TextWriter writer, ImmutableArray<Diagnostic> diagnostics)
         {
-            foreach (Diagnostic diagnostic in diagnostics.OrderBy(d => d.Location.Span.Start).ThenBy(d => d.Location.Span.Length))
+            foreach (Diagnostic diagnostic in diagnostics.OrderBy(d => d.Location.FileName).ThenBy(d => d.Location.Span.Start).ThenBy(d => d.Location.Span.Length))
             {
+                SourceText text = diagnostic.Location.Text;
                 string fileName = diagnostic.Location.FileName;
+                int startLine = diagnostic.Location.StartLine + 1;
+                int startCharacter = diagnostic.Location.StartCharacter + 1;
+                int endLine = diagnostic.Location.EndLine + 1;
+                int endCharacter = diagnostic.Location.EndCharacter + 1;
                 TextSpan span = diagnostic.Location.Span;
 
-                int lineIndex = syntaxTree.Text.GetLineIndex(span.Start);
-                TextLine line = syntaxTree.Text.Lines[lineIndex];
+                int lineIndex = text.GetLineIndex(span.Start);
+                TextLine line = text.Lines[lineIndex];
                 int lineNumber = lineIndex + 1;
-                int character = span.Start - syntaxTree.Text.Lines[lineIndex].Start + 1;
+                int character = span.Start - text.Lines[lineIndex].Start + 1;
 
                 Console.WriteLine();
                 Console.ForegroundColor = ConsoleColor.DarkGray;
-                Console.Write($"{fileName}({lineNumber}, {character}): ");
+                Console.Write($"{fileName}({startLine},{startCharacter},{endLine},{endCharacter}): ");
                 Console.WriteLine(diagnostic);
                 Console.ResetColor();
 
                 TextSpan prefixSpan = TextSpan.FromBounds(line.Start, span.Start);
                 TextSpan suffixSpan = TextSpan.FromBounds(span.End, line.End);
 
-                string prefix = syntaxTree.Text.ToString(prefixSpan);
-                string error = syntaxTree.Text.ToString(span);
-                string suffix = syntaxTree.Text.ToString(suffixSpan);
+                string prefix = text.ToString(prefixSpan);
+                string error = text.ToString(span);
+                string suffix = text.ToString(suffixSpan);
 
                 Console.Write("    ");
                 Console.Write(prefix);
@@ -55,13 +63,13 @@ namespace Blaze.IO
 
         public static void SetForeground(this TextWriter writer, ConsoleColor color)
         {
-            if (writer.IsConsoleOut())
+            if (writer.IsConsole())
                 Console.ForegroundColor = color;
         }
 
         public static void ResetColor(this TextWriter writer)
         {
-            if (writer.IsConsoleOut())
+            if (writer.IsConsole())
                 Console.ResetColor();
         }
 

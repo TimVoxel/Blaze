@@ -1,5 +1,6 @@
 ﻿using Blaze.IO;
 using Blaze.Symbols;
+using System.Reflection.Metadata.Ecma335;
 
 namespace Blaze
 {
@@ -12,21 +13,26 @@ namespace Blaze
                 Console.Error.WriteLine("usage: BlazeCompiler <source-paths>");
                 return;
             }
-
-            if (args.Length > 1)
+            
+            IEnumerable<string> paths = GetFilePaths(args);
+            bool hasErrors = false;
+            List<SyntaxTree> trees = new List<SyntaxTree>();
+            foreach (string path in paths)
             {
-                Console.WriteLine("error: only one path supported for now");
+                if (!File.Exists(path))
+                {
+                    Console.WriteLine($"error: file {path} does not exist");
+                    hasErrors = true;
+                    continue;
+                }
+                SyntaxTree syntaxTree = SyntaxTree.Load(path);
+                trees.Add(syntaxTree);
             }
 
-            string path = args.Single();
+            if (hasErrors) 
+                return;
 
-            if (!File.Exists(path))
-            {
-                Console.WriteLine($"error: file {path} does not exist");
-            }
-
-            SyntaxTree syntaxTree = SyntaxTree.Load(path);
-            Compilation compilation = new Compilation(syntaxTree);
+            Compilation compilation = new Compilation(trees.ToArray());
             EvaluationResult result = compilation.Evaluate(new Dictionary<VariableSymbol, object?>());
 
             if (!result.Diagnostics.Any())
@@ -36,9 +42,26 @@ namespace Blaze
             }
             else
             {
-                Console.Error.WriteDiagnostics(result.Diagnostics, syntaxTree);
+                Console.Error.WriteDiagnostics(result.Diagnostics);
             }
             Console.ReadKey();
+        }
+
+        private static IEnumerable<string> GetFilePaths(IEnumerable<string> paths)
+        {
+            var result = new SortedSet<string>();
+
+            foreach (string path in paths)
+            {
+                if (Directory.Exists(path))
+                {
+                    result.UnionWith(Directory.EnumerateFiles(path, "*.blz", SearchOption.AllDirectories));
+                }
+                else
+                    result.Add(path);   
+            }
+
+            return result;
         }
     }
 }

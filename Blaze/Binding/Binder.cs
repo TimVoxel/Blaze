@@ -30,17 +30,21 @@ namespace Blaze.Binding
                     _scope.TryDeclareVariable(parameter);
         }
 
-        public static BoundGlobalScope BindGlobalScope(BoundGlobalScope? previous, CompilationUnitSyntax syntax)
+        public static BoundGlobalScope BindGlobalScope(BoundGlobalScope? previous, ImmutableArray<SyntaxTree> syntaxTrees)
         {
             BoundScope? parentScope = CreateParentScope(previous);
             Binder binder = new Binder(parentScope, null);
 
-            foreach (FunctionDeclarationSyntax function in syntax.Members.OfType<FunctionDeclarationSyntax>())
+            IEnumerable<FunctionDeclarationSyntax> functionDeclarations = syntaxTrees.SelectMany(st => st.Root.Members).OfType<FunctionDeclarationSyntax>();
+
+            foreach (FunctionDeclarationSyntax function in functionDeclarations)
                 binder.BindFunctionDeclaration(function);
+
+            IEnumerable<GlobalStatementSyntax> globalStatements = syntaxTrees.SelectMany(st => st.Root.Members).OfType<GlobalStatementSyntax>();
 
             //Bind global statements
             ImmutableArray<BoundStatement>.Builder statements = ImmutableArray.CreateBuilder<BoundStatement>();
-            foreach (var globalStatement in syntax.Members.OfType<GlobalStatementSyntax>())
+            foreach (var globalStatement in globalStatements)
             {
                 BoundStatement statement = binder.BindStatement(globalStatement.Statement);
                 statements.Add(statement);
@@ -182,7 +186,7 @@ namespace Blaze.Binding
         private BoundStatement BindVariableDeclarationStatement(VariableDeclarationStatementSyntax syntax)
         {
             BoundExpression initializer = BindExpression(syntax.Initializer);
-            TypeSymbol? type = null;
+            TypeSymbol? type;
             if (syntax.DeclarationNode is TypeClauseSyntax typeClause)
             {
                 type = BindTypeClause(typeClause);

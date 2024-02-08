@@ -10,7 +10,7 @@ namespace Blaze
     {
         private BoundGlobalScope? _globalScope;
 
-        public SyntaxTree SyntaxTree { get; private set; }
+        public ImmutableArray<SyntaxTree> SyntaxTrees { get; private set; }
 
         internal BoundGlobalScope GlobalScope
         {
@@ -18,7 +18,7 @@ namespace Blaze
             {
                 if (_globalScope == null)
                 {
-                    BoundGlobalScope scope = Binder.BindGlobalScope(Previous?.GlobalScope, SyntaxTree.Root);
+                    BoundGlobalScope scope = Binder.BindGlobalScope(Previous?.GlobalScope, SyntaxTrees);
                     Interlocked.CompareExchange(ref _globalScope, scope, null);
                 }
                 return _globalScope;
@@ -27,19 +27,21 @@ namespace Blaze
 
         public Compilation? Previous { get; }
 
-        private Compilation(Compilation? previous, SyntaxTree syntaxTree)
+        public Compilation(params SyntaxTree[] syntaxTrees) : this(null, syntaxTrees) { }
+
+        private Compilation(Compilation? previous, params SyntaxTree[] syntaxTrees)
         {
             Previous = previous;
-            SyntaxTree = syntaxTree;
+            SyntaxTrees = syntaxTrees.ToImmutableArray();
         }
-
-        public Compilation(SyntaxTree syntaxTree) : this(null, syntaxTree) { }
 
         public Compilation ContinueWith(SyntaxTree syntaxTree) => new Compilation(this, syntaxTree);
 
         public EvaluationResult Evaluate(Dictionary<VariableSymbol, object?> variables)
-        {   
-            ImmutableArray<Diagnostic> diagnostics = SyntaxTree.Diagnostics.Concat(GlobalScope.Diagnostics).ToImmutableArray();
+        {
+            IEnumerable<Diagnostic> parseDiagnostics = SyntaxTrees.SelectMany(st => st.Diagnostics);
+            ImmutableArray<Diagnostic> diagnostics = parseDiagnostics.Concat(GlobalScope.Diagnostics).ToImmutableArray();
+
             if (diagnostics.Any())
                 return new EvaluationResult(diagnostics, null);
 

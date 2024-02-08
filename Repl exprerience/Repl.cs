@@ -1,15 +1,36 @@
 ﻿using System.Collections.ObjectModel;
 using System.Collections.Specialized;
+using System.Reflection;
+using System.Text;
 
 namespace ReplExperience
 {
     internal abstract class Repl
     {
-        private List<string> _submissionHistory = new List<string>();
+        private readonly List<MetaCommand> _metaCommands = new List<MetaCommand>();
+        private readonly List<string> _submissionHistory = new List<string>();
         private int _submissionHistoryIndex;
         private bool _done;
 
         protected abstract bool IsCompleteSubmission(string text);
+
+        protected Repl()
+        {
+            InitializeMetaCommands();
+        }
+
+        private void InitializeMetaCommands()
+        {
+            foreach (MethodInfo method in GetType().GetMethods(BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Static | BindingFlags.Instance | BindingFlags.FlattenHierarchy))
+            {
+                MetaCommandAttribute? attribute = (MetaCommandAttribute?) method.GetCustomAttribute(typeof(MetaCommandAttribute));
+                if (attribute == null)
+                    continue;
+
+                MetaCommand command = new MetaCommand(attribute.Name, method, attribute.Description);
+                _metaCommands.Add(command);
+            }
+        }
 
         public void Run()
         {
@@ -360,7 +381,119 @@ namespace ReplExperience
             _submissionHistory.Clear();
         }
 
-        protected abstract void EvaluateMetaCommand(string text);
+        protected virtual void EvaluateMetaCommand(string input)
+        {
+            List<string> args = new List<string>();
+            bool inQuotes = false;
+            int position = 1;
+            StringBuilder sb = new StringBuilder();
+
+            while (position < input.Length)
+            {
+                char c = input[position];
+                int l = position + 1 >= input.Length ? '\0' : input[position + 1];
+
+                if (char.IsWhiteSpace(c))
+                {
+                    if (!inQuotes)
+                        CommitPendingArgument();
+                    else
+                        sb.Append(c);
+                }
+
+                if (c == '\"')
+                {
+                    if (!inQuotes)
+                        inQuotes = true;
+                    else if (l == '\"')
+                    {
+                        sb.Append(c);
+                        position++;
+                    }
+                    else
+                        inQuotes = false;
+                }
+                else
+                    sb.Append(c);
+
+                position++;
+            }
+
+            CommitPendingArgument();
+
+            void CommitPendingArgument()
+            {
+                string arg = sb.ToString();
+                if (!string.IsNullOrWhiteSpace(arg))
+                    args.Add(arg);
+                sb.Clear();
+            }
+
+            string? commandName = args.FirstOrDefault();
+            if (args.Count > 0)
+                args.RemoveAt(0);
+
+            MetaCommand? command = _metaCommands.SingleOrDefault(mc => mc.Name == commandName);
+
+            if (command == null)
+            {
+                Console.ForegroundColor = ConsoleColor.Red;
+                Console.WriteLine($"error: Invalid command \"{commandName}\"");
+                return;
+            }
+
+            ParameterInfo[] parameters = command.Method.GetParameters();
+            if (args.Count != parameters.Length)
+            {
+                string parameterNames = string.Join(", ", parameters.Select(p => $"<{p.Name}>"));
+                Console.ForegroundColor = ConsoleColor.Red;
+                Console.WriteLine($"error: Invalid number of arguments");
+                Console.WriteLine($"usage: #{command.Name} {parameterNames}");
+                return;
+            }
+            command.Method.Invoke(this, args.ToArray());
+        }
+
         protected abstract void EvaluateSubmission(string text);
+
+
+        [AttributeUsage(AttributeTargets.Method, AllowMultiple = false)]
+        protected sealed class MetaCommandAttribute : Attribute
+        {
+            public string Name { get; private set; }
+            public string Description { get; set; }
+
+            public MetaCommandAttribute(string name, string description)
+            {
+                Name = name;
+                Description = description;
+            }
+        }
+
+        private sealed class MetaCommand
+        {
+            public string Name { get; private set; }
+            public MethodInfo Method { get; private set; }
+            public string? Description { get; private set; }
+
+            public MetaCommand(string name, MethodInfo method, string? description)
+            {
+                Name = name;
+                Method = method;
+                Description = description;
+            }
+        }
+
+        [MetaCommand("help", "Shows the list of all commands")]
+        protected void EvaluateHelp()
+        {
+            int maxLength = _metaCommands.Max(mc => mc.Name.Length);
+
+            foreach (MetaCommand command in _metaCommands.OrderBy(mc => mc.Name))
+            {
+                string paddedName = command.Name.PadRight(maxLength); 
+                Console.WriteLine($"#{paddedName}  {command.Description}");
+            }
+        }
     }
 }
