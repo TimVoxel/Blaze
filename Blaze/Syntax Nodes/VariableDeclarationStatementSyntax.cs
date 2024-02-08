@@ -12,7 +12,7 @@ namespace Blaze.Syntax_Nodes
 
         public override SyntaxKind Kind => SyntaxKind.VariableDeclarationStatement;
 
-        public VariableDeclarationStatementSyntax(SyntaxNode declarationNode, SyntaxToken identifier, SyntaxToken equalsToken, ExpressionSyntax initializer, SyntaxToken semicolon)
+        public VariableDeclarationStatementSyntax(SyntaxTree tree, SyntaxNode declarationNode, SyntaxToken identifier, SyntaxToken equalsToken, ExpressionSyntax initializer, SyntaxToken semicolon) : base(tree)
         {
             DeclarationNode = declarationNode;
             Identifier = identifier;

@@ -8,9 +8,10 @@ namespace Blaze
 {
     internal class Lexer
     {
+        private readonly SyntaxTree _syntaxTree;
         private readonly SourceText _text;
         private readonly DiagnosticBag _diagnostics = new DiagnosticBag();
-
+        
         private int _position;
         private int _start;
         private SyntaxKind _kind;
@@ -21,9 +22,10 @@ namespace Blaze
 
         public DiagnosticBag Diagnostics => _diagnostics;
 
-        public Lexer(SourceText text)
+        public Lexer(SyntaxTree syntaxTree)
         {
-            _text = text;
+            _text = syntaxTree.Text;
+            _syntaxTree = syntaxTree;
         }
 
         public SyntaxToken Lex()
@@ -160,12 +162,14 @@ namespace Blaze
             if (text == null)
                 text = _text.ToString(_start, length);
 
-            return new SyntaxToken(_kind, _start, text, _value);
+            return new SyntaxToken(_syntaxTree, _kind, _start, text, _value);
         }
 
         private void ConsumeStray()
         {
-            _diagnostics.ReportStrayCharacter(_position, Current);
+            TextSpan span = new TextSpan(_position, 1);
+            TextLocation location = new TextLocation(_text, span);
+            _diagnostics.ReportStrayCharacter(location, Current);
             _position++;
         }
 
@@ -191,8 +195,12 @@ namespace Blaze
             int length = _position - _start;
             string text = _text.ToString(_start, length);
             if (!int.TryParse(text, out int value))
-                _diagnostics.ReportInvalidNumber(new TextSpan(_start, length), text, TypeSymbol.Int);
-
+            {
+                TextSpan span = new TextSpan(_start, length);
+                TextLocation location = new TextLocation(_text, span);
+                _diagnostics.ReportInvalidNumber(location, text, TypeSymbol.Int);
+            }
+                
             _value = value;
             _kind = SyntaxKind.IntegerLiteralToken;
         }
@@ -228,10 +236,10 @@ namespace Blaze
                     case '\r':
                     case '\n':
                         TextSpan span = new TextSpan(_start, 1);
-                        _diagnostics.ReportUnterminatedString(span);
+                        TextLocation location = new TextLocation(_text, span);
+                        _diagnostics.ReportUnterminatedString(location);
                         done = true;
                         break;
-
                     case '"':
                         _position++;
                         done = true;

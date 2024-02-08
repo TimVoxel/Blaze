@@ -13,7 +13,7 @@ namespace Blaze.SyntaxTokens
         public override TextSpan Span => new TextSpan(Position, Text.Length);
         public bool IsMissingText => string.IsNullOrEmpty(Text);
 
-        public SyntaxToken(SyntaxKind kind, int position, string? text, object? value)
+        public SyntaxToken(SyntaxTree tree, SyntaxKind kind, int position, string? text, object? value) : base(tree)
         {
             Kind = kind;
             Position = position;

@@ -11,7 +11,7 @@ namespace Blaze.Syntax_Nodes
 
         public override SyntaxKind Kind => SyntaxKind.BlockStatement;
 
-        public BlockStatementSyntax(SyntaxToken openBraceToken, ImmutableArray<StatementSyntax> statements, SyntaxToken closeBraceToken)
+        public BlockStatementSyntax(SyntaxTree tree, SyntaxToken openBraceToken, ImmutableArray<StatementSyntax> statements, SyntaxToken closeBraceToken) : base(tree)
         {
             OpenBraceToken = openBraceToken;
             Statements = statements;

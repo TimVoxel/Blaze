@@ -10,7 +10,7 @@ namespace Blaze.Syntax_Nodes
 
         public override SyntaxKind Kind => SyntaxKind.WhileStatement;
 
-        public WhileStatementSyntax(SyntaxToken keywordToken, ExpressionSyntax condition, StatementSyntax body)
+        public WhileStatementSyntax(SyntaxTree tree, SyntaxToken keywordToken, ExpressionSyntax condition, StatementSyntax body) : base(tree)
         {
             KeywordToken = keywordToken;
             Condition = condition;

@@ -17,24 +17,27 @@ namespace Blaze.IO
 
         public static void WriteDiagnostics(this TextWriter writer, ImmutableArray<Diagnostic> diagnostics, SyntaxTree syntaxTree)
         {
-            foreach (Diagnostic diagnostic in diagnostics.OrderBy(d => d.Span.Start).ThenBy(d => d.Span.Length))
+            foreach (Diagnostic diagnostic in diagnostics.OrderBy(d => d.Location.Span.Start).ThenBy(d => d.Location.Span.Length))
             {
-                int lineIndex = syntaxTree.Text.GetLineIndex(diagnostic.Span.Start);
+                string fileName = diagnostic.Location.FileName;
+                TextSpan span = diagnostic.Location.Span;
+
+                int lineIndex = syntaxTree.Text.GetLineIndex(span.Start);
                 TextLine line = syntaxTree.Text.Lines[lineIndex];
                 int lineNumber = lineIndex + 1;
-                int character = diagnostic.Span.Start - syntaxTree.Text.Lines[lineIndex].Start + 1;
+                int character = span.Start - syntaxTree.Text.Lines[lineIndex].Start + 1;
 
                 Console.WriteLine();
                 Console.ForegroundColor = ConsoleColor.DarkGray;
-                Console.Write($"Line {lineNumber}, Char {character}: ");
+                Console.Write($"{fileName}({lineNumber}, {character}): ");
                 Console.WriteLine(diagnostic);
                 Console.ResetColor();
 
-                TextSpan prefixSpan = TextSpan.FromBounds(line.Start, diagnostic.Span.Start);
-                TextSpan suffixSpan = TextSpan.FromBounds(diagnostic.Span.End, line.End);
+                TextSpan prefixSpan = TextSpan.FromBounds(line.Start, span.Start);
+                TextSpan suffixSpan = TextSpan.FromBounds(span.End, line.End);
 
                 string prefix = syntaxTree.Text.ToString(prefixSpan);
-                string error = syntaxTree.Text.ToString(diagnostic.Span);
+                string error = syntaxTree.Text.ToString(span);
                 string suffix = syntaxTree.Text.ToString(suffixSpan);
 
                 Console.Write("    ");

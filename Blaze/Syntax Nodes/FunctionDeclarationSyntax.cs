@@ -14,7 +14,7 @@ namespace Blaze.Syntax_Nodes
 
         public override SyntaxKind Kind => SyntaxKind.FunctionDeclaration;
 
-        public FunctionDeclarationSyntax(SyntaxToken functionKeyword, SyntaxToken identifier, SyntaxToken openParen, SeparatedSyntaxList<ParameterSyntax> parameters, SyntaxToken closeParen, ReturnTypeClauseSyntax? returnTypeClause, BlockStatementSyntax body)
+        public FunctionDeclarationSyntax(SyntaxTree tree, SyntaxToken functionKeyword, SyntaxToken identifier, SyntaxToken openParen, SeparatedSyntaxList<ParameterSyntax> parameters, SyntaxToken closeParen, ReturnTypeClauseSyntax? returnTypeClause, BlockStatementSyntax body) : base(tree)
         {
             FunctionKeyword = functionKeyword;
             Identifier = identifier;

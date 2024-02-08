@@ -14,7 +14,7 @@ namespace Blaze.Syntax_Nodes
 
         public override SyntaxKind Kind => SyntaxKind.DoWhileStatement;
 
-        public DoWhileStatementSyntax(SyntaxToken doKeyword, StatementSyntax body, SyntaxToken whileKeyword, SyntaxToken openParen, ExpressionSyntax condition, SyntaxToken closeParen, SyntaxToken semicolon)
+        public DoWhileStatementSyntax(SyntaxTree tree, SyntaxToken doKeyword, StatementSyntax body, SyntaxToken whileKeyword, SyntaxToken openParen, ExpressionSyntax condition, SyntaxToken closeParen, SyntaxToken semicolon) : base(tree)
         {
             DoKeyword = doKeyword;
             Body = body;

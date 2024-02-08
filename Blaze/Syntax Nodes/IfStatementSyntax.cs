@@ -11,12 +11,12 @@ namespace Blaze.Syntax_Nodes
 
         public override SyntaxKind Kind => SyntaxKind.IfStatement;
 
-        public IfStatementSyntax(SyntaxToken ifKeyword, ExpressionSyntax condition, StatementSyntax body, ElseClauseSyntax elseClause) : this(ifKeyword, condition, body)
+        public IfStatementSyntax(SyntaxTree tree, SyntaxToken ifKeyword, ExpressionSyntax condition, StatementSyntax body, ElseClauseSyntax elseClause) : this(tree, ifKeyword, condition, body)
         {
             ElseClause = elseClause;
         }
 
-        public IfStatementSyntax(SyntaxToken ifKeyword, ExpressionSyntax condition, StatementSyntax body)
+        public IfStatementSyntax(SyntaxTree tree, SyntaxToken ifKeyword, ExpressionSyntax condition, StatementSyntax body) : base(tree)
         {
             IfKeyword = ifKeyword;
             Condition = condition;
@@ -43,7 +43,7 @@ namespace Blaze.Syntax_Nodes
 
         public override SyntaxKind Kind => SyntaxKind.ElseClause;
 
-        public ElseClauseSyntax(SyntaxToken elseKeyword, StatementSyntax body)
+        public ElseClauseSyntax(SyntaxTree tree, SyntaxToken elseKeyword, StatementSyntax body) : base(tree)
         {
             ElseKeyword = elseKeyword;
             Body = body;

@@ -3,6 +3,7 @@ using Blaze.Syntax_Nodes;
 using Blaze.SyntaxTokens;
 using Blaze.Text;
 using System.Collections.Immutable;
+using System.Net.Http.Headers;
 
 namespace Blaze
 {
@@ -10,7 +11,7 @@ namespace Blaze
     {
         private readonly ImmutableArray<SyntaxToken> _tokens;
         private readonly DiagnosticBag _diagnostics = new DiagnosticBag();
-        private readonly SourceText _text;
+        private readonly SyntaxTree _syntaxTree;
 
         private int _position;
         
@@ -18,11 +19,12 @@ namespace Blaze
         private SyntaxToken Next => Peek(1);
         public DiagnosticBag Diagnostics => _diagnostics;
 
-        public Parser(SourceText text)
+        public Parser(SyntaxTree syntaxTree)
         {
-            _text = text;
+            _syntaxTree = syntaxTree;
+
             List<SyntaxToken> tokens = new List<SyntaxToken>(); 
-            Lexer lexer = new Lexer(text);
+            Lexer lexer = new Lexer(syntaxTree);
             SyntaxToken token;
             do
             {
@@ -41,8 +43,9 @@ namespace Blaze
             if (Current.Kind == kind)
                 return Consume();
 
-            _diagnostics.ReportUnexpectedToken(Current.Span, Current.Kind, kind);
-            return new SyntaxToken(kind, Current.Position, null, null);
+            TextLocation location = new TextLocation(_syntaxTree.Text, Current.Span);
+            _diagnostics.ReportUnexpectedToken(location, Current.Kind, kind);
+            return new SyntaxToken(_syntaxTree, kind, Current.Position, null, null);
         }
 
         private SyntaxToken Consume()
@@ -64,7 +67,7 @@ namespace Blaze
         {
             ImmutableArray<MemberSyntax> members = ParseMembers();
             SyntaxToken endOfFileToken = TryConsume(SyntaxKind.EndOfFileToken);
-            return new CompilationUnitSyntax(members, endOfFileToken);
+            return new CompilationUnitSyntax(_syntaxTree, members, endOfFileToken);
         }
         
         private ImmutableArray<MemberSyntax> ParseMembers()
@@ -105,13 +108,13 @@ namespace Blaze
                 returnTypeClause = ParseReturnTypeClause();
 
             BlockStatementSyntax body = ParseBlockStatement();
-            return new FunctionDeclarationSyntax(functionKeyword, identifier, openParen, parameters, closeParen, returnTypeClause, body);
+            return new FunctionDeclarationSyntax(_syntaxTree, functionKeyword, identifier, openParen, parameters, closeParen, returnTypeClause, body);
         }
 
         private MemberSyntax ParseGlobalStatement()
         {
             StatementSyntax statement = ParseStatement();
-            return new GlobalStatementSyntax(statement);
+            return new GlobalStatementSyntax(_syntaxTree, statement);
         }
 
         private StatementSyntax ParseStatement()
@@ -155,7 +158,7 @@ namespace Blaze
                 expression = ParseExpression();
 
             SyntaxToken semicolon = TryConsume(SyntaxKind.SemicolonToken);
-            return new ReturnStatementSyntax(returnKeyword, expression, semicolon);
+            return new ReturnStatementSyntax(_syntaxTree, returnKeyword, expression, semicolon);
         }
 
         private StatementSyntax ParseIfStatement()
@@ -166,16 +169,16 @@ namespace Blaze
             if (Current.Kind == SyntaxKind.ElseKeyword)
             {
                 ElseClauseSyntax elseClause = ParseElseClause();
-                return new IfStatementSyntax(keyword, expression, statement, elseClause);
+                return new IfStatementSyntax(_syntaxTree, keyword, expression, statement, elseClause);
             }
-            return new IfStatementSyntax(keyword, expression, statement);
+            return new IfStatementSyntax(_syntaxTree, keyword, expression, statement);
         }
 
         private ElseClauseSyntax ParseElseClause()
         {
             SyntaxToken keyword = TryConsume(SyntaxKind.ElseKeyword);
             StatementSyntax statement = ParseStatement();
-            return new ElseClauseSyntax(keyword, statement);
+            return new ElseClauseSyntax(_syntaxTree, keyword, statement);
         }
 
         private WhileStatementSyntax ParseWhileStatement()
@@ -183,7 +186,7 @@ namespace Blaze
             SyntaxToken keyword = TryConsume(SyntaxKind.WhileKeyword);
             ExpressionSyntax condition = ParseParenthesizedExpression().Expression;
             StatementSyntax body = ParseStatement();
-            return new WhileStatementSyntax(keyword, condition, body);
+            return new WhileStatementSyntax(_syntaxTree, keyword, condition, body);
         }
 
         private DoWhileStatementSyntax ParseDoWhileStatement()
@@ -195,7 +198,7 @@ namespace Blaze
             ExpressionSyntax condition = ParseExpression();
             SyntaxToken closeParen = TryConsume(SyntaxKind.CloseParenToken);
             SyntaxToken semicolon = TryConsume(SyntaxKind.SemicolonToken);
-            return new DoWhileStatementSyntax(doKeyword, body, whileKeyword, openParen, condition, closeParen, semicolon);
+            return new DoWhileStatementSyntax(_syntaxTree, doKeyword, body, whileKeyword, openParen, condition, closeParen, semicolon);
         }
 
         private StatementSyntax ParseForStatement()
@@ -213,7 +216,7 @@ namespace Blaze
 
             StatementSyntax body = ParseStatement();
 
-            return new ForStatementSyntax(keyword, identifier, equalsSign, lowerBound, doubleDot, upperBound, body);
+            return new ForStatementSyntax(_syntaxTree, keyword, identifier, equalsSign, lowerBound, doubleDot, upperBound, body);
         }
 
         private BlockStatementSyntax ParseBlockStatement()
@@ -232,7 +235,7 @@ namespace Blaze
             }
 
             SyntaxToken closeBraceToken = TryConsume(SyntaxKind.CloseBraceToken);
-            return new BlockStatementSyntax(openBraceToken, statements.ToImmutable(), closeBraceToken);
+            return new BlockStatementSyntax(_syntaxTree, openBraceToken, statements.ToImmutable(), closeBraceToken);
         }
         
         private VariableDeclarationStatementSyntax ParseVariableDeclarationStatement()
@@ -247,41 +250,41 @@ namespace Blaze
             SyntaxToken equalsToken = TryConsume(SyntaxKind.EqualsToken);
             ExpressionSyntax initializer = ParseExpression();
             SyntaxToken semicolon = TryConsume(SyntaxKind.SemicolonToken);
-            return new VariableDeclarationStatementSyntax(declarationNode, identifierToken, equalsToken, initializer, semicolon);
+            return new VariableDeclarationStatementSyntax(_syntaxTree, declarationNode, identifierToken, equalsToken, initializer, semicolon);
         }
 
         private BreakStatementSyntax ParseBreakStatement()
         {
             SyntaxToken keyword = TryConsume(SyntaxKind.BreakKeyword);
             SyntaxToken semicolon = TryConsume(SyntaxKind.SemicolonToken);
-            return new BreakStatementSyntax(keyword, semicolon);
+            return new BreakStatementSyntax(_syntaxTree, keyword, semicolon);
         }
 
         private ContinueStatementSyntax ParseContinueStatement()
         {
             SyntaxToken keyword = TryConsume(SyntaxKind.ContinueKeyword);
             SyntaxToken semicolon = TryConsume(SyntaxKind.SemicolonToken);
-            return new ContinueStatementSyntax(keyword, semicolon);
+            return new ContinueStatementSyntax(_syntaxTree, keyword, semicolon);
         }
 
         private TypeClauseSyntax ParseTypeClause()
         {
             SyntaxToken identifier = TryConsume(SyntaxKind.IdentifierToken);
-            return new TypeClauseSyntax(identifier);
+            return new TypeClauseSyntax(_syntaxTree, identifier);
         }
 
         private ReturnTypeClauseSyntax ParseReturnTypeClause()
         {
             SyntaxToken colon = TryConsume(SyntaxKind.ColonToken);
             SyntaxToken identifier = TryConsume(SyntaxKind.IdentifierToken);
-            return new ReturnTypeClauseSyntax(colon, identifier);
+            return new ReturnTypeClauseSyntax(_syntaxTree, colon, identifier);
         }
 
         private ExpressionStatementSyntax ParseExpressionStatement()
         {
             ExpressionSyntax expression = ParseExpression();
             SyntaxToken semicolon = TryConsume(SyntaxKind.SemicolonToken);
-            return new ExpressionStatementSyntax(expression, semicolon);
+            return new ExpressionStatementSyntax(_syntaxTree, expression, semicolon);
         }
 
         private ExpressionSyntax ParseExpression() => ParseAssignmentExpression();
@@ -293,7 +296,7 @@ namespace Blaze
                 SyntaxToken identifierToken = Consume();
                 SyntaxToken equalsToken = Consume();
                 ExpressionSyntax expression = ParseBinaryExpression();
-                return new AssignmentExpressionSyntax(identifierToken, equalsToken, expression);
+                return new AssignmentExpressionSyntax(_syntaxTree, identifierToken, equalsToken, expression);
             }
 
             return ParseBinaryExpression();
@@ -307,7 +310,7 @@ namespace Blaze
             {
                 SyntaxToken operatorToken = Consume();
                 ExpressionSyntax operand = ParseBinaryExpression(unaryOperatorPrecedence);
-                left = new UnaryExpressionSyntax(operatorToken, operand);
+                left = new UnaryExpressionSyntax(_syntaxTree, operatorToken, operand);
             }
             else
                 left = ParsePrimaryExpression();
@@ -320,7 +323,7 @@ namespace Blaze
 
                 SyntaxToken operatorToken = Consume();
                 ExpressionSyntax right = ParseBinaryExpression(precedence);
-                left = new BinaryExpressionSyntax(left, operatorToken, right);
+                left = new BinaryExpressionSyntax(_syntaxTree, left, operatorToken, right);
             }
 
             return left;
@@ -347,20 +350,20 @@ namespace Blaze
         private ExpressionSyntax ParseIntegerLiteral()
         {
             SyntaxToken numberToken = TryConsume(SyntaxKind.IntegerLiteralToken);
-            return new LiteralExpressionSyntax(numberToken);
+            return new LiteralExpressionSyntax(_syntaxTree, numberToken);
         }
 
         private ExpressionSyntax ParseBooleanLiteral()
         {
             bool isTrue = Current.Kind == SyntaxKind.TrueKeyword;
             SyntaxToken keywordToken = (isTrue) ? TryConsume(SyntaxKind.TrueKeyword) : TryConsume(SyntaxKind.FalseKeyword);
-            return new LiteralExpressionSyntax(keywordToken, isTrue);
+            return new LiteralExpressionSyntax(_syntaxTree, keywordToken, isTrue);
         }
 
         private ExpressionSyntax ParseStringLiteral()
         {
             SyntaxToken stringToken = TryConsume(SyntaxKind.StringLiteralToken);
-            return new LiteralExpressionSyntax(stringToken);
+            return new LiteralExpressionSyntax(_syntaxTree, stringToken);
         }
 
         private ExpressionSyntax ParseIdentifierOrCallExpression()
@@ -374,7 +377,7 @@ namespace Blaze
         private ExpressionSyntax ParseIdentifierExpression()
         {
             SyntaxToken identifier = TryConsume(SyntaxKind.IdentifierToken);
-            return new IdentifierExpressionSyntax(identifier);
+            return new IdentifierExpressionSyntax(_syntaxTree, identifier);
         }
 
         private ExpressionSyntax ParseCallExpression()
@@ -383,7 +386,7 @@ namespace Blaze
             SyntaxToken openParen = TryConsume(SyntaxKind.OpenParenToken);
             SeparatedSyntaxList<ExpressionSyntax> arguments = ParseArguments();
             SyntaxToken closeParen = TryConsume(SyntaxKind.CloseParenToken);
-            return new CallExpressionSyntax(identifier, openParen, arguments, closeParen);
+            return new CallExpressionSyntax(_syntaxTree, identifier, openParen, arguments, closeParen);
         }
 
         private SeparatedSyntaxList<ExpressionSyntax> ParseArguments()
@@ -413,7 +416,7 @@ namespace Blaze
             {
                 TypeClauseSyntax typeClause = ParseTypeClause();
                 SyntaxToken identifier = TryConsume(SyntaxKind.IdentifierToken);
-                nodesAndSeparators.Add(new ParameterSyntax(typeClause, identifier));
+                nodesAndSeparators.Add(new ParameterSyntax(_syntaxTree, typeClause, identifier));
 
                 if (Current.Kind == SyntaxKind.CommaToken)
                 {
@@ -431,7 +434,7 @@ namespace Blaze
             SyntaxToken left = TryConsume(SyntaxKind.OpenParenToken);
             ExpressionSyntax expression = ParseExpression();
             SyntaxToken right = TryConsume(SyntaxKind.CloseParenToken);
-            return new ParenthesizedExpressionSyntax(left, expression, right);
+            return new ParenthesizedExpressionSyntax(_syntaxTree, left, expression, right);
         }
     }
 }

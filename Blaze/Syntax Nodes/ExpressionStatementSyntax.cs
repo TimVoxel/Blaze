@@ -9,7 +9,7 @@ namespace Blaze.Syntax_Nodes
 
         public override SyntaxKind Kind => SyntaxKind.ExpressionStatement;
 
-        public ExpressionStatementSyntax(ExpressionSyntax expression, SyntaxToken semicolonToken)
+        public ExpressionStatementSyntax(SyntaxTree tree, ExpressionSyntax expression, SyntaxToken semicolonToken) : base(tree)
         {
             Expression = expression;
             SemicolonToken = semicolonToken;

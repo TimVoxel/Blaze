@@ -9,7 +9,7 @@ namespace Blaze.Syntax_Nodes
 
         public override SyntaxKind Kind => SyntaxKind.UnaryExpression;
 
-        public UnaryExpressionSyntax(SyntaxToken operatorToken, ExpressionSyntax operand)
+        public UnaryExpressionSyntax(SyntaxTree tree, SyntaxToken operatorToken, ExpressionSyntax operand) : base(tree)
         {
             OperatorToken = operatorToken;
             Operand = operand;

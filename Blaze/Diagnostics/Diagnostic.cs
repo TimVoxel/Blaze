@@ -4,12 +4,12 @@ namespace Blaze.Diagnostics
 {
     public sealed class Diagnostic
     {
-        public TextSpan Span { get; private set; }
+        public TextLocation Location { get; private set; }
         public string Message { get; private set; }
 
-        public Diagnostic(TextSpan span, string message)
+        public Diagnostic(TextLocation location, string message)
         {
-            Span = span;
+            Location = location;
             Message = message;
         }
 

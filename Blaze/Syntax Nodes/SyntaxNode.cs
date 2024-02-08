@@ -1,11 +1,11 @@
 ﻿using Blaze.SyntaxTokens;
 using Blaze.Text;
-using System.Reflection;
 
 namespace Blaze.Syntax_Nodes
 {
     public abstract class SyntaxNode
     {
+        public SyntaxTree Tree { get; private set; }
         public abstract SyntaxKind Kind { get; }
 
         public virtual TextSpan Span
@@ -16,6 +16,12 @@ namespace Blaze.Syntax_Nodes
                 TextSpan last = GetChildren().Last().Span;
                 return TextSpan.FromBounds(first.Start, last.End);
             }
+        }
+        public virtual TextLocation Location => new TextLocation(Tree.Text, Span);
+
+        protected SyntaxNode(SyntaxTree tree)
+        {
+            Tree = tree;
         }
 
         public abstract IEnumerable<SyntaxNode> GetChildren();
@@ -80,6 +86,6 @@ namespace Blaze.Syntax_Nodes
 
     public abstract class ExpressionSyntax : SyntaxNode
     {
-
+        public ExpressionSyntax(SyntaxTree tree) : base(tree) { }
     }
 }

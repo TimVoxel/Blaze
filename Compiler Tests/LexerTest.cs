@@ -1,7 +1,6 @@
 using Blaze.Diagnostics;
 using Blaze.SyntaxTokens;
 using Blaze.Text;
-using NuGet.Frameworks;
 using System.Collections.Immutable;
 
 namespace Blaze.Tests
@@ -18,7 +17,7 @@ namespace Blaze.Tests
             Assert.Equal("\"test", token.Text);
 
             Diagnostic diagnostic = Assert.Single(diagnostics);
-            Assert.Equal(new TextSpan(0, 1), diagnostic.Span);
+            Assert.Equal(new TextSpan(0, 1), diagnostic.Location.Span);
             Assert.Equal("Unterminated string literal", diagnostic.Message);
         }
 

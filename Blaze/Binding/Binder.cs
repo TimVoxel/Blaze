@@ -8,8 +8,6 @@ using System.Collections.Immutable;
 
 namespace Blaze.Binding
 {
-
-
     internal sealed class Binder
     {
         private readonly DiagnosticBag _diagnostics = new DiagnosticBag();
@@ -112,7 +110,7 @@ namespace Blaze.Binding
                         BoundBlockStatement loweredBody = Lowerer.Lower(body);
 
                         if (function.ReturnType != TypeSymbol.Void && !ControlFlowGraph.AllPathsReturn(loweredBody))
-                            binder._diagnostics.ReportAllPathsMustReturn(function.Declaration.Identifier.Span);
+                            binder._diagnostics.ReportAllPathsMustReturn(function.Declaration.Identifier.Location);
 
                         functionBodies.Add(function, loweredBody);
                         diagnostics.AddRange(binder.Diagnostics);
@@ -138,7 +136,7 @@ namespace Blaze.Binding
                     continue;
 
                 if (!seenParameterNames.Add(name))
-                    _diagnostics.ReportParameterAlreadyDeclared(parameterSyntax.Span, name);
+                    _diagnostics.ReportParameterAlreadyDeclared(parameterSyntax.Location, name);
                 else
                     parameters.Add(new ParameterSymbol(name, type));
             }
@@ -149,7 +147,7 @@ namespace Blaze.Binding
 
             FunctionSymbol function = new FunctionSymbol(declaration.Identifier.Text, parameters.ToImmutable(), returnType, declaration);
             if (!_scope.TryDeclareFunction(function))
-                _diagnostics.ReportFunctionAlreadyDeclared(declaration.Identifier.Span, function.Name);
+                _diagnostics.ReportFunctionAlreadyDeclared(declaration.Identifier.Location, function.Name);
         }
 
         private BoundStatement BindStatement(StatementSyntax syntax)
@@ -191,7 +189,7 @@ namespace Blaze.Binding
                 if (type == null)
                     type = initializer.Type;
                 else 
-                    initializer = BindConversion(initializer, type, syntax.Initializer.Span);
+                    initializer = BindConversion(initializer, type, syntax.Initializer.Location);
             }
             else
                 type = initializer.Type;
@@ -250,21 +248,21 @@ namespace Blaze.Binding
 
             if (_function == null)
             {
-                _diagnostics.ReportReturnOutsideFunction(syntax.Keyword.Span);
+                _diagnostics.ReportReturnOutsideFunction(syntax.Keyword.Location);
             }
             else
             {
                 if (_function.ReturnType == TypeSymbol.Void)
                 {
                     if (syntax.Expression != null)
-                        _diagnostics.ReportInvalidReturnExpression(syntax.Expression.Span, _function.Name);
+                        _diagnostics.ReportInvalidReturnExpression(syntax.Expression.Location, _function.Name);
                 }
                 else
                 {
                     if (syntax.Expression == null || expression == null)
-                        _diagnostics.ReportMissingReturnExpression(syntax.Keyword.Span, _function.Name, _function.ReturnType);
+                        _diagnostics.ReportMissingReturnExpression(syntax.Keyword.Location, _function.Name, _function.ReturnType);
                     else
-                        expression = BindConversion(expression, _function.ReturnType, syntax.Expression.Span);
+                        expression = BindConversion(expression, _function.ReturnType, syntax.Expression.Location);
                 }
             }
             return new BoundReturnStatement(expression);
@@ -286,7 +284,7 @@ namespace Blaze.Binding
         {
             if (_loopStack.Count == 0)
             {
-                _diagnostics.ReportInvalidBreakOrContinue(syntax.Keyword.Span, syntax.Keyword.Text);
+                _diagnostics.ReportInvalidBreakOrContinue(syntax.Keyword.Location, syntax.Keyword.Text);
                 return BindErrorStatement();
             }
             BoundLabel breakLabel = _loopStack.Peek().breakLabel;
@@ -297,7 +295,7 @@ namespace Blaze.Binding
         {
             if (_loopStack.Count == 0)
             {
-                _diagnostics.ReportInvalidBreakOrContinue(syntax.Keyword.Span, syntax.Keyword.Text);
+                _diagnostics.ReportInvalidBreakOrContinue(syntax.Keyword.Location, syntax.Keyword.Text);
                 return BindErrorStatement();
             }
             BoundLabel continueLabel = _loopStack.Peek().continueLabel;
@@ -329,7 +327,7 @@ namespace Blaze.Binding
             BoundExpression result = BindExpressionInternal(expression);
             if (!canBeVoid && result.Type == TypeSymbol.Void)
             {
-                _diagnostics.ReportExpressionMustHaveValue(expression.Span);
+                _diagnostics.ReportExpressionMustHaveValue(expression.Location);
                 return new BoundErrorExpression();
             }
             return result;
@@ -378,7 +376,7 @@ namespace Blaze.Binding
 
             if (op == null)
             {
-                _diagnostics.ReportUndefinedBinaryOperator(expression.OperatorToken.Span, expression.OperatorToken.Text, boundLeft.Type, boundRight.Type);
+                _diagnostics.ReportUndefinedBinaryOperator(expression.OperatorToken.Location, expression.OperatorToken.Text, boundLeft.Type, boundRight.Type);
                 return new BoundErrorExpression();
             }
             return new BoundBinaryExpression(boundLeft, op, boundRight);
@@ -394,7 +392,7 @@ namespace Blaze.Binding
 
             if (op == null)
             {
-                _diagnostics.ReportUndefinedUnaryOperator(expression.OperatorToken.Span, expression.OperatorToken.Text, operand.Type);
+                _diagnostics.ReportUndefinedUnaryOperator(expression.OperatorToken.Location, expression.OperatorToken.Text, operand.Type);
                 return new BoundErrorExpression();
             }
             return new BoundUnaryExpression(op, operand);
@@ -409,7 +407,7 @@ namespace Blaze.Binding
             VariableSymbol? variable = _scope.TryLookupVariable(name);
             if (variable == null)
             {
-                _diagnostics.ReportUndefinedName(expression.IdentifierToken.Span, name);
+                _diagnostics.ReportUndefinedName(expression.IdentifierToken.Location, name);
                 return new BoundErrorExpression();
             }
             return new BoundVariableExpression(variable);
@@ -429,12 +427,12 @@ namespace Blaze.Binding
             FunctionSymbol? function = _scope.TryLookupFunction(expression.Identifier.Text);
             if (function == null)
             {
-                _diagnostics.ReportUndefinedFunction(expression.Identifier.Span, name);
+                _diagnostics.ReportUndefinedFunction(expression.Identifier.Location, name);
                 return new BoundErrorExpression();
             }
             if (function.Parameters.Length != expression.Arguments.Count)
             {
-                _diagnostics.ReportWrongArgumentCount(expression.Span, function.Name, function.Parameters.Length, expression.Arguments.Count);
+                _diagnostics.ReportWrongArgumentCount(expression.Location, function.Name, function.Parameters.Length, expression.Arguments.Count);
                 return new BoundErrorExpression();
             }
             bool hasErrors = false;
@@ -446,7 +444,7 @@ namespace Blaze.Binding
                 if (boundArgument.Type != parameter.Type)
                 {
                     if (boundArgument.Type != TypeSymbol.Error)
-                        _diagnostics.ReportWrongArgumentType(expression.Arguments[i].Span, function.Name, parameter.Name, parameter.Type, boundArgument.Type);
+                        _diagnostics.ReportWrongArgumentType(expression.Arguments[i].Location, function.Name, parameter.Name, parameter.Type, boundArgument.Type);
                     hasErrors = true;
                 }
             }
@@ -464,27 +462,27 @@ namespace Blaze.Binding
             VariableSymbol? variable = _scope.TryLookupVariable(name);
             if (variable == null)
             {
-                _diagnostics.ReportUndefinedName(expression.IdentifierToken.Span, name);
+                _diagnostics.ReportUndefinedName(expression.IdentifierToken.Location, name);
                 return boundExpression;
             }
 
-            BoundExpression convertedExpression = BindConversion(boundExpression, variable.Type, expression.Expression.Span);
+            BoundExpression convertedExpression = BindConversion(boundExpression, variable.Type, expression.Expression.Location);
             return new BoundAssignmentExpression(variable, convertedExpression);
         }
 
         private BoundExpression BindConversion(ExpressionSyntax syntax, TypeSymbol type, bool allowExplicit = false)
         {
             BoundExpression expression = BindExpression(syntax);
-            return BindConversion(expression, type, syntax.Span, allowExplicit);
+            return BindConversion(expression, type, syntax.Location, allowExplicit);
         }
 
-        private BoundExpression BindConversion(BoundExpression expression, TypeSymbol type, TextSpan diagnosticSpan, bool allowExplicit = false)
+        private BoundExpression BindConversion(BoundExpression expression, TypeSymbol type, TextLocation diagnosticLocation, bool allowExplicit = false)
         {
             Conversion conversion = Conversion.Classify(expression.Type, type);
             if (!conversion.Exists)
             {
                 if (!expression.Type.IsError && !type.IsError)
-                    _diagnostics.ReportCannotConvert(diagnosticSpan, expression.Type, type);
+                    _diagnostics.ReportCannotConvert(diagnosticLocation, expression.Type, type);
 
                 return new BoundErrorExpression();
             }
@@ -493,7 +491,7 @@ namespace Blaze.Binding
                 return expression;
 
             if (conversion.IsExplicit && !allowExplicit)
-                _diagnostics.ReportCannotConvertImplicitly(diagnosticSpan, expression.Type, type);
+                _diagnostics.ReportCannotConvertImplicitly(diagnosticLocation, expression.Type, type);
                 
             return new BoundConversionExpression(type, expression);
         }
@@ -507,7 +505,7 @@ namespace Blaze.Binding
                 new GlobalVariableSymbol(name, type) 
               : new LocalVariableSymbol(name, type);
             if (declare && !_scope.TryDeclareVariable(variable))
-                _diagnostics.ReportVariableAlreadyDeclared(identifier.Span, name);
+                _diagnostics.ReportVariableAlreadyDeclared(identifier.Location, name);
             return variable;
         }
 
@@ -515,7 +513,7 @@ namespace Blaze.Binding
         {
             TypeSymbol? type = LookupType(syntax.Identifier.Text);
             if (type == null)
-                _diagnostics.ReportUndefinedType(syntax.Identifier.Span, syntax.Identifier.Text);
+                _diagnostics.ReportUndefinedType(syntax.Identifier.Location, syntax.Identifier.Text);
             return type;
         }
 
@@ -523,7 +521,7 @@ namespace Blaze.Binding
         {
             TypeSymbol? type = LookupType(syntax.Identifier.Text);
             if (type == null)
-                _diagnostics.ReportUndefinedType(syntax.Identifier.Span, syntax.Identifier.Text);
+                _diagnostics.ReportUndefinedType(syntax.Identifier.Location, syntax.Identifier.Text);
             return type;
         }
 

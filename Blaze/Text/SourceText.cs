@@ -6,9 +6,11 @@ namespace Blaze.Text
     {
         private readonly string _text;
         public ImmutableArray<TextLine> Lines { get; private set; }
+        public string FileName { get; private set; }
 
-        private SourceText(string text)
+        private SourceText(string text, string fileName)
         {
+            FileName = fileName;
             _text = text;
             Lines = ParseLines(this, text);
         }
@@ -82,9 +84,9 @@ namespace Blaze.Text
             return 0;
         }
 
-        public static SourceText From(string text)
+        public static SourceText From(string text, string fileName = "")
         {
-            return new SourceText(text);   
+            return new SourceText(text, fileName);   
         }
 
         public override string ToString()

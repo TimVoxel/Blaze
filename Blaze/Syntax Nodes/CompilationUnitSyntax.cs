@@ -10,7 +10,7 @@ namespace Blaze.Syntax_Nodes
 
         public override SyntaxKind Kind => SyntaxKind.CompilationUnit;
 
-        public CompilationUnitSyntax(ImmutableArray<MemberSyntax> members, SyntaxToken endOfFileToken)
+        public CompilationUnitSyntax(SyntaxTree tree, ImmutableArray<MemberSyntax> members, SyntaxToken endOfFileToken) : base(tree)
         {
             Members = members;
             EndOfFileToken = endOfFileToken;
@@ -26,6 +26,6 @@ namespace Blaze.Syntax_Nodes
 
     public abstract class MemberSyntax : SyntaxNode
     {
-
+        public MemberSyntax(SyntaxTree tree) : base(tree) { }
     }
 }

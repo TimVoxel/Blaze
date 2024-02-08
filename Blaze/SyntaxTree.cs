@@ -8,24 +8,30 @@ namespace Blaze
 {
     public sealed class SyntaxTree
     {
+        private delegate void ParseHandler(SyntaxTree syntaxTree, out CompilationUnitSyntax root, out ImmutableArray<Diagnostic> diagnostics);
+
         public CompilationUnitSyntax Root { get; private set; }
         public SourceText Text { get; private set; }
         public ImmutableArray<Diagnostic> Diagnostics { get; private set; }
 
-        private SyntaxTree(SourceText text)
+        private SyntaxTree(SourceText text, ParseHandler handler)
         {
-            Parser parser = new Parser(text);
-            CompilationUnitSyntax root = parser.ParseCompilationUnit();
-            ImmutableArray<Diagnostic> diagnostics = parser.Diagnostics.ToImmutableArray();
-
             Text = text;
+            handler(this, out CompilationUnitSyntax root, out ImmutableArray<Diagnostic> diagnostics);
             Diagnostics = diagnostics;
             Root = root;
         }
 
+        public static SyntaxTree Load(string fileName)
+        {
+            string text = File.ReadAllText(fileName);
+            SourceText sourceText = SourceText.From(text, fileName);
+            return Parse(sourceText);
+        }
+
         public static SyntaxTree Parse(SourceText text)
         {
-            return new SyntaxTree(text);
+            return new SyntaxTree(text, Parse);
         }
 
         public static SyntaxTree Parse(string text) => Parse(SourceText.From(text));
@@ -36,21 +42,34 @@ namespace Blaze
         public static ImmutableArray<SyntaxToken> ParseTokens(SourceText text) => ParseTokens(text, out _);
         public static ImmutableArray<SyntaxToken> ParseTokens(SourceText text, out ImmutableArray<Diagnostic> diagnostics)
         {
-            IEnumerable<SyntaxToken> LexTokens(Lexer lexer)
+            List<SyntaxToken> tokens = new List<SyntaxToken>();
+
+            void ParseTokens(SyntaxTree syntaxTree, out CompilationUnitSyntax root, out ImmutableArray<Diagnostic> diags)
             {
+                Lexer lexer = new Lexer(syntaxTree);
                 while (true)
                 {
                     SyntaxToken token = lexer.Lex();
                     if (token.Kind == SyntaxKind.EndOfFileToken)
+                    {
+                        root = new CompilationUnitSyntax(syntaxTree, ImmutableArray<MemberSyntax>.Empty, token);
                         break;
-                    yield return token;
+                    }
+                    tokens.Add(token);
                 }
+                diags = lexer.Diagnostics.ToImmutableArray();
+                
             }
+            SyntaxTree tree = new SyntaxTree(text, ParseTokens);
+            diagnostics = tree.Diagnostics;
+            return tokens.ToImmutableArray();
+        }
 
-            Lexer lexer = new Lexer(text);
-            ImmutableArray<SyntaxToken> result = LexTokens(lexer).ToImmutableArray();
-            diagnostics = lexer.Diagnostics.ToImmutableArray();
-            return result;
+        private static void Parse(SyntaxTree tree, out CompilationUnitSyntax root, out ImmutableArray<Diagnostic> diagnostics)
+        {
+            Parser parser = new Parser(tree);
+            root = parser.ParseCompilationUnit();
+            diagnostics = parser.Diagnostics.ToImmutableArray();
         }
     }
 }

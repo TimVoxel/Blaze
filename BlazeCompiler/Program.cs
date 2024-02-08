@@ -19,9 +19,13 @@ namespace Blaze
             }
 
             string path = args.Single();
-            string text = File.ReadAllText(path);
 
-            SyntaxTree syntaxTree = SyntaxTree.Parse(text);
+            if (!File.Exists(path))
+            {
+                Console.WriteLine($"error: file {path} does not exist");
+            }
+
+            SyntaxTree syntaxTree = SyntaxTree.Load(path);
             Compilation compilation = new Compilation(syntaxTree);
             EvaluationResult result = compilation.Evaluate(new Dictionary<VariableSymbol, object?>());
 

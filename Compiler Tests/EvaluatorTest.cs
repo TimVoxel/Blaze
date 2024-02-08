@@ -221,7 +221,7 @@ namespace Blaze.Tests.CodeAnalysis
                 Assert.Equal(expectedMessage, actualMessage);
 
                 TextSpan expectedSpan = annotatedText.Spans[i];
-                TextSpan actualSpan = result.Diagnostics[i].Span;
+                TextSpan actualSpan = result.Diagnostics[i].Location.Span;
                 Assert.Equal(expectedSpan, actualSpan);
             }
         }

@@ -14,7 +14,7 @@ namespace Blaze.Syntax_Nodes
 
         public override SyntaxKind Kind => SyntaxKind.ForStatement;
 
-        public ForStatementSyntax(SyntaxToken forKeyword, SyntaxToken identifier, SyntaxToken equalsSign, ExpressionSyntax lowerBound, SyntaxToken doubleDotToken, ExpressionSyntax upperBound, StatementSyntax body)
+        public ForStatementSyntax(SyntaxTree tree, SyntaxToken forKeyword, SyntaxToken identifier, SyntaxToken equalsSign, ExpressionSyntax lowerBound, SyntaxToken doubleDotToken, ExpressionSyntax upperBound, StatementSyntax body) : base(tree)
         {
             ForKeyword = forKeyword;
             Identifier = identifier;

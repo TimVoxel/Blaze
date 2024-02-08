@@ -10,7 +10,7 @@ namespace Blaze.Syntax_Nodes
 
         public override SyntaxKind Kind => SyntaxKind.AssignmentExpression;
 
-        public AssignmentExpressionSyntax(SyntaxToken identifierToken, SyntaxToken equalsToken, ExpressionSyntax expression)
+        public AssignmentExpressionSyntax(SyntaxTree tree, SyntaxToken identifierToken, SyntaxToken equalsToken, ExpressionSyntax expression) : base(tree)
         {
             IdentifierToken = identifierToken;
             EqualsToken = equalsToken;
