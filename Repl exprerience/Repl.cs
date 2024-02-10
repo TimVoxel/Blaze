@@ -1,4 +1,5 @@
-﻿using System.Collections.ObjectModel;
+﻿using Blaze.IO;
+using System.Collections.ObjectModel;
 using System.Collections.Specialized;
 using System.Reflection;
 using System.Text;
@@ -387,11 +388,10 @@ namespace ReplExperience
             bool inQuotes = false;
             int position = 1;
             StringBuilder sb = new StringBuilder();
-
             while (position < input.Length)
             {
                 char c = input[position];
-                int l = position + 1 >= input.Length ? '\0' : input[position + 1];
+                char l = position + 1 >= input.Length ? '\0' : input[position + 1];
 
                 if (char.IsWhiteSpace(c))
                 {
@@ -400,8 +400,7 @@ namespace ReplExperience
                     else
                         sb.Append(c);
                 }
-
-                if (c == '\"')
+                else if (c == '\"')
                 {
                     if (!inQuotes)
                         inQuotes = true;
@@ -414,7 +413,9 @@ namespace ReplExperience
                         inQuotes = false;
                 }
                 else
+                {
                     sb.Append(c);
+                }
 
                 position++;
             }
@@ -423,7 +424,7 @@ namespace ReplExperience
 
             void CommitPendingArgument()
             {
-                string arg = sb.ToString();
+                var arg = sb.ToString();
                 if (!string.IsNullOrWhiteSpace(arg))
                     args.Add(arg);
                 sb.Clear();
@@ -474,9 +475,9 @@ namespace ReplExperience
         {
             public string Name { get; private set; }
             public MethodInfo Method { get; private set; }
-            public string? Description { get; private set; }
+            public string Description { get; private set; }
 
-            public MetaCommand(string name, MethodInfo method, string? description)
+            public MetaCommand(string name, MethodInfo method, string description)
             {
                 Name = name;
                 Method = method;
@@ -491,8 +492,11 @@ namespace ReplExperience
 
             foreach (MetaCommand command in _metaCommands.OrderBy(mc => mc.Name))
             {
-                string paddedName = command.Name.PadRight(maxLength); 
-                Console.WriteLine($"#{paddedName}  {command.Description}");
+                string paddedName = command.Name.PadRight(maxLength);
+                Console.Out.WritePunctuation("#");
+                Console.Out.WriteLabel(paddedName);
+                Console.Out.WritePunctuation($"  {command.Description}");
+                Console.WriteLine();
             }
         }
     }

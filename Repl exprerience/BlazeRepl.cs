@@ -8,10 +8,25 @@ namespace ReplExperience
 {
     internal sealed class BlazeRepl : Repl
     {
+        private static bool _loadingSubmissions;
         private Compilation? _previous;
         private bool _showTree;
         private bool _showProgram;
         private Dictionary<VariableSymbol, object?> _variables = new Dictionary<VariableSymbol, object?>();
+        
+        private static string SubmissionsDirectory
+        {
+            get
+            {
+                string localAppData = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
+                return Path.Combine(localAppData, "Blaze", "Submissions");
+            }
+        }
+
+        public BlazeRepl()
+        {
+            LoadSubmissions();
+        }
 
         protected override bool IsCompleteSubmission(string text)
         {
@@ -41,9 +56,9 @@ namespace ReplExperience
             }
         }
 
-        protected override void EvaluateSubmission(string inputText)
+        protected override void EvaluateSubmission(string text)
         {
-            SyntaxTree syntaxTree = SyntaxTree.Parse(inputText);
+            SyntaxTree syntaxTree = SyntaxTree.Parse(text);
             Compilation compilation = (_previous == null) ? new Compilation(syntaxTree) : _previous.ContinueWith(syntaxTree);
 
             if (_showTree)
@@ -60,9 +75,54 @@ namespace ReplExperience
                 _previous = compilation;
                 if (result.Value != null)
                     Console.WriteLine(result.Value);
+
+                SaveSubmission(text);
             }
             else
                 Console.Out.WriteDiagnostics(result.Diagnostics);
+        }
+
+        private void LoadSubmissions()
+        {
+            string submissionsDirectory = SubmissionsDirectory;
+            if (!Directory.Exists(submissionsDirectory))
+                return;
+
+            string[] files = Directory.GetFiles(submissionsDirectory);
+            if (files.Length == 0)
+                return;
+
+            _loadingSubmissions = true;
+
+            Console.ForegroundColor = ConsoleColor.Gray;
+            Console.WriteLine($"Loaded {files.Length} submission(s)");
+            Console.ResetColor();
+
+            foreach (string file in files)
+            {
+                string text = File.ReadAllText(file);
+                EvaluateSubmission(text); 
+            }
+
+            _loadingSubmissions = false;
+        }
+
+        private static void ClearSubmissions()
+        {
+            Directory.Delete(SubmissionsDirectory, true);
+        }
+
+        private static void SaveSubmission(string text)
+        {
+            if (_loadingSubmissions)
+                return;
+
+            string submissionsDirectory = SubmissionsDirectory;
+            Directory.CreateDirectory(submissionsDirectory);
+            int count = Directory.GetFiles(submissionsDirectory).Length;
+            string name = $"submission{count:0000}";
+            string fileName = Path.Combine(submissionsDirectory, name);
+            File.WriteAllText(fileName, text);
         }
 
         [MetaCommand("showTree", "Shows/Hides the parse tree")]
@@ -71,7 +131,6 @@ namespace ReplExperience
             _showTree = !_showTree;
             Console.WriteLine(_showTree ? "Showing parse trees" : "Not showing parse trees");
         }
-
 
         [MetaCommand("showProgram", "Shows/Hides the bound program")]
         private void EvaluateShowProgram()
@@ -86,11 +145,61 @@ namespace ReplExperience
             Console.Clear();
         }
 
-
         [MetaCommand("reset", "Clears all previous submissions")]
         private void EvaluateReset()
         {
             _previous = null;
+        }
+
+        [MetaCommand("load", "Loads a script file")]
+        private void EvaluateScriptLoad(string path)
+        {
+            path = Path.GetFullPath(path);
+
+            if (!File.Exists(path))
+            {
+                Console.ForegroundColor = ConsoleColor.Red;
+                Console.WriteLine($"File {path} does not exist");
+                Console.ResetColor();
+                return;
+            }
+
+            string text = File.ReadAllText(path);
+            EvaluateSubmission(text);
+        }
+
+        [MetaCommand("listSymbols", "Lists all defined symbols")]
+        private void EvaluateLs()
+        {
+            if (_previous == null) return;
+            IEnumerable<Symbol> symbols = _previous.GetSymbols().OrderBy(s => s.Kind).ThenBy(s => s.Name);
+            foreach (Symbol symbol in symbols)
+            {
+                symbol.WriteTo(Console.Out);
+                Console.WriteLine();
+            }
+        }
+
+        [MetaCommand("deleteSubmissions", "Deletes all saved submissions")]
+        private void EvaluateDeleteSubmissions() => ClearSubmissions();
+
+
+        [MetaCommand("dump", "Shows the bound tree of a given function")]
+        private void EvaluateDump(string functionName)
+        {
+            if (_previous == null)
+                return;
+
+            FunctionSymbol? function = _previous.GetSymbols().OfType<FunctionSymbol>().SingleOrDefault(f => f.Name == functionName);
+            if (function == null)
+            {
+                Console.ForegroundColor = ConsoleColor.Red;
+                Console.WriteLine($"error: Function \"{functionName}\" does not exist");
+                Console.ResetColor();
+                return;
+            }
+
+            _previous.EmitTree(function, Console.Out);
         }
     }
 }

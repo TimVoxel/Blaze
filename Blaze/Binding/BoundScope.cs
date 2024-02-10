@@ -3,7 +3,6 @@ using Blaze.Symbols;
 
 namespace Blaze.Binding
 {
-
     internal sealed class BoundScope
     {
         private Dictionary<string, VariableSymbol>? _variables;

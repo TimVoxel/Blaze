@@ -39,7 +39,12 @@ namespace Blaze.Symbols
             }
 
             writer.WritePunctuation(")");
-            writer.WriteLine();
+
+            if (symbol.ReturnType != TypeSymbol.Void)
+            {
+                writer.WritePunctuation(" : ");
+                symbol.ReturnType.WriteTo(writer);
+            }     
         }
 
         //private static void WriteLocalVariable(LocalVariableSymbol symbol, TextWriter writer) => WriteVariable(symbol, writer);

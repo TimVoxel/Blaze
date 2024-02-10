@@ -11,6 +11,9 @@ namespace Blaze
         private BoundGlobalScope? _globalScope;
 
         public ImmutableArray<SyntaxTree> SyntaxTrees { get; private set; }
+        public Compilation? Previous { get; private set; }
+        public ImmutableArray<FunctionSymbol> Functions => GlobalScope.Functions;
+        public ImmutableArray<VariableSymbol> Variables => GlobalScope.Variables;
 
         internal BoundGlobalScope GlobalScope
         {
@@ -25,8 +28,6 @@ namespace Blaze
             }
         }
 
-        public Compilation? Previous { get; }
-
         public Compilation(params SyntaxTree[] syntaxTrees) : this(null, syntaxTrees) { }
 
         private Compilation(Compilation? previous, params SyntaxTree[] syntaxTrees)
@@ -36,6 +37,24 @@ namespace Blaze
         }
 
         public Compilation ContinueWith(SyntaxTree syntaxTree) => new Compilation(this, syntaxTree);
+
+        public IEnumerable<Symbol> GetSymbols()
+        {
+            Compilation? submission = this;
+            HashSet<string> seenSymbolNames = new HashSet<string>(); 
+
+            while (submission != null)
+            {
+                foreach (FunctionSymbol function in submission.Functions)
+                    yield return function;
+
+                foreach (VariableSymbol variable in submission.Variables)
+                    if (seenSymbolNames.Add(variable.Name))
+                         yield return variable;
+
+                submission = submission.Previous;
+            }
+        }
 
         public EvaluationResult Evaluate(Dictionary<VariableSymbol, object?> variables)
         {
@@ -85,6 +104,18 @@ namespace Blaze
                     functionBody.Value.WriteTo(writer);
                 }
             }
+        }
+
+        public void EmitTree(FunctionSymbol function, TextWriter writer)
+        {
+            BoundProgram program = Binder.BindProgram(GlobalScope);
+
+            if (!program.Functions.TryGetValue(function, out BoundBlockStatement? body))
+                return;
+
+            function.WriteTo(Console.Out);
+            Console.WriteLine();
+            body.WriteTo(Console.Out);
         }
     }
 }
