@@ -56,6 +56,12 @@ namespace Blaze
             }
         }
 
+        private BoundProgram GetProgram()
+        {
+            BoundProgram? previous = Previous == null ? null : Previous.GetProgram();
+            return Binder.BindProgram(previous, GlobalScope);
+        }
+
         public EvaluationResult Evaluate(Dictionary<VariableSymbol, object?> variables)
         {
             IEnumerable<Diagnostic> parseDiagnostics = SyntaxTrees.SelectMany(st => st.Diagnostics);
@@ -64,7 +70,7 @@ namespace Blaze
             if (diagnostics.Any())
                 return new EvaluationResult(diagnostics, null);
 
-            BoundProgram program = Binder.BindProgram(GlobalScope);
+            BoundProgram program = GetProgram();
 
             BoundBlockStatement controlFlowGraphStatement = !program.Statement.Statements.Any() && program.Functions.Any()
                 ? program.Functions.Last().Value
@@ -90,7 +96,7 @@ namespace Blaze
 
         public void EmitTree(TextWriter writer)
         {
-            BoundProgram program = Binder.BindProgram(GlobalScope);
+            BoundProgram program = GetProgram();
 
             if (program.Statement.Statements.Any())
                 program.Statement.WriteTo(writer);
@@ -108,7 +114,7 @@ namespace Blaze
 
         public void EmitTree(FunctionSymbol function, TextWriter writer)
         {
-            BoundProgram program = Binder.BindProgram(GlobalScope);
+            BoundProgram program = GetProgram();
 
             if (!program.Functions.TryGetValue(function, out BoundBlockStatement? body))
                 return;

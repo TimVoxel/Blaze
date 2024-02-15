@@ -95,36 +95,31 @@ namespace Blaze.Binding
             return result;
         }
 
-        public static BoundProgram BindProgram(BoundGlobalScope globalScope)
+        public static BoundProgram BindProgram(BoundProgram? previous, BoundGlobalScope globalScope)
         {
             BoundScope? parentScope = CreateParentScope(globalScope);
             ImmutableDictionary<FunctionSymbol, BoundBlockStatement>.Builder functionBodies = ImmutableDictionary.CreateBuilder<FunctionSymbol, BoundBlockStatement>();
            
             ImmutableArray<Diagnostic>.Builder diagnostics = ImmutableArray.CreateBuilder<Diagnostic>();
 
-            BoundGlobalScope? scope = globalScope;
-            while (scope != null)
+            foreach (FunctionSymbol function in globalScope.Functions)
             {
-                foreach (FunctionSymbol function in scope.Functions)
+                Binder binder = new Binder(parentScope, function);
+                if (function.Declaration != null)
                 {
-                    Binder binder = new Binder(parentScope, function);
-                    if (function.Declaration != null)
-                    {
-                        BoundStatement body = binder.BindStatement(function.Declaration.Body);
-                        BoundBlockStatement loweredBody = Lowerer.Lower(body);
+                    BoundStatement body = binder.BindStatement(function.Declaration.Body);
+                    BoundBlockStatement loweredBody = Lowerer.Lower(body);
 
-                        if (function.ReturnType != TypeSymbol.Void && !ControlFlowGraph.AllPathsReturn(loweredBody))
-                            binder._diagnostics.ReportAllPathsMustReturn(function.Declaration.Identifier.Location);
+                    if (function.ReturnType != TypeSymbol.Void && !ControlFlowGraph.AllPathsReturn(loweredBody))
+                        binder._diagnostics.ReportAllPathsMustReturn(function.Declaration.Identifier.Location);
 
-                        functionBodies.Add(function, loweredBody);
-                        diagnostics.AddRange(binder.Diagnostics);
-                    }
+                    functionBodies.Add(function, loweredBody);
+                    diagnostics.AddRange(binder.Diagnostics);
                 }
-                scope = scope.Previous;
             }
 
             BoundBlockStatement statement = Lowerer.Lower(new BoundBlockStatement(globalScope.Statements));
-            return new BoundProgram(diagnostics.ToImmutable(), functionBodies.ToImmutable(), statement);
+            return new BoundProgram(previous, diagnostics.ToImmutable(), functionBodies.ToImmutable(), statement);
         }
 
         private void BindFunctionDeclaration(FunctionDeclarationSyntax declaration)

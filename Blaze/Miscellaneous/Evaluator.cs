@@ -7,6 +7,7 @@ namespace Blaze.Miscellaneuos
     {
         private readonly BoundProgram _program;
         private readonly Dictionary<VariableSymbol, object?> _globals;
+        private readonly Dictionary<FunctionSymbol, BoundBlockStatement> _functions = new Dictionary<FunctionSymbol, BoundBlockStatement>();
         private readonly Stack<Dictionary<VariableSymbol, object?>> _locals = new Stack<Dictionary<VariableSymbol, object?>>();
         private Random? _random;
 
@@ -17,6 +18,15 @@ namespace Blaze.Miscellaneuos
             _program = program;
             _globals = variables;
             _lastValue = 0;
+
+            BoundProgram? current = program;
+            while (current != null)
+            {
+                foreach (var functionWithBody in current.Functions)
+                    _functions.Add(functionWithBody.Key, functionWithBody.Value);
+
+                current = current.Previous;
+            }
         }
 
         public object? Evaluate() => EvaluateStatement(_program.Statement);
@@ -202,8 +212,15 @@ namespace Blaze.Miscellaneuos
                     locals.Add(parameter, value);
                 }
 
+                string analog = node.Arguments.Length switch
+                {
+                    1 => "1",
+                    2 => "2",
+                    _ => "-1"
+                };
+
                 _locals.Push(locals);
-                BoundBlockStatement statement = _program.Functions[node.Function];
+                BoundBlockStatement statement = _functions[node.Function];
                 object? result = EvaluateStatement(statement);
                 _locals.Pop();
                 return result;
