@@ -11,6 +11,7 @@ namespace Blaze.Binding
     internal sealed class Binder
     {
         private readonly DiagnosticBag _diagnostics = new DiagnosticBag();
+        private readonly bool _isScript;
         private readonly FunctionSymbol? _function;
 
         private Stack<(BoundLabel breakLabel, BoundLabel continueLabel)> _loopStack = new Stack<(BoundLabel breakLabel, BoundLabel continueLabel)>();
@@ -20,9 +21,10 @@ namespace Blaze.Binding
 
         public DiagnosticBag Diagnostics => _diagnostics;
 
-        public Binder(BoundScope? parent, FunctionSymbol? function)
+        public Binder(bool isScript, BoundScope? parent, FunctionSymbol? function)
         {
             _scope = new BoundScope(parent);
+            _isScript = isScript;
             _function = function;
 
             if (_function != null)
@@ -30,10 +32,10 @@ namespace Blaze.Binding
                     _scope.TryDeclareVariable(parameter);
         }
 
-        public static BoundGlobalScope BindGlobalScope(BoundGlobalScope? previous, ImmutableArray<SyntaxTree> syntaxTrees)
+        public static BoundGlobalScope BindGlobalScope(bool isScript, BoundGlobalScope? previous, ImmutableArray<SyntaxTree> syntaxTrees)
         {
             BoundScope? parentScope = CreateParentScope(previous);
-            Binder binder = new Binder(parentScope, null);
+            Binder binder = new Binder(isScript, parentScope, null);
 
             IEnumerable<FunctionDeclarationSyntax> functionDeclarations = syntaxTrees.SelectMany(st => st.Root.Members).OfType<FunctionDeclarationSyntax>();
 
@@ -46,7 +48,7 @@ namespace Blaze.Binding
             ImmutableArray<BoundStatement>.Builder statements = ImmutableArray.CreateBuilder<BoundStatement>();
             foreach (var globalStatement in globalStatements)
             {
-                BoundStatement statement = binder.BindStatement(globalStatement.Statement);
+                BoundStatement statement = binder.BindGlobalStatement(globalStatement.Statement);
                 statements.Add(statement);
             }
 
@@ -95,7 +97,7 @@ namespace Blaze.Binding
             return result;
         }
 
-        public static BoundProgram BindProgram(BoundProgram? previous, BoundGlobalScope globalScope)
+        public static BoundProgram BindProgram(bool isScript, BoundProgram? previous, BoundGlobalScope globalScope)
         {
             BoundScope? parentScope = CreateParentScope(globalScope);
             ImmutableDictionary<FunctionSymbol, BoundBlockStatement>.Builder functionBodies = ImmutableDictionary.CreateBuilder<FunctionSymbol, BoundBlockStatement>();
@@ -104,7 +106,7 @@ namespace Blaze.Binding
 
             foreach (FunctionSymbol function in globalScope.Functions)
             {
-                Binder binder = new Binder(parentScope, function);
+                Binder binder = new Binder(isScript, parentScope, function);
                 if (function.Declaration != null)
                 {
                     BoundStatement body = binder.BindStatement(function.Declaration.Body);
@@ -149,7 +151,28 @@ namespace Blaze.Binding
                 _diagnostics.ReportFunctionAlreadyDeclared(declaration.Identifier.Location, function.Name);
         }
 
-        private BoundStatement BindStatement(StatementSyntax syntax)
+        private BoundStatement BindGlobalStatement(StatementSyntax syntax) => BindStatement(syntax, true);
+
+        private BoundStatement BindStatement(StatementSyntax syntax, bool isGlobal = false)
+        {
+            BoundStatement result = BindStatementInternal(syntax);
+
+            if (!_isScript || !isGlobal)
+            {
+                if (result is BoundExpressionStatement es)
+                {
+                    bool isAllowedExpression = es.Expression.Kind == BoundNodeKind.AssignmentExpression
+                        || es.Expression.Kind == BoundNodeKind.CallExpression
+                        || es.Expression.Kind == BoundNodeKind.ErrorExpression;
+
+                    if (!isAllowedExpression)
+                        _diagnostics.ReportInvalidExpressionStatement(syntax.Location);
+                }
+            }
+            return result;
+        }
+
+        private BoundStatement BindStatementInternal(StatementSyntax syntax)
         {
             switch (syntax.Kind)
             {

@@ -52,7 +52,8 @@ namespace Blaze.Tests.CodeAnalysis
         private void AssertValue(string text, object expectedResult)
         {
             SyntaxTree tree = SyntaxTree.Parse(text);
-            Compilation compilation = new Compilation(tree);
+            Compilation compilation = Compilation.CreateScript(null, tree);
+
             Dictionary<VariableSymbol, object?> variables = new Dictionary<VariableSymbol, object?>();
             EvaluationResult evaluationResult = compilation.Evaluate(variables);
 
@@ -204,7 +205,8 @@ namespace Blaze.Tests.CodeAnalysis
         {
             AnnotatedText annotatedText = AnnotatedText.Parse(text);
             SyntaxTree syntaxTree = SyntaxTree.Parse(annotatedText.Text);
-            Compilation compilation = new Compilation(syntaxTree);
+            Compilation compilation = Compilation.CreateScript(null, syntaxTree);
+
             EvaluationResult result = compilation.Evaluate(new Dictionary<VariableSymbol, object?>());
 
             List<string> expectedDiagnostics = AnnotatedText.UnindentLines(diagnosticText);

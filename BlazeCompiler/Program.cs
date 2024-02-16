@@ -1,6 +1,5 @@
 ﻿using Blaze.IO;
 using Blaze.Symbols;
-using System.Reflection.Metadata.Ecma335;
 
 namespace Blaze
 {
@@ -32,7 +31,7 @@ namespace Blaze
             if (hasErrors) 
                 return;
 
-            Compilation compilation = new Compilation(trees.ToArray());
+            Compilation compilation = Compilation.Create(trees.ToArray());
             EvaluationResult result = compilation.Evaluate(new Dictionary<VariableSymbol, object?>());
 
             if (!result.Diagnostics.Any())
@@ -41,9 +40,7 @@ namespace Blaze
                     Console.Out.WriteLine(result.Value);
             }
             else
-            {
                 Console.Error.WriteDiagnostics(result.Diagnostics);
-            }
             Console.ReadKey();
         }
 

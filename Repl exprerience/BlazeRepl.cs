@@ -59,7 +59,7 @@ namespace ReplExperience
         protected override void EvaluateSubmission(string text)
         {
             SyntaxTree syntaxTree = SyntaxTree.Parse(text);
-            Compilation compilation = (_previous == null) ? new Compilation(syntaxTree) : _previous.ContinueWith(syntaxTree);
+            Compilation compilation = Compilation.CreateScript(_previous, syntaxTree);
 
             if (_showTree)
                 syntaxTree.Root.WriteTo(Console.Out);
@@ -109,7 +109,9 @@ namespace ReplExperience
 
         private static void ClearSubmissions()
         {
-            Directory.Delete(SubmissionsDirectory, true);
+            string submissionsDirectory = SubmissionsDirectory;
+            if (Directory.Exists(submissionsDirectory))
+                Directory.Delete(submissionsDirectory, true);
         }
 
         private static void SaveSubmission(string text)
