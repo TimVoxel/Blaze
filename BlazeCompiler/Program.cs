@@ -1,22 +1,53 @@
-﻿using Blaze.IO;
-using Blaze.Symbols;
+﻿using Blaze.Diagnostics;
+using Blaze.IO;
+using Mono.Options;
+using System.Collections.Immutable;
 
 namespace Blaze
 {
     internal static class Program
     {
-        private static void Main(string[] args)
+        private static int Main(string[] args)
         {
-            if (args.Length == 0)
+            string? outputPath = null;
+            string? moduleName = null;
+            bool helpRequested = false;
+            List<string> referencePaths = new List<string>();
+            List<string> sourcePaths = new List<string>();
+
+            OptionSet options = new OptionSet
             {
-                Console.Error.WriteLine("usage: BlazeCompiler <source-paths>");
-                return;
+                "usage: BlazeCompiler <source-paths> [options]",
+                { "r=", "The {path} of an assembly to reference", v => referencePaths.Add(v) },
+                { "o=", "The output {path} of the assembly to create", v => outputPath = v },
+                { "m=", "The {name} of the module", v => moduleName = v },
+                { "?|h|help", v => helpRequested = true },
+                { "<>", v => sourcePaths.Add(v) },
+            };
+            options.Parse(args);
+
+            if (helpRequested)
+            {
+                options.WriteOptionDescriptions(Console.Out);
+                Console.ReadKey();
+                return 0;
             }
-            
-            IEnumerable<string> paths = GetFilePaths(args);
+
+            if (sourcePaths.Count == 0)
+            {
+                Console.Error.WriteLine("error: need at least one source file");
+                return 1;
+            }
+
+            if (outputPath == null)
+                outputPath = Path.ChangeExtension(sourcePaths[0], ".exe");       
+
+            if (moduleName == null)
+                moduleName = Path.GetFileNameWithoutExtension(outputPath);
+
             bool hasErrors = false;
             List<SyntaxTree> trees = new List<SyntaxTree>();
-            foreach (string path in paths)
+            foreach (string path in sourcePaths)
             {
                 if (!File.Exists(path))
                 {
@@ -28,37 +59,31 @@ namespace Blaze
                 trees.Add(syntaxTree);
             }
 
-            if (hasErrors) 
-                return;
+            foreach (string path in referencePaths)
+            {
+                if (!File.Exists(path))
+                {
+                    Console.WriteLine($"error: file {path} does not exist");
+                    hasErrors = true;
+                    continue;
+                }
+            }
+
+            if (hasErrors)
+                return 1;
 
             Compilation compilation = Compilation.Create(trees.ToArray());
-            EvaluationResult result = compilation.Evaluate(new Dictionary<VariableSymbol, object?>());
+            ImmutableArray<Diagnostic> diagnostics = compilation.Emit(moduleName, referencePaths.ToArray(), outputPath);
 
-            if (!result.Diagnostics.Any())
+            if (diagnostics.Any())
             {
-                if (result.Value != null)
-                    Console.Out.WriteLine(result.Value);
+                Console.Error.WriteDiagnostics(diagnostics);
+                return 1;
             }
-            else
-                Console.Error.WriteDiagnostics(result.Diagnostics);
+
+            Console.WriteLine(outputPath);
             Console.ReadKey();
-        }
-
-        private static IEnumerable<string> GetFilePaths(IEnumerable<string> paths)
-        {
-            var result = new SortedSet<string>();
-
-            foreach (string path in paths)
-            {
-                if (Directory.Exists(path))
-                {
-                    result.UnionWith(Directory.EnumerateFiles(path, "*.blz", SearchOption.AllDirectories));
-                }
-                else
-                    result.Add(path);   
-            }
-
-            return result;
+            return 0;
         }
     }
 }

@@ -26,17 +26,24 @@ namespace Blaze.Binding
             if (from == to)
                 return Identity;
 
+            // any -> object
+            if (from != TypeSymbol.Void && to == TypeSymbol.Object)
+                return Implicit;
+
+            // object -> any
+            if (from == TypeSymbol.Object && to != TypeSymbol.Void)
+                return Explicit;
+
+            // int or bool -> string
             if (from == TypeSymbol.Int || from == TypeSymbol.Bool)
-            {
                 if (to == TypeSymbol.String)
                     return Explicit;
-            }
-
-            if (from == TypeSymbol.String)
-            {
+            
+            // string -> int or bool
+            if (from == TypeSymbol.String)        
                 if (to == TypeSymbol.Int || to == TypeSymbol.Bool)
                     return Explicit;
-            }
+    
             return None;
         }
     }

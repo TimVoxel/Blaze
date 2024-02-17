@@ -1,5 +1,6 @@
 ﻿using Blaze.Binding;
 using Blaze.Diagnostics;
+using Blaze.Emit;
 using Blaze.Miscellaneuos;
 using Blaze.Symbols;
 using System.Collections.Immutable;
@@ -15,6 +16,7 @@ namespace Blaze
         public Compilation? Previous { get; private set; }
         public ImmutableArray<FunctionSymbol> Functions => GlobalScope.Functions;
         public ImmutableArray<VariableSymbol> Variables => GlobalScope.Variables;
+        public FunctionSymbol? MainFunction => GlobalScope.MainFunction;
 
         internal BoundGlobalScope GlobalScope
         {
@@ -73,19 +75,19 @@ namespace Blaze
 
             BoundProgram program = GetProgram();
 
-            BoundBlockStatement controlFlowGraphStatement = !program.Statement.Statements.Any() && program.Functions.Any()
-                ? program.Functions.Last().Value
-                : program.Statement;
-            ControlFlowGraph cfg = ControlFlowGraph.Create(controlFlowGraphStatement);
+            //BoundBlockStatement controlFlowGraphStatement = !program.Statement.Statements.Any() && program.Functions.Any()
+            //    ? program.Functions.Last().Value
+            //    : program.Statement;
+            //ControlFlowGraph cfg = ControlFlowGraph.Create(controlFlowGraphStatement);
 
-            string appPath = Environment.GetCommandLineArgs()[0];
-            string? appDirectory = Path.GetDirectoryName(appPath);
-            if (appDirectory != null)
-            {
-                string cfgPath = Path.Combine(appDirectory, "cfg.dot");
-                using (StreamWriter writer = new StreamWriter(cfgPath))
-                    cfg.WriteTo(writer);
-            }
+            //string appPath = Environment.GetCommandLineArgs()[0];
+            //string? appDirectory = Path.GetDirectoryName(appPath);
+            //if (appDirectory != null)
+            //{
+            //    string cfgPath = Path.Combine(appDirectory, "cfg.dot");
+            //    using (StreamWriter writer = new StreamWriter(cfgPath))
+            //        cfg.WriteTo(writer);
+            //}
 
             if (program.Diagnostics.Any())
                 return new EvaluationResult(program.Diagnostics.ToImmutableArray(), null);
@@ -97,20 +99,10 @@ namespace Blaze
 
         public void EmitTree(TextWriter writer)
         {
-            BoundProgram program = GetProgram();
-
-            if (program.Statement.Statements.Any())
-                program.Statement.WriteTo(writer);
-            else
-            {
-                foreach (var functionBody in program.Functions)
-                {
-                    if (!GlobalScope.Functions.Contains(functionBody.Key))
-                        continue;
-                    functionBody.Key.WriteTo(writer);
-                    functionBody.Value.WriteTo(writer);
-                }
-            }
+            if (GlobalScope.MainFunction != null)
+                EmitTree(GlobalScope.MainFunction, writer);
+            else if (GlobalScope.ScriptFunction != null)
+                EmitTree(GlobalScope.ScriptFunction, writer);
         }
 
         public void EmitTree(FunctionSymbol function, TextWriter writer)
@@ -123,6 +115,12 @@ namespace Blaze
             function.WriteTo(Console.Out);
             Console.WriteLine();
             body.WriteTo(Console.Out);
+        }
+
+        public ImmutableArray<Diagnostic> Emit(string moduleName, string[] references, string outputPath)
+        {
+            BoundProgram program = GetProgram();
+            return ILEmitter.Emit(program, moduleName, references, outputPath);
         }
     }
 }

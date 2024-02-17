@@ -5,6 +5,8 @@ using Blaze.Syntax_Nodes;
 using Blaze.SyntaxTokens;
 using Blaze.Text;
 using System.Collections.Immutable;
+using System.Reflection.Metadata;
+using System.Xml;
 
 namespace Blaze.Binding
 {
@@ -43,23 +45,68 @@ namespace Blaze.Binding
                 binder.BindFunctionDeclaration(function);
 
             IEnumerable<GlobalStatementSyntax> globalStatements = syntaxTrees.SelectMany(st => st.Root.Members).OfType<GlobalStatementSyntax>();
+            GlobalStatementSyntax?[] firstGlobalStatementOfTree = syntaxTrees.Select(st => st.Root.Members.OfType<GlobalStatementSyntax>().FirstOrDefault())
+                .Where(n => n != null)
+                .ToArray();
 
-            //Bind global statements
             ImmutableArray<BoundStatement>.Builder statements = ImmutableArray.CreateBuilder<BoundStatement>();
-            foreach (var globalStatement in globalStatements)
+            foreach (GlobalStatementSyntax globalStatement in globalStatements)
             {
-                BoundStatement statement = binder.BindGlobalStatement(globalStatement.Statement);
-                statements.Add(statement);
+                BoundStatement boundStatement = binder.BindGlobalStatement(globalStatement.Statement);
+                statements.Add(boundStatement);
+            }
+
+            if (firstGlobalStatementOfTree.Length > 1)
+            {
+                foreach (GlobalStatementSyntax? globalStatement in firstGlobalStatementOfTree)
+                    if (globalStatement != null)
+                        binder.Diagnostics.ReportOnlyOneFileCanHaveGlobalStatements(globalStatement.Location);
             }
 
             ImmutableArray<FunctionSymbol> functions = binder._scope.GetDeclaredFunctions();
-            ImmutableArray<VariableSymbol> variables = binder._scope.GetDeclaredVariables();
-            ImmutableArray<Diagnostic> diagnostics = binder.Diagnostics.ToImmutableArray();
+            FunctionSymbol? mainFunction = null;
+            FunctionSymbol? scriptFunction = null;
 
+            if (isScript)
+            {
+                if (globalStatements.Any())
+                    scriptFunction = new FunctionSymbol("$eval", ImmutableArray<ParameterSymbol>.Empty, TypeSymbol.Object);
+            }
+            else
+            {
+                mainFunction = functions.SingleOrDefault(f => f.Name == "main");
+
+                if (mainFunction != null && mainFunction.Declaration != null)
+                {
+                    if (mainFunction.ReturnType != TypeSymbol.Void || mainFunction.Parameters.Any())
+                        binder.Diagnostics.ReportMainFunctionMustHaveCorrectSignature(mainFunction.Declaration.Identifier.Location);
+                }
+
+                if (globalStatements.Any())
+                {
+                    if (mainFunction != null && mainFunction.Declaration != null)
+                    {
+                        binder.Diagnostics.ReportCannotMixMainAndGlobalStatements(mainFunction.Declaration.Identifier.Location);
+
+                        foreach (GlobalStatementSyntax? globalStatement in firstGlobalStatementOfTree)
+                            if (globalStatement != null)
+                                binder.Diagnostics.ReportCannotMixMainAndGlobalStatements(globalStatement.Location);
+                    }
+                    else
+                        mainFunction = new FunctionSymbol("main", ImmutableArray<ParameterSymbol>.Empty, TypeSymbol.Void);
+                }
+            }
+
+            //Bind global statements
+            ImmutableArray<Diagnostic> diagnostics = binder.Diagnostics.ToImmutableArray();
+            FunctionSymbol? globalStatementFunction = mainFunction ?? scriptFunction;
+
+            ImmutableArray<VariableSymbol> variables = binder._scope.GetDeclaredVariables();
+            
             if (previous != null)
                 diagnostics = diagnostics.InsertRange(0, previous.Diagnostics);
 
-            return new BoundGlobalScope(previous, diagnostics, variables, functions, statements.ToImmutable());
+            return new BoundGlobalScope(previous, diagnostics, mainFunction, scriptFunction, variables, functions, statements.ToImmutable());
         }
 
         private static BoundScope? CreateParentScope(BoundGlobalScope? previous)
@@ -120,8 +167,31 @@ namespace Blaze.Binding
                 }
             }
 
-            BoundBlockStatement statement = Lowerer.Lower(new BoundBlockStatement(globalScope.Statements));
-            return new BoundProgram(previous, diagnostics.ToImmutable(), functionBodies.ToImmutable(), statement);
+            if (globalScope.MainFunction != null && globalScope.Statements.Any())
+            {
+                BoundBlockStatement body = Lowerer.Lower(new BoundBlockStatement(globalScope.Statements));
+                functionBodies.Add(globalScope.MainFunction, body);
+            }
+
+            if (globalScope.ScriptFunction != null)
+            {
+                ImmutableArray<BoundStatement> statements = globalScope.Statements;
+                
+                if (statements.Length == 1 && statements[0] is BoundExpressionStatement es
+                    && es.Expression.Type != TypeSymbol.Void)
+                {
+                    statements = statements.SetItem(0, new BoundReturnStatement(es.Expression));
+                } 
+                else if (statements.Any() && statements.Last().Kind != BoundNodeKind.ReturnStatement)
+                {
+                    BoundExpression nullValue = new BoundLiteralExpression("");
+                    statements = statements.Add(new BoundReturnStatement(nullValue));
+                }    
+                BoundBlockStatement body = Lowerer.Lower(new BoundBlockStatement(statements));
+                functionBodies.Add(globalScope.ScriptFunction, body);
+            }
+
+            return new BoundProgram(previous, diagnostics.ToImmutable(), globalScope.MainFunction, globalScope.ScriptFunction, functionBodies.ToImmutable());
         }
 
         private void BindFunctionDeclaration(FunctionDeclarationSyntax declaration)
@@ -142,7 +212,7 @@ namespace Blaze.Binding
                     parameters.Add(new ParameterSymbol(name, type));
             }
 
-            TypeSymbol? returnType = (declaration.ReturnTypeClause == null) ? TypeSymbol.Void : BindTypeClause(declaration.ReturnTypeClause);
+            TypeSymbol? returnType = (declaration.ReturnTypeClause == null) ? TypeSymbol.Void : BindReturnTypeClause(declaration.ReturnTypeClause);
             if (returnType == null)
                 returnType = TypeSymbol.Void;
 
@@ -204,20 +274,14 @@ namespace Blaze.Binding
         private BoundStatement BindVariableDeclarationStatement(VariableDeclarationStatementSyntax syntax)
         {
             BoundExpression initializer = BindExpression(syntax.Initializer);
-            TypeSymbol? type;
+            TypeSymbol? type = null;
             if (syntax.DeclarationNode is TypeClauseSyntax typeClause)
-            {
                 type = BindTypeClause(typeClause);
-                if (type == null)
-                    type = initializer.Type;
-                else 
-                    initializer = BindConversion(initializer, type, syntax.Initializer.Location);
-            }
-            else
-                type = initializer.Type;
 
-            VariableSymbol variable = BindVariable(syntax.Identifier, type);
-            return new BoundVariableDeclarationStatement(variable, initializer);
+            TypeSymbol variableType = type ?? initializer.Type;
+            VariableSymbol variable = BindVariable(syntax.Identifier, variableType);
+            BoundExpression convertedInitializer = BindConversion(initializer, variableType, syntax.Initializer.Location);
+            return new BoundVariableDeclarationStatement(variable, convertedInitializer);
         }
 
         private BoundStatement BindExpressionStatement(ExpressionStatementSyntax syntax)
@@ -270,7 +334,16 @@ namespace Blaze.Binding
 
             if (_function == null)
             {
-                _diagnostics.ReportReturnOutsideFunction(syntax.Keyword.Location);
+                if (_isScript)
+                {
+                    if (expression == null)
+                        expression = new BoundLiteralExpression("");
+                }
+                else if (expression != null)
+                {
+                    if (syntax.Expression != null)
+                        _diagnostics.ReportReturnWithExpressionInGlobalStatement(syntax.Expression.Location);
+                }
             }
             else
             {
@@ -438,7 +511,7 @@ namespace Blaze.Binding
         private BoundExpression BindCallExpression(CallExpressionSyntax expression)
         {
             string name = expression.Identifier.Text;
-            if (expression.Arguments.Count == 1 && LookupType(name) is TypeSymbol type)
+            if (expression.Arguments.Count == 1 && TypeSymbol.Lookup(name) is TypeSymbol type)
                 return BindConversion(expression.Arguments[0], type, true);
             
             ImmutableArray<BoundExpression>.Builder boundArguments = ImmutableArray.CreateBuilder<BoundExpression>();
@@ -457,22 +530,15 @@ namespace Blaze.Binding
                 _diagnostics.ReportWrongArgumentCount(expression.Location, function.Name, function.Parameters.Length, expression.Arguments.Count);
                 return new BoundErrorExpression();
             }
-            bool hasErrors = false;
+
             for (int i = 0; i < expression.Arguments.Count; i++)
             {
+                TextLocation argumentLocation = expression.Arguments[i].Location;
                 ParameterSymbol parameter = function.Parameters[i];
                 BoundExpression boundArgument = boundArguments[i];
-
-                if (boundArgument.Type != parameter.Type)
-                {
-                    if (boundArgument.Type != TypeSymbol.Error)
-                        _diagnostics.ReportWrongArgumentType(expression.Arguments[i].Location, function.Name, parameter.Name, parameter.Type, boundArgument.Type);
-                    hasErrors = true;
-                }
+                boundArguments[i] = BindConversion(boundArgument, parameter.Type, argumentLocation);
             }
-            if (hasErrors)
-                return new BoundErrorExpression();
-
+            
             return new BoundCallExpression(function, boundArguments.ToImmutable());
         }
         
@@ -521,45 +587,30 @@ namespace Blaze.Binding
         private VariableSymbol BindVariable(SyntaxToken identifier, TypeSymbol type)
         {
             string name = identifier.Text;
-            bool declare = !identifier.IsMissingText;
+            VariableSymbol variable = _function == null
+                                ? (VariableSymbol) new GlobalVariableSymbol(name, type)
+                                : new LocalVariableSymbol(name, type);
 
-            VariableSymbol variable = (_function == null) ? 
-                new GlobalVariableSymbol(name, type) 
-              : new LocalVariableSymbol(name, type);
-            if (declare && !_scope.TryDeclareVariable(variable))
+            if (!_scope.TryDeclareVariable(variable))
                 _diagnostics.ReportVariableAlreadyDeclared(identifier.Location, name);
+
             return variable;
         }
 
         private TypeSymbol? BindTypeClause(TypeClauseSyntax syntax)
         {
-            TypeSymbol? type = LookupType(syntax.Identifier.Text);
+            TypeSymbol? type = TypeSymbol.Lookup(syntax.Identifier.Text);
             if (type == null)
                 _diagnostics.ReportUndefinedType(syntax.Identifier.Location, syntax.Identifier.Text);
             return type;
         }
 
-        private TypeSymbol? BindTypeClause(ReturnTypeClauseSyntax syntax)
+        private TypeSymbol? BindReturnTypeClause(ReturnTypeClauseSyntax syntax)
         {
-            TypeSymbol? type = LookupType(syntax.Identifier.Text);
+            TypeSymbol? type = TypeSymbol.Lookup(syntax.Identifier.Text);
             if (type == null)
                 _diagnostics.ReportUndefinedType(syntax.Identifier.Location, syntax.Identifier.Text);
             return type;
-        }
-
-        private TypeSymbol? LookupType(string name)
-        {
-            switch (name)
-            {
-                case "bool":
-                    return TypeSymbol.Bool;
-                case "string":
-                    return TypeSymbol.String;
-                case "int":
-                    return TypeSymbol.Int;
-                default:
-                    return null;
-            }
         }
     }
 }

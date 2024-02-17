@@ -1,5 +1,6 @@
 ﻿using Blaze.Binding;
 using Blaze.Symbols;
+using System.Diagnostics;
 
 namespace Blaze.Miscellaneuos
 {
@@ -18,6 +19,7 @@ namespace Blaze.Miscellaneuos
             _program = program;
             _globals = variables;
             _lastValue = 0;
+            _locals.Push(new Dictionary<VariableSymbol, object?>());
 
             BoundProgram? current = program;
             while (current != null)
@@ -29,7 +31,15 @@ namespace Blaze.Miscellaneuos
             }
         }
 
-        public object? Evaluate() => EvaluateStatement(_program.Statement);
+        public object? Evaluate()
+        {
+            FunctionSymbol? function = _program.MainFunction ?? _program.ScriptFunction;
+            if (function == null)
+                return null;
+
+            BoundBlockStatement body = _functions[function];
+            return EvaluateStatement(body);
+        }
 
         private object? EvaluateStatement(BoundBlockStatement body)
         {
@@ -168,6 +178,8 @@ namespace Blaze.Miscellaneuos
             object? value = EvaluateExpression(node.Expression);
             if (value == null) return null;
 
+            if (node.Type == TypeSymbol.Object)
+                return value;
             if (node.Type == TypeSymbol.Bool)
                 return Convert.ToBoolean(value);
             if (node.Type == TypeSymbol.Int)
@@ -184,7 +196,7 @@ namespace Blaze.Miscellaneuos
                 return Console.ReadLine();
             else if (node.Function == BuiltInFunction.Print)
             {
-                string? message = (string?)EvaluateExpression(node.Arguments[0]);
+                object? message = EvaluateExpression(node.Arguments[0]);
                 if (message != null)
                     Console.WriteLine(message);
                 return null;
@@ -211,13 +223,6 @@ namespace Blaze.Miscellaneuos
                     object? value = EvaluateExpression(node.Arguments[i]);
                     locals.Add(parameter, value);
                 }
-
-                string analog = node.Arguments.Length switch
-                {
-                    1 => "1",
-                    2 => "2",
-                    _ => "-1"
-                };
 
                 _locals.Push(locals);
                 BoundBlockStatement statement = _functions[node.Function];
@@ -247,9 +252,14 @@ namespace Blaze.Miscellaneuos
         private void Assign(VariableSymbol variable, object? value)
         {
             if (variable.Kind == SymbolKind.GlobalVariable)
+            {
                 _globals[variable] = value;
+            }
             else
-                _locals.Peek()[variable] = value;
+            {
+                var locals = _locals.Peek();
+                locals[variable] = value;
+            }
         }
 
         private object? EvaluateUnaryExpression(BoundUnaryExpression unary)

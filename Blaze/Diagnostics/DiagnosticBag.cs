@@ -97,13 +97,6 @@ namespace Blaze.Diagnostics
             Report(location, message);
         }
 
-        public void ReportWrongArgumentType(TextLocation location, string name, string parameterName, TypeSymbol expectedType, TypeSymbol actualType)
-        {
-            string message = $"Parameter \"{parameterName}\" of function \"{name}\" is of type {expectedType}, but was given a value of type {actualType}";
-            Report(location, message);
-        }
-
-
         public void ReportExpressionMustHaveValue(TextLocation location)
         {
             string message = $"Expression must have a value";
@@ -156,6 +149,36 @@ namespace Blaze.Diagnostics
         {
             string message = "Only assignment and call expressions can be used as a statement";
             Report(location, message);
+        }
+
+        public void ReportCannotMixMainAndGlobalStatements(TextLocation location)
+        {
+            string message = "Can not declare main function when global statements are used";
+            Report(location, message);
+        }
+
+        public void ReportMainFunctionMustHaveCorrectSignature(TextLocation location)
+        {
+            string message = "Main function must not return anything and must not have any parameters";
+            Report(location, message);
+        }
+
+        public void ReportOnlyOneFileCanHaveGlobalStatements(TextLocation location)
+        {
+            string message = "At most one file can have global statements";
+            Report(location, message);
+        }
+
+        public void ReportReturnWithExpressionInGlobalStatement(TextLocation location)
+        {
+            string message = "Return can not be followed by an expression in global statements";
+            Report(location, message);
+        }
+
+        public void ReportInvalidReference(string path)
+        {
+            string message = $"The reference is not a valid .NET assembly: '{path}'";
+            Report(default, message);
         }
     }
 }

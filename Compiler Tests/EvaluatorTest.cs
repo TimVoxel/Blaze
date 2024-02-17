@@ -38,12 +38,12 @@ namespace Blaze.Tests.CodeAnalysis
         [InlineData("6 >= 10;", false)]
         [InlineData("6 >= 3;", true)]
         [InlineData("6 >= 6;", true)]
-        [InlineData("{ let a = 10; (a = 20) * a; }", 400)]
-        [InlineData("{ let a = 10; if (a == 10) let c = true; }", true)]
-        [InlineData("{ let a = 10; if (a == 69) let c = true; }", 10)]
-        [InlineData("{ let a = 10; if (a == 69) {let c = true;} else let c = 69; }", 69)]
-        [InlineData("{ let i = 10; let result = 0; while (i > 0) { result = result + i; i = i - 1;} result = result; }", 55)]
-        [InlineData("{ let result = 0; for (i = 1..10) { result = result + i; } result = result; }", 55)]
+        [InlineData("let a = 10; return (a = 20) * a;", 400)]
+        [InlineData("{ let a = 10; if (a == 10) return true; return false; }", true)]
+        [InlineData("{ let a = 10; if (a == 69) return 69; return 10; }", 10)]
+        [InlineData("{ let a = 10; object c = -10; if (a == 69) { c = true; } else c = 69; return c; }", 69)]
+        [InlineData("{ let i = 10; let result = 0; while (i > 0) { result = result + i; i = i - 1;} return result; }", 55)]
+        [InlineData("{ let result = 0; for (i = 1..10) { result = result + i; } return result; }", 55)]
         public void Evaluator_Evaluate_Expression(string text, object expectedResult)
         {
             AssertValue(text, expectedResult);

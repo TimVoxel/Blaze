@@ -8,15 +8,17 @@ namespace Blaze.Binding
     {
         public BoundProgram? Previous { get; private set; }
         public ImmutableArray<Diagnostic> Diagnostics { get; private set; }
+        public FunctionSymbol? MainFunction { get; private set; }
+        public FunctionSymbol? ScriptFunction { get; private set; }
         public ImmutableDictionary<FunctionSymbol, BoundBlockStatement> Functions { get; private set; }
-        public BoundBlockStatement Statement { get; private set; }
 
-        public BoundProgram(BoundProgram? previous, ImmutableArray<Diagnostic> diagnostics, ImmutableDictionary<FunctionSymbol, BoundBlockStatement> functions, BoundBlockStatement statement)
+        public BoundProgram(BoundProgram? previous, ImmutableArray<Diagnostic> diagnostics, FunctionSymbol? mainFunction, FunctionSymbol? scriptFunction, ImmutableDictionary<FunctionSymbol, BoundBlockStatement> functions)
         {
             Previous = previous;
             Diagnostics = diagnostics;
+            MainFunction = mainFunction;
+            ScriptFunction = scriptFunction;
             Functions = functions;
-            Statement = statement;
         }
     }
 }
