@@ -1,0 +1,2 @@
+cd C:\Development\DPP\DPP Compiler\DataPacker+\BlazeCompiler\bin\Debug\net6.0
+BlazeCompiler.exe "C:\Development\DPP\DPP Compiler\DataPacker+\Samples\HelloWorld.blz" -r "C:\Program Files (x86)\Reference Assemblies\Microsoft\Framework\.NETFramework\v4.7.2\mscorlib.dll"

@@ -194,6 +194,9 @@ namespace Blaze.Binding
             return new BoundProgram(previous, diagnostics.ToImmutable(), globalScope.MainFunction, globalScope.ScriptFunction, functionBodies.ToImmutable());
         }
 
+            return new BoundProgram(previous, diagnostics.ToImmutable(), globalScope.MainFunction, globalScope.ScriptFunction, functionBodies.ToImmutable());
+        }
+
         private void BindFunctionDeclaration(FunctionDeclarationSyntax declaration)
         {
             ImmutableArray<ParameterSymbol>.Builder parameters = ImmutableArray.CreateBuilder<ParameterSymbol>();
@@ -278,10 +281,8 @@ namespace Blaze.Binding
             if (syntax.DeclarationNode is TypeClauseSyntax typeClause)
                 type = BindTypeClause(typeClause);
 
-            TypeSymbol variableType = type ?? initializer.Type;
-            VariableSymbol variable = BindVariable(syntax.Identifier, variableType, initializer.ConstantValue);
-            BoundExpression convertedInitializer = BindConversion(initializer, variableType, syntax.Initializer.Location);
-            return new BoundVariableDeclarationStatement(variable, convertedInitializer);
+            VariableSymbol variable = BindVariable(syntax.Identifier, type);
+            return new BoundVariableDeclarationStatement(variable, initializer);
         }
 
         private BoundStatement BindExpressionStatement(ExpressionStatementSyntax syntax)
@@ -587,9 +588,7 @@ namespace Blaze.Binding
         private VariableSymbol BindVariable(SyntaxToken identifier, TypeSymbol type, BoundConstant? constant = null)
         {
             string name = identifier.Text;
-            VariableSymbol variable = _function == null
-                                ? new GlobalVariableSymbol(name, type, constant)
-                                : new LocalVariableSymbol(name, type, constant);
+            bool declare = !identifier.IsMissingText;
 
             if (!_scope.TryDeclareVariable(variable))
                 _diagnostics.ReportVariableAlreadyDeclared(identifier.Location, name);
