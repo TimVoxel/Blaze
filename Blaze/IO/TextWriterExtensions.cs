@@ -20,7 +20,18 @@ namespace Blaze.IO
 
         public static void WriteDiagnostics(this TextWriter writer, ImmutableArray<Diagnostic> diagnostics)
         {
-            foreach (Diagnostic diagnostic in diagnostics.OrderBy(d => d.Location.FileName).ThenBy(d => d.Location.Span.Start).ThenBy(d => d.Location.Span.Length))
+            foreach (Diagnostic diagnostic in diagnostics.Where(d => d.Location.Text == null))
+            {
+                writer.SetForeground(ConsoleColor.Red);
+                writer.Write(diagnostic.Message);
+                writer.WriteLine(diagnostic);
+                writer.ResetColor();
+            } 
+
+            foreach (Diagnostic diagnostic in diagnostics.Where(d => d.Location.Text != null).
+                                                          OrderBy(d => d.Location.FileName).
+                                                          ThenBy(d => d.Location.Span.Start).
+                                                          ThenBy(d => d.Location.Span.Length))
             {
                 SourceText text = diagnostic.Location.Text;
                 string fileName = diagnostic.Location.FileName;
