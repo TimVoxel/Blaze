@@ -279,7 +279,7 @@ namespace Blaze.Binding
                 type = BindTypeClause(typeClause);
 
             TypeSymbol variableType = type ?? initializer.Type;
-            VariableSymbol variable = BindVariable(syntax.Identifier, variableType);
+            VariableSymbol variable = BindVariable(syntax.Identifier, variableType, initializer.ConstantValue);
             BoundExpression convertedInitializer = BindConversion(initializer, variableType, syntax.Initializer.Location);
             return new BoundVariableDeclarationStatement(variable, convertedInitializer);
         }
@@ -584,12 +584,12 @@ namespace Blaze.Binding
             return new BoundConversionExpression(type, expression);
         }
 
-        private VariableSymbol BindVariable(SyntaxToken identifier, TypeSymbol type)
+        private VariableSymbol BindVariable(SyntaxToken identifier, TypeSymbol type, BoundConstant? constant = null)
         {
             string name = identifier.Text;
             VariableSymbol variable = _function == null
-                                ? (VariableSymbol) new GlobalVariableSymbol(name, type)
-                                : new LocalVariableSymbol(name, type);
+                                ? new GlobalVariableSymbol(name, type, constant)
+                                : new LocalVariableSymbol(name, type, constant);
 
             if (!_scope.TryDeclareVariable(variable))
                 _diagnostics.ReportVariableAlreadyDeclared(identifier.Location, name);

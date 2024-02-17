@@ -9,6 +9,8 @@ namespace Blaze.Lowering
         {
             switch (node.Kind)
             {
+                case BoundNodeKind.NopStatement:
+                    return RewriteNopStatement((BoundNopStatement)node);
                 case BoundNodeKind.BlockStatement:
                     return RewriteBlockStatement((BoundBlockStatement)node);
                 case BoundNodeKind.ExpressionStatement:
@@ -26,7 +28,7 @@ namespace Blaze.Lowering
                 case BoundNodeKind.LabelStatement:
                     return RewriteLabelStatement((BoundLabelStatement)node);
                 case BoundNodeKind.ConditionalGotoStatement:
-                    return RewriteConditionalLabelStatement((BoundConditionalGotoStatement)node);
+                    return RewriteConditionalGotoStatement((BoundConditionalGotoStatement)node);
                 case BoundNodeKind.GoToStatement:
                     return RewriteGotoStatement((BoundGotoStatement)node);
                 case BoundNodeKind.ReturnStatement:
@@ -35,6 +37,8 @@ namespace Blaze.Lowering
                     throw new Exception($"Unexpected node {node.Kind}");
             }
         }
+
+        protected virtual BoundStatement RewriteNopStatement(BoundNopStatement node) => node;
 
         protected virtual BoundStatement RewriteDoWhileStatement(BoundDoWhileStatement node)
         {
@@ -49,7 +53,7 @@ namespace Blaze.Lowering
 
         protected virtual BoundStatement RewriteGotoStatement(BoundGotoStatement node) => node;
 
-        protected virtual BoundStatement RewriteConditionalLabelStatement(BoundConditionalGotoStatement node)
+        protected virtual BoundStatement RewriteConditionalGotoStatement(BoundConditionalGotoStatement node)
         {
             BoundExpression condition = RewriteExpression(node.Condition);
             if (condition == node.Condition)

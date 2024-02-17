@@ -17,7 +17,20 @@ namespace Blaze.Lowering
         {
             Lowerer lowerer = new Lowerer();
             BoundStatement result = lowerer.RewriteStatement(statement);
-            return Flatten(result);
+            return RemoveDeadCode(Flatten(result));
+        }
+
+        public static BoundBlockStatement RemoveDeadCode(BoundBlockStatement node)
+        {
+            ControlFlowGraph controlFlowGraph = ControlFlowGraph.Create(node);
+            HashSet<BoundStatement> reachableStatements = new HashSet<BoundStatement>(controlFlowGraph.Blocks.SelectMany(b => b.Statements));
+
+            var builder = node.Statements.ToBuilder();
+            for (int i = builder.Count - 1; i >= 0; i--)
+                if (!reachableStatements.Contains(builder[i]))
+                    builder.RemoveAt(i);
+
+            return new BoundBlockStatement(builder.ToImmutable());
         }
 
         private static BoundBlockStatement Flatten(BoundStatement statement)
@@ -119,7 +132,7 @@ namespace Blaze.Lowering
 
             BoundVariableDeclarationStatement declarationStatement = new BoundVariableDeclarationStatement(node.Variable, node.LowerBound);
 
-            GlobalVariableSymbol upperBound = new GlobalVariableSymbol("upperBound", TypeSymbol.Int);
+            GlobalVariableSymbol upperBound = new GlobalVariableSymbol("upperBound", TypeSymbol.Int, node.UpperBound.ConstantValue);
             BoundVariableDeclarationStatement upperBoundDeclarationStatement = new BoundVariableDeclarationStatement(upperBound, node.UpperBound);
 
             BoundVariableExpression variableExpression = new BoundVariableExpression(node.Variable);
@@ -138,5 +151,21 @@ namespace Blaze.Lowering
             ));
             return RewriteStatement(result);
         }
+
+        protected override BoundStatement RewriteConditionalGotoStatement(BoundConditionalGotoStatement node)
+        {
+            if (node.Condition.ConstantValue != null)
+            {
+                bool condition = (bool) node.Condition.ConstantValue.Value;
+                condition = node.JumpIfFalse ? !condition : condition;
+
+                if (condition)
+                    return new BoundGotoStatement(node.Label);
+                else
+                    return new BoundNopStatement();
+            }
+            return base.RewriteConditionalGotoStatement(node);
+        }
+
     }
 }

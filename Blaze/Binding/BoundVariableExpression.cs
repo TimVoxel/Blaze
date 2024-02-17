@@ -8,6 +8,7 @@ namespace Blaze.Binding
 
         public override BoundNodeKind Kind => BoundNodeKind.VariableExpression;
         public override TypeSymbol Type => Variable.Type;
+        public override BoundConstant? ConstantValue => Variable.Constant;
 
         public BoundVariableExpression(VariableSymbol symbol)
         {

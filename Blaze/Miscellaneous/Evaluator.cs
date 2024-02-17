@@ -55,6 +55,8 @@ namespace Blaze.Miscellaneuos
 
                 switch (statement.Kind)
                 {
+                    case BoundNodeKind.NopStatement:
+                        break;
                     case BoundNodeKind.ExpressionStatement:
                         EvaluateExpressionStatement((BoundExpressionStatement)statement);
                         break;

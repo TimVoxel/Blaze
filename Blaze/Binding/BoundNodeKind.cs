@@ -13,6 +13,7 @@
         ConversionExpression,
 
         //Statements
+        NopStatement,
         ExpressionStatement,
         BlockStatement,
         GoToStatement,

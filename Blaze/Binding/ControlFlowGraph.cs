@@ -87,6 +87,7 @@ namespace Blaze.Binding
                     {
                         case BoundNodeKind.ExpressionStatement:
                         case BoundNodeKind.VariableDeclarationStatement:
+                        case BoundNodeKind.NopStatement:
                             _statements.Add(statement);
                             break;
                         case BoundNodeKind.GoToStatement:
@@ -165,6 +166,7 @@ namespace Blaze.Binding
                             case BoundNodeKind.ExpressionStatement:
                             case BoundNodeKind.VariableDeclarationStatement:
                             case BoundNodeKind.LabelStatement:
+                            case BoundNodeKind.NopStatement:
                                 if (isLastStatement)
                                     Connect(current, next);
                                 break;
