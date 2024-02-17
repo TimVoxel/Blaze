@@ -37,6 +37,7 @@ namespace Blaze.Binding
                 BoundBinaryOperatorKind.Multiplication => new BoundConstant((int)leftValue * (int)rightValue),
                 BoundBinaryOperatorKind.Division => new BoundConstant((int)leftValue / (int)rightValue),
 
+                
                 BoundBinaryOperatorKind.LogicalMultiplication => new BoundConstant((bool)leftValue && (bool)rightValue),
                 BoundBinaryOperatorKind.LogicalAddition => new BoundConstant((bool)leftValue || (bool)rightValue),
 
