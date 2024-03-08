@@ -37,6 +37,13 @@ namespace Blaze.Diagnostics
             Report(location, message);
         }
 
+        public void ReportUnterminatedMultiLineComment(TextLocation location)
+        {
+            string message = $"Unterminated multiline comment";
+            Report(location, message);
+        }
+
+
         public void ReportUnexpectedToken(TextLocation location, SyntaxKind kind, SyntaxKind expectedKind)
         {
             string message = $"Unexpected token <{kind}>, expected <{expectedKind}>";

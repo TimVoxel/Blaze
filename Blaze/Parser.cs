@@ -31,7 +31,8 @@ namespace Blaze
                 token = lexer.Lex();
                 if (token.Kind != SyntaxKind.WhitespaceToken 
                  && token.Kind != SyntaxKind.IncorrectToken
-                 && token.Kind != SyntaxKind.SingleLineCommentToken)
+                 && token.Kind != SyntaxKind.SingleLineCommentToken
+                 && token.Kind != SyntaxKind.MultiLineCommentToken)
                     tokens.Add(token);
             }
             while (token.Kind != SyntaxKind.EndOfFileToken);

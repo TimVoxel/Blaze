@@ -4,6 +4,8 @@ using Blaze.Symbols;
 using Blaze.SyntaxTokens;
 using Blaze.IO;
 using Blaze.Syntax_Nodes;
+using Blaze.Text;
+using System.Collections.Immutable;
 
 namespace ReplExperience
 {
@@ -43,33 +45,61 @@ namespace ReplExperience
             return !lastMember.GetLastToken().IsMissingText;
         }
 
-        protected override void RenderLine(string line)
+        private sealed class RenderState
         {
-            if (line.StartsWith("#"))
-            {
-                Console.ForegroundColor = ConsoleColor.Yellow;
-                Console.Write(line);
-                Console.ResetColor();
-                return;
-            }
+            public SourceText Text { get; private set; }
+            public ImmutableArray<SyntaxToken> Tokens { get; private set; }
 
-            IEnumerable<SyntaxToken> tokens = SyntaxTree.ParseTokens(line);
-            foreach (SyntaxToken token in tokens)
+            public RenderState(SourceText text, ImmutableArray<SyntaxToken> tokens)
             {
+                Text = text;
+                Tokens = tokens;
+            }
+        }
+
+        protected override object? RenderLine(IReadOnlyList<string> lines, int lineIndex, object? state)
+        {
+            RenderState renderState;
+
+            if (state == null)
+            {
+                var text = string.Join(Environment.NewLine, lines);
+                SourceText sourceText = SourceText.From(text);
+                ImmutableArray<SyntaxToken> tokens = SyntaxTree.ParseTokens(sourceText);
+                renderState = new RenderState(sourceText, tokens);
+                state = renderState;
+            }
+            else
+                renderState = (RenderState) state;
+
+            TextSpan lineSpan = renderState.Text.Lines[lineIndex].Span;
+
+            foreach (SyntaxToken token in renderState.Tokens)
+            {
+                if (!lineSpan.OverlapsWith(token.Span))
+                    continue;
+
+                int tokenStart = Math.Max(token.Span.Start, lineSpan.Start);
+                int tokenEnd = Math.Min(token.Span.End, lineSpan.End);
+                TextSpan tokenSpan = TextSpan.FromBounds(tokenStart, tokenEnd);
+                string tokenText = renderState.Text.ToString(tokenSpan);
+
                 Console.ForegroundColor = token.Kind switch
                 {
-                    SyntaxKind.IncorrectToken => ConsoleColor.Red,
                     SyntaxKind.IntegerLiteralToken => ConsoleColor.Yellow,
                     SyntaxKind.IdentifierToken => ConsoleColor.Cyan,
                     SyntaxKind.StringLiteralToken => ConsoleColor.DarkYellow,
                     SyntaxKind.SingleLineCommentToken => ConsoleColor.DarkGreen,
+                    SyntaxKind.MultiLineCommentToken => ConsoleColor.DarkGreen,
                     _ when token.Kind.ToString().EndsWith("Keyword") => ConsoleColor.DarkCyan,
                     _ => ConsoleColor.Gray
                 };
 
-                Console.Write(token.Text);
+                Console.Write(tokenText);
                 Console.ResetColor();
             }
+
+            return state;
         }
 
         protected override void EvaluateSubmission(string text)

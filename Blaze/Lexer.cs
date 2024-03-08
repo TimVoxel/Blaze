@@ -294,6 +294,33 @@ namespace Blaze
         private void ReadMultiLineComment()
         {
             _kind = SyntaxKind.MultiLineCommentToken;
+            _position += 2;
+            bool done = false;
+
+            while (!done)
+            {
+                switch (Current)
+                {
+                    case '\0':
+                        TextSpan span = new TextSpan(_start, 2);
+                        TextLocation location = new TextLocation(_text, span);
+                        _diagnostics.ReportUnterminatedMultiLineComment(location);
+                        done = true;
+                        break;
+                    case '*':
+                        if (Next == '/')
+                        {
+                            _position++;
+                            done = true;
+                        }
+                        _position++;
+                        break;
+                    default:
+                        _position++;
+                        break;
+                }
+            }
+
         }
     }
 }

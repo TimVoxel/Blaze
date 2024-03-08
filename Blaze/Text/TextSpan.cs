@@ -13,15 +13,9 @@
             Length = length;
         }
 
-        public static TextSpan FromBounds(int start, int end)
-        {
-            int length = end - start;
-            return new TextSpan(start, length);
-        }
+        public static TextSpan FromBounds(int start, int end) => new TextSpan(start, end - start);
+        public override string ToString() => $"{Start}..{End}";
 
-        public override string ToString()
-        {
-            return $"{Start}..{End}";
-        }
+        public bool OverlapsWith(TextSpan span) => Start < span.End && End >= span.Start;
     }
 }

@@ -56,13 +56,15 @@ namespace ReplExperience
 
         private sealed class SubmissionView
         {
-            private readonly Action<string> _lineRenderer;
+            private readonly LineRendererHandler _lineRenderer;
             private readonly ObservableCollection<string> _submissionDocument;
             
             private int _cursorTop;
             private int _renderedLineCount;
             private int _currentLine;
             private int _currentCharacter;
+
+            public delegate object? LineRendererHandler(IReadOnlyList<string> lines, int lineIndex, object? state);
 
             public int CurrentLine 
             { 
@@ -91,7 +93,7 @@ namespace ReplExperience
                 }
             }
 
-            public SubmissionView(Action<string> lineRenderer, ObservableCollection<string> submissionDocument)
+            public SubmissionView(LineRendererHandler lineRenderer, ObservableCollection<string> submissionDocument)
             {
                 _lineRenderer = lineRenderer;
                 _submissionDocument = submissionDocument;
@@ -107,6 +109,7 @@ namespace ReplExperience
                 Console.CursorVisible = false;
 
                 int lineCount = 0;
+                object? state = null;
 
                 foreach (string line in _submissionDocument)
                 {
@@ -127,7 +130,7 @@ namespace ReplExperience
                         Console.Write("| ");
 
                     Console.ResetColor();
-                    _lineRenderer.Invoke(line);
+                    _lineRenderer(_submissionDocument, lineCount, state);
                     Console.Write(new string(' ', Console.WindowWidth - line.Length - 2));
                     lineCount++;
                 }
@@ -268,6 +271,7 @@ namespace ReplExperience
             document.Clear();
             document.Add(string.Empty);
             view.CurrentLine = 0;
+            view.CurrentCharacter = 0;
         }
 
         private void HandleBackspace(ObservableCollection<string> document, SubmissionView view)
@@ -380,9 +384,10 @@ namespace ReplExperience
             view.CurrentCharacter += text.Length;
         }
 
-        protected virtual void RenderLine(string line)
+        protected virtual object? RenderLine(IReadOnlyList<string> lines, int lineIndex, object? state)
         {
-            Console.WriteLine(line);
+            Console.WriteLine(lines[lineIndex]);
+            return state;
         }
 
         protected void ClearHistory()
