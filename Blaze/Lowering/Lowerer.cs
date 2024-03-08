@@ -160,9 +160,9 @@ namespace Blaze.Lowering
                 condition = node.JumpIfFalse ? !condition : condition;
 
                 if (condition)
-                    return new BoundGotoStatement(node.Label);
+                    return RewriteGotoStatement(new BoundGotoStatement(node.Label));
                 else
-                    return new BoundNopStatement();
+                    return RewriteNopStatement(new BoundNopStatement());
             }
             return base.RewriteConditionalGotoStatement(node);
         }

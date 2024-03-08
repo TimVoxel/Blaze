@@ -76,6 +76,10 @@
         ForStatement,
         BreakStatement,
         ContinueStatement,
-        ReturnStatement
+        ReturnStatement,
+
+        //Trivia 
+        SingleLineCommentToken,
+        MultiLineCommentToken
     }
 }

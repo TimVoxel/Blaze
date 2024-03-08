@@ -29,7 +29,9 @@ namespace Blaze
             do
             {
                 token = lexer.Lex();
-                if (token.Kind != SyntaxKind.WhitespaceToken && token.Kind != SyntaxKind.IncorrectToken)
+                if (token.Kind != SyntaxKind.WhitespaceToken 
+                 && token.Kind != SyntaxKind.IncorrectToken
+                 && token.Kind != SyntaxKind.SingleLineCommentToken)
                     tokens.Add(token);
             }
             while (token.Kind != SyntaxKind.EndOfFileToken);

@@ -171,25 +171,5 @@ namespace Blaze
                     return null;
             }
         }
-
-        public static ConsoleColor GetConsoleColor(this SyntaxToken token)
-        {
-            switch (token.Kind)
-            {
-                case SyntaxKind.IncorrectToken:
-                    return ConsoleColor.Red;
-                case SyntaxKind.IntegerLiteralToken:
-                    return ConsoleColor.Yellow;
-                case SyntaxKind.IdentifierToken:
-                    return ConsoleColor.Cyan;
-                case SyntaxKind.StringLiteralToken:
-                    return ConsoleColor.DarkYellow;
-                default:
-                    if (token.Kind.ToString().EndsWith("Keyword"))
-                        return ConsoleColor.DarkCyan;
-                    else
-                        return ConsoleColor.Gray;
-            }
-        }
     }
 }

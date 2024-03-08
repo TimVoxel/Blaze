@@ -59,7 +59,12 @@ namespace Blaze
                     ConsumeOfKind(SyntaxKind.StarToken);
                     break;
                 case '/':
-                    ConsumeOfKind(SyntaxKind.SlashToken);
+                    if (Next == '/')
+                        ReadSingleLineComment();
+                    else if (Next == '*')
+                        ReadMultiLineComment();
+                    else
+                        ConsumeOfKind(SyntaxKind.SlashToken);
                     break;
                 case '(':
                     ConsumeOfKind(SyntaxKind.OpenParenToken);
@@ -262,6 +267,33 @@ namespace Blaze
 
             _kind = SyntaxKind.StringLiteralToken;
             _value = value.ToString();
+        }
+
+        private void ReadSingleLineComment()
+        {
+            _position += 2;
+            bool done = false;
+            _kind = SyntaxKind.SingleLineCommentToken;
+
+            while (!done)
+            {
+                switch (Current)
+                {
+                    case '\r':
+                    case '\n':
+                    case '\0':    
+                        done = true;
+                        break;
+                    default:
+                        _position++;
+                        break;     
+                }
+            }
+        }
+
+        private void ReadMultiLineComment()
+        {
+            _kind = SyntaxKind.MultiLineCommentToken;
         }
     }
 }

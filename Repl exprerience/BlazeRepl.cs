@@ -3,6 +3,7 @@ using Blaze.Diagnostics;
 using Blaze.Symbols;
 using Blaze.SyntaxTokens;
 using Blaze.IO;
+using Blaze.Syntax_Nodes;
 
 namespace ReplExperience
 {
@@ -34,7 +35,12 @@ namespace ReplExperience
                 return false;
 
             SyntaxTree syntaxTree = SyntaxTree.Parse(text);
-            return !syntaxTree.Root.Members.Last().GetLastToken().IsMissingText;
+
+            MemberSyntax? lastMember = syntaxTree.Root.Members.LastOrDefault();
+            if (lastMember == null) 
+                return false;
+
+            return !lastMember.GetLastToken().IsMissingText;
         }
 
         protected override void RenderLine(string line)
@@ -50,7 +56,17 @@ namespace ReplExperience
             IEnumerable<SyntaxToken> tokens = SyntaxTree.ParseTokens(line);
             foreach (SyntaxToken token in tokens)
             {
-                Console.ForegroundColor = token.GetConsoleColor();
+                Console.ForegroundColor = token.Kind switch
+                {
+                    SyntaxKind.IncorrectToken => ConsoleColor.Red,
+                    SyntaxKind.IntegerLiteralToken => ConsoleColor.Yellow,
+                    SyntaxKind.IdentifierToken => ConsoleColor.Cyan,
+                    SyntaxKind.StringLiteralToken => ConsoleColor.DarkYellow,
+                    SyntaxKind.SingleLineCommentToken => ConsoleColor.DarkGreen,
+                    _ when token.Kind.ToString().EndsWith("Keyword") => ConsoleColor.DarkCyan,
+                    _ => ConsoleColor.Gray
+                };
+
                 Console.Write(token.Text);
                 Console.ResetColor();
             }
