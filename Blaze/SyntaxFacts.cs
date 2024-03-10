@@ -4,8 +4,8 @@ namespace Blaze
 {
     public static class SyntaxFacts
     {
-        public static SyntaxKind[] AllSyntaxKinds => (SyntaxKind[])Enum.GetValues(typeof(SyntaxKind));
-        public static SyntaxKind[] AllTokenKinds => AllSyntaxKinds.Where(k => IsKeyword(k) || IsToken(k)).ToArray();
+        public static SyntaxKind[] AllSyntaxKinds => (SyntaxKind[]) Enum.GetValues(typeof(SyntaxKind));
+        public static SyntaxKind[] AllTokenKinds => AllSyntaxKinds.Where(k => IsToken(k)).ToArray();
             
         public static int GetBinaryOperatorPrecedence(this SyntaxKind kind)
         {
@@ -55,40 +55,43 @@ namespace Blaze
 
         public static bool IsToken(SyntaxKind kind)
         {
-            return kind.ToString().EndsWith("Token");
+            return !IsTrivia(kind) && (IsKeyword(kind) || kind.ToString().EndsWith("Token"));
         }
+
+        public static bool IsTrivia(SyntaxKind kind)
+        {
+            return kind switch
+            {
+                SyntaxKind.WhitespaceTrivia         => true,
+                SyntaxKind.SingleLineCommentTrivia  => true,
+                SyntaxKind.MultiLineCommentTrivia   => true,
+                SyntaxKind.SkippedTextTrivia        => true,
+                SyntaxKind.LineBreakTrivia          => true,
+                _                                   => false
+            };
+        }
+
+        public static bool IsComment(SyntaxKind kind) 
+            => kind == SyntaxKind.SingleLineCommentTrivia || kind == SyntaxKind.MultiLineCommentTrivia;
 
         public static SyntaxKind GetKeywordKind(string text)
         {
-            switch (text)
+            return text switch
             {
-                case "true":
-                    return SyntaxKind.TrueKeyword;
-                case "false":
-                    return SyntaxKind.FalseKeyword;
-                case "let":
-                    return SyntaxKind.LetKeyword;
-                case "if":
-                    return SyntaxKind.IfKeyword;
-                case "else":
-                    return SyntaxKind.ElseKeyword;
-                case "while":
-                    return SyntaxKind.WhileKeyword;
-                case "do":
-                    return SyntaxKind.DoKeyword;
-                case "for":
-                    return SyntaxKind.ForKeyword;
-                case "break":
-                    return SyntaxKind.BreakKeyword;
-                case "continue":
-                    return SyntaxKind.ContinueKeyword;
-                case "function":
-                    return SyntaxKind.FunctionKeyword;
-                case "return":
-                    return SyntaxKind.ReturnKeyword;
-                default: 
-                    return SyntaxKind.IdentifierToken;
-            }
+                "true"      => SyntaxKind.TrueKeyword,
+                "false"     => SyntaxKind.FalseKeyword,
+                "let"       => SyntaxKind.LetKeyword,
+                "if"        => SyntaxKind.IfKeyword,
+                "else"      => SyntaxKind.ElseKeyword,
+                "while"     => SyntaxKind.WhileKeyword,
+                "do"        => SyntaxKind.DoKeyword,
+                "for"       => SyntaxKind.ForKeyword,
+                "break"     => SyntaxKind.BreakKeyword,
+                "continue"  => SyntaxKind.ContinueKeyword,
+                "function"  => SyntaxKind.FunctionKeyword,
+                "return"    => SyntaxKind.ReturnKeyword,
+                _           => SyntaxKind.IdentifierToken,
+            };
         }
 
         public static IEnumerable<SyntaxKind> GetBinaryOperators()
@@ -109,7 +112,7 @@ namespace Blaze
         {
             switch (kind)
             {
-                case SyntaxKind.FalseKeyword: 
+                case SyntaxKind.FalseKeyword:
                     return "false";
                 case SyntaxKind.TrueKeyword:
                     return "true";

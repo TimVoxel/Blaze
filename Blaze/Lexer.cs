@@ -3,6 +3,7 @@ using Blaze.Diagnostics;
 using Blaze.Text;
 using System.Text;
 using Blaze.Symbols;
+using System.Collections.Immutable;
 
 namespace Blaze
 {
@@ -11,7 +12,8 @@ namespace Blaze
         private readonly SyntaxTree _syntaxTree;
         private readonly SourceText _text;
         private readonly DiagnosticBag _diagnostics = new DiagnosticBag();
-        
+
+        private ImmutableArray<Trivia>.Builder _triviaBuilder = ImmutableArray.CreateBuilder<Trivia>();
         private int _position;
         private int _start;
         private SyntaxKind _kind;
@@ -30,7 +32,29 @@ namespace Blaze
 
         public SyntaxToken Lex()
         {
-            //See all possible tokens in the grammar
+            ReadTrivia(true);
+            ImmutableArray<Trivia> leadingTrivia = _triviaBuilder.ToImmutable();
+
+            int tokenStart = _position;
+
+            ReadToken();
+
+            SyntaxKind tokenKind = _kind;
+            object? tokenValue = _value;
+            int tokenLength = _position - _start;
+
+            ReadTrivia(false);
+            ImmutableArray<Trivia> trailingTrivia = _triviaBuilder.ToImmutable();
+
+            string? tokenText = SyntaxFacts.GetText(tokenKind);
+            if (tokenText == null)
+                tokenText = _text.ToString(tokenStart, tokenLength);
+
+            return new SyntaxToken(_syntaxTree, tokenKind, tokenStart, tokenText, tokenValue, leadingTrivia, trailingTrivia);
+        }
+
+        private void ReadToken()
+        {
             _start = _position;
             _kind = SyntaxKind.IncorrectToken;
             _value = null;
@@ -59,12 +83,7 @@ namespace Blaze
                     ConsumeOfKind(SyntaxKind.StarToken);
                     break;
                 case '/':
-                    if (Next == '/')
-                        ReadSingleLineComment();
-                    else if (Next == '*')
-                        ReadMultiLineComment();
-                    else
-                        ConsumeOfKind(SyntaxKind.SlashToken);
+                    ConsumeOfKind(SyntaxKind.SlashToken);
                     break;
                 case '(':
                     ConsumeOfKind(SyntaxKind.OpenParenToken);
@@ -104,7 +123,7 @@ namespace Blaze
                     }
                     else
                         ConsumeStray();
-                    break; 
+                    break;
                 case '.':
                     if (Next == '.')
                     {
@@ -120,7 +139,7 @@ namespace Blaze
                         _kind = SyntaxKind.LessOrEqualsToken;
                         _position += 2;
                     }
-                    else 
+                    else
                         ConsumeOfKind(SyntaxKind.LessToken);
                     break;
                 case '>':
@@ -138,7 +157,7 @@ namespace Blaze
                         _kind = SyntaxKind.DoubleEqualsToken;
                         _position += 2;
                     }
-                    else                        
+                    else
                         ConsumeOfKind(SyntaxKind.EqualsToken);
                     break;
                 case '"':
@@ -149,10 +168,6 @@ namespace Blaze
                     {
                         ReadIntegerLiteral();
                     }
-                    else if (char.IsWhiteSpace(Current))
-                    {
-                        ReadWhitespace();
-                    }
                     else if (char.IsLetter(Current) || Current == '_')
                     {
                         ReadIdentifierOrKeyword();
@@ -161,13 +176,57 @@ namespace Blaze
                         ConsumeStray();
                     break;
             }
+        }
 
-            int length = _position - _start;
-            string? text = SyntaxFacts.GetText(_kind);
-            if (text == null)
-                text = _text.ToString(_start, length);
+        private void ReadTrivia(bool isLeading)
+        {
+            _triviaBuilder.Clear();
+            bool done = false;
+            while (!done)
+            {
+                _start = _position;
+                _kind = SyntaxKind.IncorrectToken;
+                _value = null;
 
-            return new SyntaxToken(_syntaxTree, _kind, _start, text, _value);
+                switch (Current)
+                {
+                    case '\0':
+                        done = true;
+                        break;
+                    case '/':
+                        if (Next == '/')
+                            ReadSingleLineComment();
+                        else if (Next == '*')
+                            ReadMultiLineComment();
+                        else
+                            done = true;
+                        break;
+                    case '\r':
+                    case '\n':
+                        if (!isLeading)
+                            done = true;
+                        ReadLineBreak();
+                        break;
+                    case '\t':
+                    case ' ':
+                        ReadWhitespace();
+                        break;
+                    default:
+                        if (char.IsWhiteSpace(Current))
+                            ReadWhitespace();
+                        else
+                            done = true;
+                        break;
+                }
+
+                int length = _position - _start;
+                if (length > 0)
+                {
+                    string text = _text.ToString(_start, length);
+                    Trivia trivia = new Trivia(_syntaxTree, _kind, _start, text);
+                    _triviaBuilder.Add(trivia);
+                }
+            }
         }
 
         private void ConsumeStray()
@@ -212,15 +271,42 @@ namespace Blaze
 
         private void ReadWhitespace()
         {
-            while (char.IsWhiteSpace(Current))
+            bool done = false;
+            while (!done)
+            {
+                switch (Current)
+                {
+                    case '\r':
+                    case '\n':
+                    case '\0':
+                        done = true;
+                        break;
+                    default:
+                        if (!char.IsWhiteSpace(Current))
+                            done = true;
+                        else
+                            _position++;
+                        break;
+                }
+            }
+            _kind = SyntaxKind.WhitespaceTrivia;
+        }
+
+        private void ReadLineBreak()
+        {
+            if (Current == '\r' && Next == '\n')
+            {
+                _position += 2;
+            }
+            else
                 _position++;
 
-            _kind = SyntaxKind.WhitespaceToken;
+            _kind = SyntaxKind.LineBreakTrivia;
         }
 
         private void ReadIdentifierOrKeyword()
         {
-            while (char.IsLetter(Current) || Current == '_')
+            while (char.IsLetterOrDigit(Current) || Current == '_')
                 _position++;
             int length = _position - _start;
             string text = _text.ToString(_start, length);
@@ -273,7 +359,7 @@ namespace Blaze
         {
             _position += 2;
             bool done = false;
-            _kind = SyntaxKind.SingleLineCommentToken;
+            _kind = SyntaxKind.SingleLineCommentTrivia;
 
             while (!done)
             {
@@ -293,7 +379,7 @@ namespace Blaze
 
         private void ReadMultiLineComment()
         {
-            _kind = SyntaxKind.MultiLineCommentToken;
+            _kind = SyntaxKind.MultiLineCommentTrivia;
             _position += 2;
             bool done = false;
 

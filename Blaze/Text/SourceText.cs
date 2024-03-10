@@ -20,13 +20,13 @@ namespace Blaze.Text
 
         public int GetLineIndex(int position)
         {
-            int lower = 0;
-            int upper = Lines.Length - 1;
+            var lower = 0;
+            var upper = Lines.Length - 1;
 
             while (lower <= upper)
             {
-                int index = lower + (upper - lower) / 2;
-                int start = Lines[index].Start;
+                var index = lower + (upper - lower) / 2;
+                var start = Lines[index].Start;
 
                 if (start == position)
                     return index;
@@ -40,14 +40,13 @@ namespace Blaze.Text
 
         private ImmutableArray<TextLine> ParseLines(SourceText sourceText, string text)
         {
-            ImmutableArray<TextLine>.Builder result = ImmutableArray.CreateBuilder<TextLine>();
-
-            int lineStart = 0;
-            int position = 0;
+            var result = ImmutableArray.CreateBuilder<TextLine>();
+            var lineStart = 0;
+            var position = 0;
 
             while (position < text.Length)
             {
-                int lineBreakWidth = GetLineBreakWidth(text, position);
+                var lineBreakWidth = GetLineBreakWidth(text, position);
 
                 if (lineBreakWidth == 0)
                     position++;
@@ -67,15 +66,15 @@ namespace Blaze.Text
 
         private static void AddLine(ImmutableArray<TextLine>.Builder builder, SourceText sourceText, int position, int lineStart, int lineBreakWidth)
         {
-            int lineLength = position - lineStart;
-            int lineLengthIncludingLineBreak = lineLength + lineBreakWidth;
+            var lineLength = position - lineStart;
+            var lineLengthIncludingLineBreak = lineLength + lineBreakWidth;
             builder.Add(new TextLine(sourceText, lineStart, lineLength, lineLengthIncludingLineBreak));
         }
 
         private int GetLineBreakWidth(string text, int i)
         {
-            char c = text[i];
-            char next = i + 1 >= text.Length ? '\0' : text[i + 1];
+            var c = text[i];
+            var next = i + 1 >= text.Length ? '\0' : text[i + 1];
 
             if (c == '\r' && next == '\n')
                 return 2;
@@ -84,16 +83,8 @@ namespace Blaze.Text
             return 0;
         }
 
-        public static SourceText From(string text, string fileName = "")
-        {
-            return new SourceText(text, fileName);   
-        }
-
-        public override string ToString()
-        {
-            return _text;
-        }
-
+        public static SourceText From(string text, string fileName = "") => new SourceText(text, fileName);
+        public override string ToString() => _text;
         public string ToString(int start, int length) => _text.Substring(start, length);
         public string ToString(TextSpan span) => ToString(span.Start, span.Length);
     }

@@ -5,7 +5,6 @@
         //Tokens
         IncorrectToken,
         EndOfFileToken,
-        WhitespaceToken,
         SemicolonToken,
         ColonToken,
         CommaToken,
@@ -79,7 +78,10 @@
         ReturnStatement,
 
         //Trivia 
-        SingleLineCommentToken,
-        MultiLineCommentToken
+        WhitespaceTrivia,
+        LineBreakTrivia,
+        SingleLineCommentTrivia,
+        MultiLineCommentTrivia,
+        SkippedTextTrivia,
     }
 }

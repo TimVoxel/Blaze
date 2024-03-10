@@ -1,11 +1,8 @@
 ﻿using Blaze;
-using Blaze.Diagnostics;
 using Blaze.Symbols;
-using Blaze.SyntaxTokens;
 using Blaze.IO;
 using Blaze.Syntax_Nodes;
-using Blaze.Text;
-using System.Collections.Immutable;
+using Blaze.Classification;
 
 namespace ReplExperience
 {
@@ -45,67 +42,49 @@ namespace ReplExperience
             return !lastMember.GetLastToken().IsMissingText;
         }
 
-        private sealed class RenderState
-        {
-            public SourceText Text { get; private set; }
-            public ImmutableArray<SyntaxToken> Tokens { get; private set; }
-
-            public RenderState(SourceText text, ImmutableArray<SyntaxToken> tokens)
-            {
-                Text = text;
-                Tokens = tokens;
-            }
-        }
-
         protected override object? RenderLine(IReadOnlyList<string> lines, int lineIndex, object? state)
         {
-            RenderState renderState;
+            SyntaxTree tree;
 
             if (state == null)
             {
                 var text = string.Join(Environment.NewLine, lines);
-                SourceText sourceText = SourceText.From(text);
-                ImmutableArray<SyntaxToken> tokens = SyntaxTree.ParseTokens(sourceText);
-                renderState = new RenderState(sourceText, tokens);
-                state = renderState;
+                if (string.IsNullOrEmpty(text))
+                    text = " ";
+                tree = SyntaxTree.Parse(text);
             }
             else
-                renderState = (RenderState) state;
+                tree = (SyntaxTree) state;
 
-            TextSpan lineSpan = renderState.Text.Lines[lineIndex].Span;
+            var lineSpan = tree.Text.Lines[lineIndex].Span;
+            var classifiedSpans = Classifier.Classify(tree, lineSpan);
 
-            foreach (SyntaxToken token in renderState.Tokens)
+            foreach (var classifiedSpan in classifiedSpans)
             {
-                if (!lineSpan.OverlapsWith(token.Span))
-                    continue;
+                var tokenText = tree.Text.ToString(classifiedSpan.Span);
 
-                int tokenStart = Math.Max(token.Span.Start, lineSpan.Start);
-                int tokenEnd = Math.Min(token.Span.End, lineSpan.End);
-                TextSpan tokenSpan = TextSpan.FromBounds(tokenStart, tokenEnd);
-                string tokenText = renderState.Text.ToString(tokenSpan);
-
-                Console.ForegroundColor = token.Kind switch
+                Console.ForegroundColor = classifiedSpan.Classification switch
                 {
-                    SyntaxKind.IntegerLiteralToken => ConsoleColor.Yellow,
-                    SyntaxKind.IdentifierToken => ConsoleColor.Cyan,
-                    SyntaxKind.StringLiteralToken => ConsoleColor.DarkYellow,
-                    SyntaxKind.SingleLineCommentToken => ConsoleColor.DarkGreen,
-                    SyntaxKind.MultiLineCommentToken => ConsoleColor.DarkGreen,
-                    _ when SyntaxFacts.IsKeyword(token.Kind) => ConsoleColor.DarkCyan,
-                    _ => ConsoleColor.Gray
+                    Classification.Number       => ConsoleColor.Yellow,
+                    Classification.Identifier   => ConsoleColor.Cyan,
+                    Classification.String       => ConsoleColor.DarkYellow,
+                    Classification.Comment      => ConsoleColor.DarkGreen,
+                    Classification.Keyword      => ConsoleColor.DarkCyan,
+                    Classification.Text         => ConsoleColor.Gray,
+                    _                           => ConsoleColor.Gray
                 };
 
                 Console.Write(tokenText);
                 Console.ResetColor();
             }
 
-            return state;
+            return tree;
         }
 
         protected override void EvaluateSubmission(string text)
         {
-            SyntaxTree syntaxTree = SyntaxTree.Parse(text);
-            Compilation compilation = Compilation.CreateScript(_previous, syntaxTree);
+            var syntaxTree = SyntaxTree.Parse(text);
+            var compilation = Compilation.CreateScript(_previous, syntaxTree);
 
             if (_showTree)
                 syntaxTree.Root.WriteTo(Console.Out);
@@ -113,8 +92,8 @@ namespace ReplExperience
             if (_showProgram)
                 compilation.EmitTree(Console.Out);
 
-            EvaluationResult result = compilation.Evaluate(_variables);
-            IReadOnlyList<Diagnostic> diagnostics = result.Diagnostics;
+            var result = compilation.Evaluate(_variables);
+            var diagnostics = result.Diagnostics;
 
             if (!diagnostics.Any())
             {
@@ -130,11 +109,11 @@ namespace ReplExperience
 
         private void LoadSubmissions()
         {
-            string submissionsDirectory = SubmissionsDirectory;
+            var submissionsDirectory = SubmissionsDirectory;
             if (!Directory.Exists(submissionsDirectory))
                 return;
 
-            string[] files = Directory.GetFiles(submissionsDirectory);
+            var files = Directory.GetFiles(submissionsDirectory);
             if (files.Length == 0)
                 return;
 
@@ -144,9 +123,9 @@ namespace ReplExperience
             Console.WriteLine($"Loaded {files.Length} submission(s)");
             Console.ResetColor();
 
-            foreach (string file in files)
+            foreach (var file in files)
             {
-                string text = File.ReadAllText(file);
+                var text = File.ReadAllText(file);
                 EvaluateSubmission(text); 
             }
 
@@ -155,7 +134,7 @@ namespace ReplExperience
 
         private static void ClearSubmissions()
         {
-            string submissionsDirectory = SubmissionsDirectory;
+            var submissionsDirectory = SubmissionsDirectory;
             if (Directory.Exists(submissionsDirectory))
                 Directory.Delete(submissionsDirectory, true);
         }
@@ -165,11 +144,11 @@ namespace ReplExperience
             if (_loadingSubmissions)
                 return;
 
-            string submissionsDirectory = SubmissionsDirectory;
+            var submissionsDirectory = SubmissionsDirectory;
             Directory.CreateDirectory(submissionsDirectory);
-            int count = Directory.GetFiles(submissionsDirectory).Length;
-            string name = $"submission{count:0000}";
-            string fileName = Path.Combine(submissionsDirectory, name);
+            var count = Directory.GetFiles(submissionsDirectory).Length;
+            var name = $"submission{count:0000}";
+            var fileName = Path.Combine(submissionsDirectory, name);
             File.WriteAllText(fileName, text);
         }
 
@@ -220,7 +199,8 @@ namespace ReplExperience
         private void EvaluateLs()
         {
             if (_previous == null) return;
-            IEnumerable<Symbol> symbols = _previous.GetSymbols().OrderBy(s => s.Kind).ThenBy(s => s.Name);
+            var symbols = _previous.GetSymbols().OrderBy(s => s.Kind).ThenBy(s => s.Name);
+
             foreach (Symbol symbol in symbols)
             {
                 symbol.WriteTo(Console.Out);

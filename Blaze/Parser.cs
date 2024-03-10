@@ -3,7 +3,6 @@ using Blaze.Syntax_Nodes;
 using Blaze.SyntaxTokens;
 using Blaze.Text;
 using System.Collections.Immutable;
-using System.Net.Http.Headers;
 
 namespace Blaze
 {
@@ -23,17 +22,41 @@ namespace Blaze
         {
             _syntaxTree = syntaxTree;
 
-            List<SyntaxToken> tokens = new List<SyntaxToken>(); 
-            Lexer lexer = new Lexer(syntaxTree);
+            var tokens = new List<SyntaxToken>();
+            var incorrectTokens = new List<SyntaxToken>();
+
+            var lexer = new Lexer(syntaxTree);
             SyntaxToken token;
             do
             {
                 token = lexer.Lex();
-                if (token.Kind != SyntaxKind.WhitespaceToken 
-                 && token.Kind != SyntaxKind.IncorrectToken
-                 && token.Kind != SyntaxKind.SingleLineCommentToken
-                 && token.Kind != SyntaxKind.MultiLineCommentToken)
+
+                if (token.Kind == SyntaxKind.IncorrectToken)
+                    incorrectTokens.Add(token); 
+                else
+                {
+                    if (incorrectTokens.Any())
+                    {
+                        var leadingTrivia = token.LeadingTrivia.ToBuilder();
+                        var index = 0;
+
+                        foreach (var incorrectToken in incorrectTokens) 
+                        {
+                            foreach (var lt in incorrectToken.LeadingTrivia)
+                                leadingTrivia.Insert(index++, lt);
+                                
+                            var trivia = new Trivia(syntaxTree, SyntaxKind.SkippedTextTrivia, incorrectToken.Position, incorrectToken.Text);
+                            leadingTrivia.Insert(index++, trivia);
+
+                            foreach (var tt in incorrectToken.TrailingTrivia)
+                                leadingTrivia.Insert(index++, tt);    
+                        }
+
+                        incorrectTokens.Clear();
+                        token = new SyntaxToken(token.Tree, token.Kind, token.Position, token.Text, token.Value, leadingTrivia.ToImmutable(), token.TrailingTrivia);
+                    }
                     tokens.Add(token);
+                }                    
             }
             while (token.Kind != SyntaxKind.EndOfFileToken);
 
@@ -48,7 +71,7 @@ namespace Blaze
 
             TextLocation location = new TextLocation(_syntaxTree.Text, Current.Span);
             _diagnostics.ReportUnexpectedToken(location, Current.Kind, kind);
-            return new SyntaxToken(_syntaxTree, kind, Current.Position, null, null);
+            return new SyntaxToken(_syntaxTree, kind, Current.Position, null, null, ImmutableArray<Trivia>.Empty, ImmutableArray<Trivia>.Empty);
         }
 
         private SyntaxToken Consume()
@@ -167,14 +190,17 @@ namespace Blaze
         private StatementSyntax ParseIfStatement()
         {
             SyntaxToken keyword = TryConsume(SyntaxKind.IfKeyword);
-            ExpressionSyntax expression = ParseParenthesizedExpression().Expression;
-            StatementSyntax statement = ParseStatement();
+            SyntaxToken openParen = TryConsume(SyntaxKind.OpenParenToken);
+            ExpressionSyntax expression = ParseExpression();
+            SyntaxToken closeParen = TryConsume(SyntaxKind.CloseParenToken);
+            StatementSyntax body = ParseStatement();
+
             if (Current.Kind == SyntaxKind.ElseKeyword)
             {
                 ElseClauseSyntax elseClause = ParseElseClause();
-                return new IfStatementSyntax(_syntaxTree, keyword, expression, statement, elseClause);
+                return new IfStatementSyntax(_syntaxTree, keyword, openParen, expression, closeParen, body, elseClause);
             }
-            return new IfStatementSyntax(_syntaxTree, keyword, expression, statement);
+            return new IfStatementSyntax(_syntaxTree, keyword, openParen, expression, closeParen, body);
         }
 
         private ElseClauseSyntax ParseElseClause()
@@ -187,9 +213,11 @@ namespace Blaze
         private WhileStatementSyntax ParseWhileStatement()
         {
             SyntaxToken keyword = TryConsume(SyntaxKind.WhileKeyword);
-            ExpressionSyntax condition = ParseParenthesizedExpression().Expression;
+            SyntaxToken openParen = TryConsume(SyntaxKind.OpenParenToken);
+            ExpressionSyntax condition = ParseExpression();
+            SyntaxToken closeParen = TryConsume(SyntaxKind.CloseParenToken);
             StatementSyntax body = ParseStatement();
-            return new WhileStatementSyntax(_syntaxTree, keyword, condition, body);
+            return new WhileStatementSyntax(_syntaxTree,  keyword, openParen, condition, closeParen, body);
         }
 
         private DoWhileStatementSyntax ParseDoWhileStatement()
@@ -208,18 +236,17 @@ namespace Blaze
         {
             //For now only supports range for loops
             SyntaxToken keyword = TryConsume(SyntaxKind.ForKeyword);
-            
-            TryConsume(SyntaxKind.OpenParenToken);
+            SyntaxToken openParen = TryConsume(SyntaxKind.OpenParenToken);
             SyntaxToken identifier = TryConsume(SyntaxKind.IdentifierToken);
             SyntaxToken equalsSign = TryConsume(SyntaxKind.EqualsToken);
             ExpressionSyntax lowerBound = ParseExpression();
             SyntaxToken doubleDot = TryConsume(SyntaxKind.DoubleDotToken);
             ExpressionSyntax upperBound = ParseExpression();
-            TryConsume(SyntaxKind.CloseParenToken);
+            SyntaxToken closeParen = TryConsume(SyntaxKind.CloseParenToken);
 
             StatementSyntax body = ParseStatement();
 
-            return new ForStatementSyntax(_syntaxTree, keyword, identifier, equalsSign, lowerBound, doubleDot, upperBound, body);
+            return new ForStatementSyntax(_syntaxTree, keyword, openParen, identifier, equalsSign, lowerBound, doubleDot, upperBound, closeParen, body);
         }
 
         private BlockStatementSyntax ParseBlockStatement()

@@ -25,8 +25,8 @@ namespace Blaze.Tests
         public void Lexer_Tests_All_Tokens()
         {
             IEnumerable<SyntaxKind> allTokenKinds = SyntaxFacts.AllTokenKinds
-                                                .Where(k => k != SyntaxKind.SingleLineCommentToken
-                                                         && k != SyntaxKind.MultiLineCommentToken);
+                                                .Where(k => k != SyntaxKind.SingleLineCommentTrivia
+                                                         && k != SyntaxKind.MultiLineCommentTrivia);
 
             IEnumerable<SyntaxKind> testedTokenKinds = GetTokens().Concat(GetSeparators()).Select(t => t.kind);
 
@@ -108,11 +108,11 @@ namespace Blaze.Tests
         {
             return new[]
             {
-                (SyntaxKind.WhitespaceToken, " "),
-                (SyntaxKind.WhitespaceToken, "  "),
-                (SyntaxKind.WhitespaceToken, "\r"),
-                (SyntaxKind.WhitespaceToken, "\n"),
-                (SyntaxKind.WhitespaceToken, "\r\n"),
+                (SyntaxKind.WhitespaceTrivia, " "),
+                (SyntaxKind.WhitespaceTrivia, "  "),
+                (SyntaxKind.WhitespaceTrivia, "\r"),
+                (SyntaxKind.WhitespaceTrivia, "\n"),
+                (SyntaxKind.WhitespaceTrivia, "\r\n"),
             };
         }
 

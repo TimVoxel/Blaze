@@ -7,32 +7,35 @@ namespace Blaze.Syntax_Nodes
         public SyntaxToken IfKeyword { get; private set; }
         public ExpressionSyntax Condition { get; private set; }
         public StatementSyntax Body { get; private set; }
+        public SyntaxToken OpenParen { get; }
+        public SyntaxToken CloseParen { get; }
         public ElseClauseSyntax? ElseClause { get; private set; }
 
         public override SyntaxKind Kind => SyntaxKind.IfStatement;
 
-        public IfStatementSyntax(SyntaxTree tree, SyntaxToken ifKeyword, ExpressionSyntax condition, StatementSyntax body, ElseClauseSyntax elseClause) : this(tree, ifKeyword, condition, body)
+        public IfStatementSyntax(SyntaxTree tree, SyntaxToken ifKeyword, SyntaxToken openParen, ExpressionSyntax condition, SyntaxToken closeParen, StatementSyntax body, ElseClauseSyntax elseClause) : this(tree, ifKeyword, openParen, condition, closeParen, body)
         {
             ElseClause = elseClause;
         }
 
-        public IfStatementSyntax(SyntaxTree tree, SyntaxToken ifKeyword, ExpressionSyntax condition, StatementSyntax body) : base(tree)
+        public IfStatementSyntax(SyntaxTree tree, SyntaxToken ifKeyword, SyntaxToken openParen, ExpressionSyntax condition, SyntaxToken closeParen, StatementSyntax body) : base(tree)
         {
             IfKeyword = ifKeyword;
+            OpenParen = openParen;
             Condition = condition;
+            CloseParen = closeParen;
             Body = body;
         } 
 
         public override IEnumerable<SyntaxNode> GetChildren()
         {
             yield return IfKeyword;
+            yield return OpenParen;
             yield return Condition;
+            yield return CloseParen;
             yield return Body;
             if (ElseClause != null)
-            {
-                foreach (SyntaxNode elseClauseChild in ElseClause.GetChildren())
-                    yield return elseClauseChild;
-            }       
+                yield return ElseClause; 
         }
     }
 
