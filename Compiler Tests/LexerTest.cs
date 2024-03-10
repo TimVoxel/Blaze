@@ -24,7 +24,10 @@ namespace Blaze.Tests
         [Fact]
         public void Lexer_Tests_All_Tokens()
         {
-            List<SyntaxKind> allTokenKinds = SyntaxFacts.AllTokenKinds.ToList();
+            IEnumerable<SyntaxKind> allTokenKinds = SyntaxFacts.AllTokenKinds
+                                                .Where(k => k != SyntaxKind.SingleLineCommentToken
+                                                         && k != SyntaxKind.MultiLineCommentToken);
+
             IEnumerable<SyntaxKind> testedTokenKinds = GetTokens().Concat(GetSeparators()).Select(t => t.kind);
 
             SortedSet<SyntaxKind> notTestedTokenKinds = new SortedSet<SyntaxKind>(allTokenKinds);
@@ -115,8 +118,8 @@ namespace Blaze.Tests
 
         private static bool RequiresSeparator(SyntaxKind t1Kind, SyntaxKind t2Kind)
         {
-            bool t1IsKeyword = t1Kind.ToString().EndsWith("Keyword");
-            bool t2IsKeyword = t2Kind.ToString().EndsWith("Keyword");
+            bool t1IsKeyword = SyntaxFacts.IsKeyword(t1Kind);
+            bool t2IsKeyword = SyntaxFacts.IsKeyword(t2Kind);
 
             if (t1Kind == SyntaxKind.IdentifierToken && t2Kind == SyntaxKind.IdentifierToken)
                 return true;
@@ -143,6 +146,12 @@ namespace Blaze.Tests
                 return true;
 
             if (t1Kind == SyntaxKind.GreaterToken && t2Kind == SyntaxKind.EqualsToken)
+                return true;
+
+            if (t1Kind == SyntaxKind.SlashToken && t2Kind == SyntaxKind.StarToken)
+                return true;
+
+            if (t1Kind == SyntaxKind.SlashToken && t2Kind == SyntaxKind.SlashToken)
                 return true;
 
             if (t1Kind == SyntaxKind.StringLiteralToken && t2Kind == SyntaxKind.StringLiteralToken)

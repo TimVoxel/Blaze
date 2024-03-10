@@ -5,8 +5,8 @@ namespace Blaze
     public static class SyntaxFacts
     {
         public static SyntaxKind[] AllSyntaxKinds => (SyntaxKind[])Enum.GetValues(typeof(SyntaxKind));
-        public static SyntaxKind[] AllTokenKinds => AllSyntaxKinds.Where(k => k.ToString().EndsWith("Keyword") || k.ToString().EndsWith("Token")).ToArray();
-
+        public static SyntaxKind[] AllTokenKinds => AllSyntaxKinds.Where(k => IsKeyword(k) || IsToken(k)).ToArray();
+            
         public static int GetBinaryOperatorPrecedence(this SyntaxKind kind)
         {
             switch (kind)
@@ -46,6 +46,16 @@ namespace Blaze
 
                 default: return 0;
             }
+        }
+
+        public static bool IsKeyword(SyntaxKind token)
+        {
+            return token.ToString().EndsWith("Keyword");
+        }
+
+        public static bool IsToken(SyntaxKind kind)
+        {
+            return kind.ToString().EndsWith("Token");
         }
 
         public static SyntaxKind GetKeywordKind(string text)

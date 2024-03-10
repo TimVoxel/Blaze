@@ -91,7 +91,7 @@ namespace ReplExperience
                     SyntaxKind.StringLiteralToken => ConsoleColor.DarkYellow,
                     SyntaxKind.SingleLineCommentToken => ConsoleColor.DarkGreen,
                     SyntaxKind.MultiLineCommentToken => ConsoleColor.DarkGreen,
-                    _ when token.Kind.ToString().EndsWith("Keyword") => ConsoleColor.DarkCyan,
+                    _ when SyntaxFacts.IsKeyword(token.Kind) => ConsoleColor.DarkCyan,
                     _ => ConsoleColor.Gray
                 };
 
