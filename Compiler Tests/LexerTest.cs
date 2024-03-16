@@ -49,6 +49,18 @@ namespace Blaze.Tests
         }
 
         [Theory]
+        [MemberData(nameof(GetSeparatorData))]
+        public void Lexer_Lexes_Separator(SyntaxKind kind, string text)
+        {
+            IEnumerable<SyntaxToken> tokens = SyntaxTree.ParseTokens(text, true);
+
+            var token = Assert.Single(tokens);
+            var trivia = Assert.Single(token.LeadingTrivia);
+            Assert.Equal(kind, trivia.Kind);
+            Assert.Equal(text, trivia.Text);
+        }
+
+        [Theory]
         [MemberData(nameof(GetTokenPairsData))]
         public void Lexer_Lexes_Token_Pairs(SyntaxKind t1Kind, string t1Text, SyntaxKind t2Kind, string t2Text)
         {
@@ -66,21 +78,32 @@ namespace Blaze.Tests
         [MemberData(nameof(GetTokenPairsWithSeparatorData))]
         public void Lexer_Lexes_Token_Pairs_With_Separators(SyntaxKind t1Kind, string t1Text, SyntaxKind sepKind, string sepText, SyntaxKind t2Kind, string t2Text)
         {
-            string text = t1Text + sepText + t2Text;
-            SyntaxToken[] tokens = SyntaxTree.ParseTokens(text).ToArray();
+            var text = t1Text + sepText + t2Text;
+            var tokens = SyntaxTree.ParseTokens(text).ToArray();
 
-            Assert.Equal(3, tokens.Length);
+            Assert.Equal(2, tokens.Length);
             Assert.Equal(tokens[0].Kind, t1Kind);
-            Assert.Equal(tokens[2].Kind, t2Kind);
+
+            var separator = Assert.Single(tokens[0].TrailingTrivia);
+            Assert.Equal(sepKind, separator.Kind);
+            Assert.Equal(sepText, separator.Text);
+
             Assert.Equal(tokens[0].Text, t1Text);
-            Assert.Equal(tokens[2].Text, t2Text);
-            Assert.Equal(tokens[1].Kind, sepKind);
-            Assert.Equal(tokens[1].Text, sepText);
+            Assert.Equal(tokens[1].Kind, t2Kind);
+            Assert.Equal(tokens[1].Text, t2Text);
+            //Assert.Equal(tokens[1].Kind, sepKind);
+            //Assert.Equal(tokens[1].Text, sepText);
         }
 
         public static IEnumerable<object[]> GetTokensData()
         {
-            foreach (var token in GetTokens().Concat(GetSeparators()))
+            foreach (var token in GetTokens())
+                yield return new object[] { token.kind, token.text };
+        }
+
+        public static IEnumerable<object[]> GetSeparatorData()
+        {
+            foreach (var token in GetSeparators())
                 yield return new object[] { token.kind, token.text };
         }
 
@@ -110,9 +133,9 @@ namespace Blaze.Tests
             {
                 (SyntaxKind.WhitespaceTrivia, " "),
                 (SyntaxKind.WhitespaceTrivia, "  "),
-                (SyntaxKind.WhitespaceTrivia, "\r"),
-                (SyntaxKind.WhitespaceTrivia, "\n"),
-                (SyntaxKind.WhitespaceTrivia, "\r\n"),
+                (SyntaxKind.LineBreakTrivia, "\r"),
+                (SyntaxKind.LineBreakTrivia, "\n"),
+                (SyntaxKind.LineBreakTrivia, "\r\n"),
             };
         }
 
@@ -122,6 +145,15 @@ namespace Blaze.Tests
             bool t2IsKeyword = SyntaxFacts.IsKeyword(t2Kind);
 
             if (t1Kind == SyntaxKind.IdentifierToken && t2Kind == SyntaxKind.IdentifierToken)
+                return true;
+
+            if (t1IsKeyword && t2Kind == SyntaxKind.IntegerLiteralToken)
+                return true;
+
+            if (t2IsKeyword && t1Kind == SyntaxKind.IntegerLiteralToken)
+                return true;
+
+            if (t1Kind == SyntaxKind.IdentifierToken && t2Kind == SyntaxKind.IntegerLiteralToken)
                 return true;
 
             if (t1IsKeyword && t2IsKeyword)
