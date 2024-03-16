@@ -9,7 +9,7 @@ namespace Blaze.Syntax_Nodes
 
         public override SyntaxKind Kind => SyntaxKind.ContinueStatement;
 
-        public ContinueStatementSyntax(SyntaxTree tree, SyntaxToken keyword, SyntaxToken semicolon) : base(tree)
+        internal ContinueStatementSyntax(SyntaxTree tree, SyntaxToken keyword, SyntaxToken semicolon) : base(tree)
         {
             Keyword = keyword;
             Semicolon = semicolon;

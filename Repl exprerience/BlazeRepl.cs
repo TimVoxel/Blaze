@@ -84,7 +84,7 @@ namespace ReplExperience
         protected override void EvaluateSubmission(string text)
         {
             var syntaxTree = SyntaxTree.Parse(text);
-            var compilation = Compilation.CreateScript(_previous, syntaxTree);
+            var compilation = Compilation.Create(syntaxTree);
 
             if (_showTree)
                 syntaxTree.Root.WriteTo(Console.Out);

@@ -11,7 +11,7 @@ namespace Blaze.Syntax_Nodes
 
         public override SyntaxKind Kind => SyntaxKind.CallExpression;
 
-        public CallExpressionSyntax(SyntaxTree tree, SyntaxToken identifier, SyntaxToken openParen, SeparatedSyntaxList<ExpressionSyntax> arguments, SyntaxToken closeParen) : base(tree)
+        internal CallExpressionSyntax(SyntaxTree tree, SyntaxToken identifier, SyntaxToken openParen, SeparatedSyntaxList<ExpressionSyntax> arguments, SyntaxToken closeParen) : base(tree)
         {
             Identifier = identifier;
             OpenParen = openParen;

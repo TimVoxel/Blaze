@@ -13,7 +13,7 @@ namespace Blaze.Syntax_Nodes
 
         public override SyntaxKind Kind => SyntaxKind.IfStatement;
 
-        public IfStatementSyntax(SyntaxTree tree, SyntaxToken ifKeyword, SyntaxToken openParen, ExpressionSyntax condition, SyntaxToken closeParen, StatementSyntax body, ElseClauseSyntax elseClause) : this(tree, ifKeyword, openParen, condition, closeParen, body)
+        internal IfStatementSyntax(SyntaxTree tree, SyntaxToken ifKeyword, SyntaxToken openParen, ExpressionSyntax condition, SyntaxToken closeParen, StatementSyntax body, ElseClauseSyntax elseClause) : this(tree, ifKeyword, openParen, condition, closeParen, body)
         {
             ElseClause = elseClause;
         }

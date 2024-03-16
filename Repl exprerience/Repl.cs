@@ -316,12 +316,11 @@ namespace ReplExperience
         private void HandleEnter(ObservableCollection<string> document, SubmissionView view)
         {
             string submissionText = string.Join(Environment.NewLine, document);
-            if (submissionText.StartsWith("#") || IsCompleteSubmission(submissionText))
+            if (submissionText.StartsWith("#"))
             {
                 _done = true;
                 return;
             }
-
             InsertLine(document, view);
         }
 
@@ -397,14 +396,14 @@ namespace ReplExperience
 
         protected virtual void EvaluateMetaCommand(string input)
         {
-            List<string> args = new List<string>();
-            bool inQuotes = false;
-            int position = 1;
-            StringBuilder sb = new StringBuilder();
+            var args = new List<string>();
+            var inQuotes = false;
+            var position = 1;
+            var sb = new StringBuilder();
             while (position < input.Length)
             {
-                char c = input[position];
-                char l = position + 1 >= input.Length ? '\0' : input[position + 1];
+                var c = input[position];
+                var l = position + 1 >= input.Length ? '\0' : input[position + 1];
 
                 if (char.IsWhiteSpace(c))
                 {
@@ -443,11 +442,11 @@ namespace ReplExperience
                 sb.Clear();
             }
 
-            string? commandName = args.FirstOrDefault();
+            var commandName = args.FirstOrDefault();
             if (args.Count > 0)
                 args.RemoveAt(0);
 
-            MetaCommand? command = _metaCommands.SingleOrDefault(mc => mc.Name == commandName);
+            var command = _metaCommands.SingleOrDefault(mc => mc.Name == commandName);
 
             if (command == null)
             {
@@ -456,7 +455,7 @@ namespace ReplExperience
                 return;
             }
 
-            ParameterInfo[] parameters = command.Method.GetParameters();
+            var parameters = command.Method.GetParameters();
             if (args.Count != parameters.Length)
             {
                 string parameterNames = string.Join(", ", parameters.Select(p => $"<{p.Name}>"));

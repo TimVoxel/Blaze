@@ -20,19 +20,13 @@ namespace Blaze.Miscellaneuos
             _lastValue = 0;
             _locals.Push(new Dictionary<VariableSymbol, object?>());
 
-            BoundProgram? current = program;
-            while (current != null)
-            {
-                foreach (var functionWithBody in current.Functions)
-                    _functions.Add(functionWithBody.Key, functionWithBody.Value);
-
-                current = current.Previous;
-            }
+            foreach (var functionWithBody in program.Functions)
+                _functions.Add(functionWithBody.Key, functionWithBody.Value);
         }
 
         public object? Evaluate()
         {
-            FunctionSymbol? function = _program.MainFunction ?? _program.ScriptFunction;
+            FunctionSymbol? function = _program.MainFunction;
             if (function == null)
                 return null;
 

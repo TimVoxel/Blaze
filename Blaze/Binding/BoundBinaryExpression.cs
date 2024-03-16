@@ -17,7 +17,7 @@ namespace Blaze.Binding
             Left = left;
             Operator = op;
             Right = right;
-            ConstantValue = ConstantFolding.ComputeConstant(left, op, right);
+            ConstantValue = ConstantFolding.Fold(left, op, right);
         }
     }
 }

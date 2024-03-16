@@ -9,7 +9,7 @@ namespace Blaze.Syntax_Nodes
 
         public override SyntaxKind Kind => SyntaxKind.Parameter;
 
-        public ParameterSyntax(SyntaxTree tree, TypeClauseSyntax type, SyntaxToken identifier) : base(tree)
+        internal ParameterSyntax(SyntaxTree tree, TypeClauseSyntax type, SyntaxToken identifier) : base(tree)
         {
             Type = type;
             Identifier = identifier;

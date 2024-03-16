@@ -3,12 +3,13 @@ using Blaze.Syntax_Nodes;
 using Blaze.SyntaxTokens;
 using Blaze.Text;
 using System.Collections.Immutable;
+using System.Diagnostics;
 
 namespace Blaze
 {
     public sealed class SyntaxTree
     {
-        private delegate void ParseHandler(SyntaxTree syntaxTree, out CompilationUnitSyntax root, out ImmutableArray<Diagnostic> diagnostics);
+        private delegate void ParseHandler(SyntaxTree syntaxTree, out CompilationUnitSyntax? root, out ImmutableArray<Diagnostic> diagnostics);
 
         public CompilationUnitSyntax Root { get; private set; }
         public SourceText Text { get; private set; }
@@ -17,7 +18,8 @@ namespace Blaze
         private SyntaxTree(SourceText text, ParseHandler handler)
         {
             Text = text;
-            handler(this, out CompilationUnitSyntax root, out ImmutableArray<Diagnostic> diagnostics);
+            handler(this, out CompilationUnitSyntax? root, out ImmutableArray<Diagnostic> diagnostics);
+            Debug.Assert(root != null);
             Diagnostics = diagnostics;
             Root = root;
         }
@@ -44,7 +46,7 @@ namespace Blaze
         {
             var tokens = new List<SyntaxToken>();
 
-            void ParseTokens(SyntaxTree syntaxTree, out CompilationUnitSyntax root, out ImmutableArray<Diagnostic> diags)
+            void ParseTokens(SyntaxTree syntaxTree, out CompilationUnitSyntax? root, out ImmutableArray<Diagnostic> diags)
             {
                 root = null;
 

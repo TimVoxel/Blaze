@@ -87,12 +87,9 @@ namespace Blaze.Tests
             var separator = Assert.Single(tokens[0].TrailingTrivia);
             Assert.Equal(sepKind, separator.Kind);
             Assert.Equal(sepText, separator.Text);
-
             Assert.Equal(tokens[0].Text, t1Text);
             Assert.Equal(tokens[1].Kind, t2Kind);
             Assert.Equal(tokens[1].Text, t2Text);
-            //Assert.Equal(tokens[1].Kind, sepKind);
-            //Assert.Equal(tokens[1].Text, sepText);
         }
 
         public static IEnumerable<object[]> GetTokensData()

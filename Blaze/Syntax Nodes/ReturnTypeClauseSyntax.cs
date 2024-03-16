@@ -9,7 +9,7 @@ namespace Blaze.Syntax_Nodes
 
         public override SyntaxKind Kind => SyntaxKind.ReturnTypeClause;
 
-        public ReturnTypeClauseSyntax(SyntaxTree tree, SyntaxToken colonToken, SyntaxToken identifier) : base(tree)
+        internal ReturnTypeClauseSyntax(SyntaxTree tree, SyntaxToken colonToken, SyntaxToken identifier) : base(tree)
         {
             ColonToken = colonToken;
             Identifier = identifier;

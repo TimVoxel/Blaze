@@ -9,8 +9,8 @@ namespace Blaze.Syntax_Nodes
         public SyntaxToken CloseParenToken { get; private set; }
 
         public override SyntaxKind Kind => SyntaxKind.ParenthesizedExpression;
-        
-        public ParenthesizedExpressionSyntax(SyntaxTree tree, SyntaxToken openParenToken, ExpressionSyntax expression, SyntaxToken closeParenToken) : base(tree)
+
+        internal ParenthesizedExpressionSyntax(SyntaxTree tree, SyntaxToken openParenToken, ExpressionSyntax expression, SyntaxToken closeParenToken) : base(tree)
         {
             OpenParenToken = openParenToken;
             Expression = expression;

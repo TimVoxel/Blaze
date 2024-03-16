@@ -8,7 +8,7 @@ namespace Blaze.Syntax_Nodes
 
         public override SyntaxKind Kind => SyntaxKind.TypeClause;
 
-        public TypeClauseSyntax(SyntaxTree tree, SyntaxToken identifier) : base(tree)
+        internal TypeClauseSyntax(SyntaxTree tree, SyntaxToken identifier) : base(tree)
         {
             Identifier = identifier;
         }

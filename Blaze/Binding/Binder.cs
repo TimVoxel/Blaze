@@ -5,15 +5,12 @@ using Blaze.Syntax_Nodes;
 using Blaze.SyntaxTokens;
 using Blaze.Text;
 using System.Collections.Immutable;
-using System.Reflection.Metadata;
-using System.Xml;
 
 namespace Blaze.Binding
 {
     internal sealed class Binder
     {
         private readonly DiagnosticBag _diagnostics = new DiagnosticBag();
-        private readonly bool _isScript;
         private readonly FunctionSymbol? _function;
 
         private Stack<(BoundLabel breakLabel, BoundLabel continueLabel)> _loopStack = new Stack<(BoundLabel breakLabel, BoundLabel continueLabel)>();
@@ -23,10 +20,9 @@ namespace Blaze.Binding
 
         public DiagnosticBag Diagnostics => _diagnostics;
 
-        public Binder(bool isScript, BoundScope? parent, FunctionSymbol? function)
+        public Binder(BoundScope? parent, FunctionSymbol? function)
         {
             _scope = new BoundScope(parent);
-            _isScript = isScript;
             _function = function;
 
             if (_function != null)
@@ -34,130 +30,86 @@ namespace Blaze.Binding
                     _scope.TryDeclareVariable(parameter);
         }
 
-        public static BoundGlobalScope BindGlobalScope(bool isScript, BoundGlobalScope? previous, ImmutableArray<SyntaxTree> syntaxTrees)
+        public static BoundGlobalScope BindGlobalScope(ImmutableArray<SyntaxTree> syntaxTrees)
         {
-            BoundScope? parentScope = CreateParentScope(previous);
-            Binder binder = new Binder(isScript, parentScope, null);
+            //1. Create a root scope that contains all the built-in functions 
+            var parentScope = CreateRootScope();
+            var binder = new Binder(parentScope, null);
 
-            IEnumerable<FunctionDeclarationSyntax> functionDeclarations = syntaxTrees.SelectMany(st => st.Root.Members).OfType<FunctionDeclarationSyntax>();
+            //2. Bind function declarations
+            var functionDeclarations = syntaxTrees.SelectMany(st => st.Root.Members).OfType<FunctionDeclarationSyntax>();
 
-            foreach (FunctionDeclarationSyntax function in functionDeclarations)
+            foreach (var function in functionDeclarations)
                 binder.BindFunctionDeclaration(function);
 
-            IEnumerable<GlobalStatementSyntax> globalStatements = syntaxTrees.SelectMany(st => st.Root.Members).OfType<GlobalStatementSyntax>();
-            GlobalStatementSyntax?[] firstGlobalStatementOfTree = syntaxTrees.Select(st => st.Root.Members.OfType<GlobalStatementSyntax>().FirstOrDefault())
-                .Where(n => n != null)
-                .ToArray();
-
-            ImmutableArray<BoundStatement>.Builder statements = ImmutableArray.CreateBuilder<BoundStatement>();
-            foreach (GlobalStatementSyntax globalStatement in globalStatements)
+            //3. Bind global statements
+            var globalStatements = syntaxTrees.SelectMany(st => st.Root.Members).OfType<GlobalStatementSyntax>();
+            var statements = ImmutableArray.CreateBuilder<BoundStatement>();
+            foreach (var globalStatement in globalStatements)
             {
-                BoundStatement boundStatement = binder.BindGlobalStatement(globalStatement.Statement);
+                var boundStatement = binder.BindGlobalStatement(globalStatement.Statement);
                 statements.Add(boundStatement);
             }
 
-            if (firstGlobalStatementOfTree.Length > 1)
+            //4. Bind main function. Check
+            //   if it has the correct signature
+            //   If there isn't a main function, fabricate it
+            var functions = binder._scope.GetDeclaredFunctions();
+            var mainFunction = functions.SingleOrDefault(f => f.Name == "main");
+
+            if (mainFunction != null && mainFunction.Declaration != null)
             {
-                foreach (GlobalStatementSyntax? globalStatement in firstGlobalStatementOfTree)
-                    if (globalStatement != null)
-                        binder.Diagnostics.ReportOnlyOneFileCanHaveGlobalStatements(globalStatement.Location);
+                if (mainFunction.ReturnType != TypeSymbol.Void || mainFunction.Parameters.Any())
+                    binder.Diagnostics.ReportMainFunctionMustHaveCorrectSignature(mainFunction.Declaration.Identifier.Location);
             }
 
-            ImmutableArray<FunctionSymbol> functions = binder._scope.GetDeclaredFunctions();
-            FunctionSymbol? mainFunction = null;
-            FunctionSymbol? scriptFunction = null;
+            if (mainFunction == null)
+                mainFunction = new FunctionSymbol("main", ImmutableArray<ParameterSymbol>.Empty, TypeSymbol.Void);
 
-            if (isScript)
-            {
-                if (globalStatements.Any())
-                    scriptFunction = new FunctionSymbol("$eval", ImmutableArray<ParameterSymbol>.Empty, TypeSymbol.Object);
-            }
-            else
-            {
-                mainFunction = functions.SingleOrDefault(f => f.Name == "main");
-
-                if (mainFunction != null && mainFunction.Declaration != null)
-                {
-                    if (mainFunction.ReturnType != TypeSymbol.Void || mainFunction.Parameters.Any())
-                        binder.Diagnostics.ReportMainFunctionMustHaveCorrectSignature(mainFunction.Declaration.Identifier.Location);
-                }
-
-                if (globalStatements.Any())
-                {
-                    if (mainFunction != null && mainFunction.Declaration != null)
-                    {
-                        binder.Diagnostics.ReportCannotMixMainAndGlobalStatements(mainFunction.Declaration.Identifier.Location);
-
-                        foreach (GlobalStatementSyntax? globalStatement in firstGlobalStatementOfTree)
-                            if (globalStatement != null)
-                                binder.Diagnostics.ReportCannotMixMainAndGlobalStatements(globalStatement.Location);
-                    }
-                    else
-                        mainFunction = new FunctionSymbol("main", ImmutableArray<ParameterSymbol>.Empty, TypeSymbol.Void);
-                }
-            }
-
-            //Bind global statements
-            ImmutableArray<Diagnostic> diagnostics = binder.Diagnostics.ToImmutableArray();
-            FunctionSymbol? globalStatementFunction = mainFunction ?? scriptFunction;
-
-            ImmutableArray<VariableSymbol> variables = binder._scope.GetDeclaredVariables();
+            //5. Create the global scope
+            var diagnostics = binder.Diagnostics.ToImmutableArray();
+            var globalStatementFunction = mainFunction;
+            var variables = binder._scope.GetDeclaredVariables();
             
-            if (previous != null)
-                diagnostics = diagnostics.InsertRange(0, previous.Diagnostics);
-
-            return new BoundGlobalScope(previous, diagnostics, mainFunction, scriptFunction, variables, functions, statements.ToImmutable());
+            return new BoundGlobalScope(diagnostics, mainFunction, variables, functions, statements.ToImmutable());
         }
 
-        private static BoundScope? CreateParentScope(BoundGlobalScope? previous)
+        private static BoundScope CreateRootScope(BoundGlobalScope? globalScope = null)
         {
-            Stack<BoundGlobalScope> stack = new Stack<BoundGlobalScope>();
-            while (previous != null)
-            {
-                stack.Push(previous);
-                previous = previous.Previous;
-            }
-
-            BoundScope? parent = CreateRootScope();
-            
-            while (stack.Count > 0)
-            {
-                previous = stack.Pop();
-                BoundScope scope = new BoundScope(parent);
-
-                foreach (FunctionSymbol function in previous.Functions)
-                    scope.TryDeclareFunction(function);
-
-                foreach (VariableSymbol variable in previous.Variables)
-                    scope.TryDeclareVariable(variable);
-
-                parent = scope;
-            }
-            return parent;
-        }
-
-        private static BoundScope CreateRootScope()
-        {
-            BoundScope result = new BoundScope(null);
-            foreach (FunctionSymbol? builtInFunction in BuiltInFunction.GetAll())
+            var result = new BoundScope(null);
+            foreach (var builtInFunction in BuiltInFunction.GetAll())
                 result.TryDeclareFunction(builtInFunction);
+
+            if (globalScope == null)
+                return result;
+
+            foreach (var function in globalScope.Functions)
+                result.TryDeclareFunction(function);
+
+            foreach (var function in globalScope.Variables)
+                result.TryDeclareVariable(function);
+
             return result;
         }
 
-        public static BoundProgram BindProgram(bool isScript, BoundProgram? previous, BoundGlobalScope globalScope)
+        public static BoundProgram BindProgram(BoundGlobalScope globalScope)
         {
-            BoundScope? parentScope = CreateParentScope(globalScope);
-            ImmutableDictionary<FunctionSymbol, BoundBlockStatement>.Builder functionBodies = ImmutableDictionary.CreateBuilder<FunctionSymbol, BoundBlockStatement>();
-           
-            ImmutableArray<Diagnostic>.Builder diagnostics = ImmutableArray.CreateBuilder<Diagnostic>();
+            //1. Create a root scope, which contains the built-in functions as well as 
+            //   functions and variables declared in the global scope
+            var parentScope = CreateRootScope(globalScope);
 
-            foreach (FunctionSymbol function in globalScope.Functions)
+            //2. Bind every function body and lower it,
+            //   connect it to the declaration
+            var functionBodies = ImmutableDictionary.CreateBuilder<FunctionSymbol, BoundBlockStatement>();
+            var diagnostics = ImmutableArray.CreateBuilder<Diagnostic>();
+
+            foreach (var function in globalScope.Functions)
             {
-                Binder binder = new Binder(isScript, parentScope, function);
+                var binder = new Binder(parentScope, function);
                 if (function.Declaration != null)
                 {
-                    BoundStatement body = binder.BindStatement(function.Declaration.Body);
-                    BoundBlockStatement loweredBody = Lowerer.Lower(body);
+                    var body = binder.BindStatement(function.Declaration.Body);
+                    var loweredBody = Lowerer.Lower(body);
 
                     if (function.ReturnType != TypeSymbol.Void && !ControlFlowGraph.AllPathsReturn(loweredBody))
                         binder._diagnostics.ReportAllPathsMustReturn(function.Declaration.Identifier.Location);
@@ -167,42 +119,27 @@ namespace Blaze.Binding
                 }
             }
 
-            if (globalScope.MainFunction != null && globalScope.Statements.Any())
+            //3. Bind the main function and connect it to the global statements
+            //   If there are any
+            if (globalScope.MainFunction != null && globalScope.MainFunction.Declaration == null && globalScope.Statements.Any())
             {
-                BoundBlockStatement body = Lowerer.Lower(new BoundBlockStatement(globalScope.Statements));
+                var body = Lowerer.Lower(new BoundBlockStatement(globalScope.Statements));
                 functionBodies.Add(globalScope.MainFunction, body);
             }
 
-            if (globalScope.ScriptFunction != null)
-            {
-                ImmutableArray<BoundStatement> statements = globalScope.Statements;
-                
-                if (statements.Length == 1 && statements[0] is BoundExpressionStatement es
-                    && es.Expression.Type != TypeSymbol.Void)
-                {
-                    statements = statements.SetItem(0, new BoundReturnStatement(es.Expression));
-                } 
-                else if (statements.Any() && statements.Last().Kind != BoundNodeKind.ReturnStatement)
-                {
-                    BoundExpression nullValue = new BoundLiteralExpression("");
-                    statements = statements.Add(new BoundReturnStatement(nullValue));
-                }    
-                BoundBlockStatement body = Lowerer.Lower(new BoundBlockStatement(statements));
-                functionBodies.Add(globalScope.ScriptFunction, body);
-            }
-
-            return new BoundProgram(previous, diagnostics.ToImmutable(), globalScope.MainFunction, globalScope.ScriptFunction, functionBodies.ToImmutable());
+            return new BoundProgram(diagnostics.ToImmutable(), globalScope.MainFunction, functionBodies.ToImmutable());
         }
 
         private void BindFunctionDeclaration(FunctionDeclarationSyntax declaration)
         {
-            ImmutableArray<ParameterSymbol>.Builder parameters = ImmutableArray.CreateBuilder<ParameterSymbol>();
-
+            var parameters = ImmutableArray.CreateBuilder<ParameterSymbol>();
             var seenParameterNames = new HashSet<string>();
-            foreach (ParameterSyntax parameterSyntax in declaration.Parameters)
+
+            foreach (var parameterSyntax in declaration.Parameters)
             {
-                string name = parameterSyntax.Identifier.Text;
-                TypeSymbol? type = BindTypeClause(parameterSyntax.Type);
+                var name = parameterSyntax.Identifier.Text;
+                var type = BindTypeClause(parameterSyntax.Type);
+
                 if (type == null)
                     continue;
 
@@ -212,11 +149,11 @@ namespace Blaze.Binding
                     parameters.Add(new ParameterSymbol(name, type));
             }
 
-            TypeSymbol? returnType = (declaration.ReturnTypeClause == null) ? TypeSymbol.Void : BindReturnTypeClause(declaration.ReturnTypeClause);
+            var returnType = (declaration.ReturnTypeClause == null) ? TypeSymbol.Void : BindReturnTypeClause(declaration.ReturnTypeClause);
             if (returnType == null)
                 returnType = TypeSymbol.Void;
 
-            FunctionSymbol function = new FunctionSymbol(declaration.Identifier.Text, parameters.ToImmutable(), returnType, declaration);
+            var function = new FunctionSymbol(declaration.Identifier.Text, parameters.ToImmutable(), returnType, declaration);
             if (!_scope.TryDeclareFunction(function))
                 _diagnostics.ReportFunctionAlreadyDeclared(declaration.Identifier.Location, function.Name);
         }
@@ -225,126 +162,101 @@ namespace Blaze.Binding
 
         private BoundStatement BindStatement(StatementSyntax syntax, bool isGlobal = false)
         {
-            BoundStatement result = BindStatementInternal(syntax);
+            var result = BindStatementInternal(syntax);
 
-            if (!_isScript || !isGlobal)
+            if (isGlobal)
+                return result;
+
+            if (result is BoundExpressionStatement es)
             {
-                if (result is BoundExpressionStatement es)
-                {
-                    bool isAllowedExpression = es.Expression.Kind == BoundNodeKind.AssignmentExpression
-                        || es.Expression.Kind == BoundNodeKind.CallExpression
-                        || es.Expression.Kind == BoundNodeKind.ErrorExpression;
+                bool isAllowedExpression = es.Expression.Kind == BoundNodeKind.AssignmentExpression
+                                        || es.Expression.Kind == BoundNodeKind.CallExpression
+                                        || es.Expression.Kind == BoundNodeKind.ErrorExpression;
 
-                    if (!isAllowedExpression)
-                        _diagnostics.ReportInvalidExpressionStatement(syntax.Location);
-                }
+                if (!isAllowedExpression)
+                    _diagnostics.ReportInvalidExpressionStatement(syntax.Location);
             }
             return result;
         }
 
         private BoundStatement BindStatementInternal(StatementSyntax syntax)
         {
-            switch (syntax.Kind)
+            return syntax.Kind switch
             {
-                case SyntaxKind.BlockStatement:
-                    return BindBlockStatement((BlockStatementSyntax)syntax);
-                case SyntaxKind.ExpressionStatement:
-                    return BindExpressionStatement((ExpressionStatementSyntax)syntax);
-                case SyntaxKind.VariableDeclarationStatement:
-                    return BindVariableDeclarationStatement((VariableDeclarationStatementSyntax)syntax);
-                case SyntaxKind.IfStatement:
-                    return BindIfStatement((IfStatementSyntax)syntax);
-                case SyntaxKind.WhileStatement:
-                    return BindWhileStatement((WhileStatementSyntax)syntax);
-                case SyntaxKind.ForStatement:
-                    return BindForStatement((ForStatementSyntax)syntax);
-                case SyntaxKind.DoWhileStatement:
-                    return BindDoWhileStatement((DoWhileStatementSyntax)syntax);
-                case SyntaxKind.BreakStatement:
-                    return BindBreakStatement((BreakStatementSyntax)syntax);
-                case SyntaxKind.ContinueStatement:
-                    return BindContinueStatement((ContinueStatementSyntax)syntax);
-                case SyntaxKind.ReturnStatement:
-                    return BindReturnStatement((ReturnStatementSyntax)syntax);
-                default:
-                    throw new Exception($"Unexpected syntax {syntax.Kind}");
-            }
+                SyntaxKind.BlockStatement => BindBlockStatement((BlockStatementSyntax)syntax),
+                SyntaxKind.ExpressionStatement => BindExpressionStatement((ExpressionStatementSyntax)syntax),
+                SyntaxKind.VariableDeclarationStatement => BindVariableDeclarationStatement((VariableDeclarationStatementSyntax)syntax),
+                SyntaxKind.IfStatement => BindIfStatement((IfStatementSyntax)syntax),
+                SyntaxKind.WhileStatement => BindWhileStatement((WhileStatementSyntax)syntax),
+                SyntaxKind.ForStatement => BindForStatement((ForStatementSyntax)syntax),
+                SyntaxKind.DoWhileStatement => BindDoWhileStatement((DoWhileStatementSyntax)syntax),
+                SyntaxKind.BreakStatement => BindBreakStatement((BreakStatementSyntax)syntax),
+                SyntaxKind.ContinueStatement => BindContinueStatement((ContinueStatementSyntax)syntax),
+                SyntaxKind.ReturnStatement => BindReturnStatement((ReturnStatementSyntax)syntax),
+                _ => throw new Exception($"Unexpected syntax {syntax.Kind}"),
+            };
         }
 
         private BoundStatement BindVariableDeclarationStatement(VariableDeclarationStatementSyntax syntax)
         {
-            BoundExpression initializer = BindExpression(syntax.Initializer);
+            var initializer = BindExpression(syntax.Initializer);
             TypeSymbol? type = null;
             if (syntax.DeclarationNode is TypeClauseSyntax typeClause)
                 type = BindTypeClause(typeClause);
 
-            TypeSymbol variableType = type ?? initializer.Type;
-            VariableSymbol variable = BindVariable(syntax.Identifier, variableType, initializer.ConstantValue);
-            BoundExpression convertedInitializer = BindConversion(initializer, variableType, syntax.Initializer.Location);
+            var variableType = type ?? initializer.Type;
+            var variable = BindVariable(syntax.Identifier, variableType, initializer.ConstantValue);
+            var convertedInitializer = BindConversion(initializer, variableType, syntax.Initializer.Location);
             return new BoundVariableDeclarationStatement(variable, convertedInitializer);
         }
 
         private BoundStatement BindExpressionStatement(ExpressionStatementSyntax syntax)
         {
-            BoundExpression boundExpression = BindExpression(syntax.Expression, true);
+            var boundExpression = BindExpression(syntax.Expression, true);
             return new BoundExpressionStatement(boundExpression);
         }
 
         private BoundStatement BindIfStatement(IfStatementSyntax syntax)
         {
-            BoundExpression boundCondition = BindExpression(syntax.Condition, TypeSymbol.Bool);
-            BoundStatement body = BindStatement(syntax.Body);
-            BoundStatement? elseBody = (syntax.ElseClause == null) ? null : BindStatement(syntax.ElseClause.Body);
+            var boundCondition = BindExpression(syntax.Condition, TypeSymbol.Bool);
+            var body = BindStatement(syntax.Body);
+            var elseBody = (syntax.ElseClause == null) ? null : BindStatement(syntax.ElseClause.Body);
             return new BoundIfStatement(boundCondition, body, elseBody);
         }
 
         private BoundStatement BindWhileStatement(WhileStatementSyntax syntax)
         {
-            BoundExpression boundCondition = BindExpression(syntax.Condition, TypeSymbol.Bool);
-            BoundStatement body = BindLoopBody(syntax.Body, out BoundLabel breakLabel, out BoundLabel continueLabel);
+            var boundCondition = BindExpression(syntax.Condition, TypeSymbol.Bool);
+            var body = BindLoopBody(syntax.Body, out BoundLabel breakLabel, out BoundLabel continueLabel);
             return new BoundWhileStatement(boundCondition, body, breakLabel, continueLabel);
         }
 
         private BoundStatement BindDoWhileStatement(DoWhileStatementSyntax syntax)
         {
-            BoundStatement body = BindLoopBody(syntax.Body, out BoundLabel breakLabel, out BoundLabel continueLabel);
-            BoundExpression condition = BindExpression(syntax.Condition);
+            var body = BindLoopBody(syntax.Body, out BoundLabel breakLabel, out BoundLabel continueLabel);
+            var condition = BindExpression(syntax.Condition);
             return new BoundDoWhileStatement(body, condition, breakLabel, continueLabel);
         }
 
         private BoundStatement BindForStatement(ForStatementSyntax syntax)
         {
-            BoundExpression lowerBound = BindExpression(syntax.LowerBound, TypeSymbol.Int);
-            BoundExpression upperBound = BindExpression(syntax.UpperBound, TypeSymbol.Int);
-
-            BoundScope previous = _scope;
+            var lowerBound = BindExpression(syntax.LowerBound, TypeSymbol.Int);
+            var upperBound = BindExpression(syntax.UpperBound, TypeSymbol.Int);
+            var previous = _scope;
             _scope = new BoundScope(previous);
 
-            VariableSymbol variable = BindVariable(syntax.Identifier, TypeSymbol.Int);
-            BoundStatement body = BindLoopBody(syntax.Body, out BoundLabel breakLabel, out BoundLabel continueLabel);
-
+            var variable = BindVariable(syntax.Identifier, TypeSymbol.Int);
+            var body = BindLoopBody(syntax.Body, out BoundLabel breakLabel, out BoundLabel continueLabel);
             _scope = previous;
-
             return new BoundForStatement(variable, lowerBound, upperBound, body, breakLabel, continueLabel);
         }
 
         private BoundStatement BindReturnStatement(ReturnStatementSyntax syntax)
         {
-            BoundExpression? expression = (syntax.Expression == null) ? null : BindExpression(syntax.Expression);
+            var expression = (syntax.Expression == null) ? null : BindExpression(syntax.Expression);
 
             if (_function == null)
-            {
-                if (_isScript)
-                {
-                    if (expression == null)
-                        expression = new BoundLiteralExpression("");
-                }
-                else if (expression != null)
-                {
-                    if (syntax.Expression != null)
-                        _diagnostics.ReportReturnWithExpressionInGlobalStatement(syntax.Expression.Location);
-                }
-            }
+                _diagnostics.ReportReturnOutsideFunction(syntax.Location);
             else
             {
                 if (_function.ReturnType == TypeSymbol.Void)
@@ -370,7 +282,7 @@ namespace Blaze.Binding
             continueLabel = new BoundLabel($"continue{_labelCounter}");
 
             _loopStack.Push((breakLabel, continueLabel));
-            BoundStatement boundBody = BindStatement(body);
+            var boundBody = BindStatement(body);
             _loopStack.Pop();
             return boundBody;
         }
@@ -382,7 +294,7 @@ namespace Blaze.Binding
                 _diagnostics.ReportInvalidBreakOrContinue(syntax.Keyword.Location, syntax.Keyword.Text);
                 return BindErrorStatement();
             }
-            BoundLabel breakLabel = _loopStack.Peek().breakLabel;
+            var breakLabel = _loopStack.Peek().breakLabel;
             return new BoundGotoStatement(breakLabel);
         }
 
@@ -393,25 +305,23 @@ namespace Blaze.Binding
                 _diagnostics.ReportInvalidBreakOrContinue(syntax.Keyword.Location, syntax.Keyword.Text);
                 return BindErrorStatement();
             }
-            BoundLabel continueLabel = _loopStack.Peek().continueLabel;
+            var continueLabel = _loopStack.Peek().continueLabel;
             return new BoundGotoStatement(continueLabel);
         }
 
         private BoundStatement BindBlockStatement(BlockStatementSyntax syntax)
         {
-            ImmutableArray<BoundStatement>.Builder boundStatements = ImmutableArray.CreateBuilder<BoundStatement>();
-
-            BoundScope previous = _scope;
+            var boundStatements = ImmutableArray.CreateBuilder<BoundStatement>();
+            var previous = _scope;
             _scope = new BoundScope(previous);
 
-            foreach (StatementSyntax statement in syntax.Statements)
+            foreach (var statement in syntax.Statements)
             {
-                BoundStatement boundStatement = BindStatement(statement);
+                var boundStatement = BindStatement(statement);
                 boundStatements.Add(boundStatement);
             }
 
             _scope = previous;
-
             return new BoundBlockStatement(boundStatements.ToImmutable());
         }
 
@@ -419,7 +329,7 @@ namespace Blaze.Binding
 
         private BoundExpression BindExpression(ExpressionSyntax expression, bool canBeVoid = false)
         {
-            BoundExpression result = BindExpressionInternal(expression);
+            var result = BindExpressionInternal(expression);
             if (!canBeVoid && result.Type == TypeSymbol.Void)
             {
                 _diagnostics.ReportExpressionMustHaveValue(expression.Location);
@@ -430,44 +340,36 @@ namespace Blaze.Binding
 
         private BoundExpression BindExpressionInternal(ExpressionSyntax expression)
         {
-            switch (expression.Kind)
+            return expression.Kind switch
             {
-                case SyntaxKind.LiteralExpression:
-                    return BindLiteralExpression((LiteralExpressionSyntax)expression);
-                case SyntaxKind.BinaryExpression:
-                    return BindBinaryExpression((BinaryExpressionSyntax)expression);
-                case SyntaxKind.UnaryExpression:
-                    return BindUnaryExpression((UnaryExpressionSyntax)expression);
-                case SyntaxKind.ParenthesizedExpression:
-                    return BindExpression(((ParenthesizedExpressionSyntax)expression).Expression);
-                case SyntaxKind.IdentifierExpression:
-                    return BindIdentifierExpression((IdentifierExpressionSyntax)expression);
-                case SyntaxKind.AssignmentExpression:
-                    return BindAssignmentExpression((AssignmentExpressionSyntax)expression);
-                case SyntaxKind.CallExpression:
-                    return BindCallExpression((CallExpressionSyntax)expression);
-                default:
-                    throw new Exception($"Unexpected syntax {expression.Kind}");
-            }
+                SyntaxKind.LiteralExpression => BindLiteralExpression((LiteralExpressionSyntax)expression),
+                SyntaxKind.BinaryExpression => BindBinaryExpression((BinaryExpressionSyntax)expression),
+                SyntaxKind.UnaryExpression => BindUnaryExpression((UnaryExpressionSyntax)expression),
+                SyntaxKind.ParenthesizedExpression => BindExpression(((ParenthesizedExpressionSyntax)expression).Expression),
+                SyntaxKind.IdentifierExpression => BindIdentifierExpression((IdentifierExpressionSyntax)expression),
+                SyntaxKind.AssignmentExpression => BindAssignmentExpression((AssignmentExpressionSyntax)expression),
+                SyntaxKind.CallExpression => BindCallExpression((CallExpressionSyntax)expression),
+                _ => throw new Exception($"Unexpected syntax {expression.Kind}"),
+            };
         }
 
         private BoundExpression BindExpression(ExpressionSyntax expression, TypeSymbol desiredType) => BindConversion(expression, desiredType);
 
         private BoundExpression BindLiteralExpression(LiteralExpressionSyntax expression)
         {
-            object value = expression.Value ?? 0;
+            var value = expression.Value ?? 0;
             return new BoundLiteralExpression(value);
         }
 
         private BoundExpression BindBinaryExpression(BinaryExpressionSyntax expression)
         {
-            BoundExpression boundLeft = BindExpression(expression.Left);
-            BoundExpression boundRight = BindExpression(expression.Right);
+            var boundLeft = BindExpression(expression.Left);
+            var boundRight = BindExpression(expression.Right);
 
             if (boundLeft.Type.IsError || boundRight.Type.IsError)
                 return new BoundErrorExpression();
 
-            BoundBinaryOperator? op = BoundBinaryOperator.Bind(expression.OperatorToken.Kind, boundLeft.Type, boundRight.Type);
+            var op = BoundBinaryOperator.Bind(expression.OperatorToken.Kind, boundLeft.Type, boundRight.Type);
 
             if (op == null)
             {
@@ -479,11 +381,11 @@ namespace Blaze.Binding
 
         private BoundExpression BindUnaryExpression(UnaryExpressionSyntax expression)
         {
-            BoundExpression operand = BindExpression(expression.Operand);
+            var operand = BindExpression(expression.Operand);
             if (operand.Type.IsError)
                 return new BoundErrorExpression();
 
-            BoundUnaryOperator? op = BoundUnaryOperator.Bind(expression.OperatorToken.Kind, operand.Type);
+            var op = BoundUnaryOperator.Bind(expression.OperatorToken.Kind, operand.Type);
 
             if (op == null)
             {
@@ -495,11 +397,11 @@ namespace Blaze.Binding
 
         private BoundExpression BindIdentifierExpression(IdentifierExpressionSyntax expression)
         {
-            string name = expression.IdentifierToken.Text;
+            var name = expression.IdentifierToken.Text;
             if (expression.IdentifierToken.IsMissingText)
                 return new BoundErrorExpression();
 
-            VariableSymbol? variable = _scope.TryLookupVariable(name);
+            var variable = _scope.TryLookupVariable(name);
             if (variable == null)
             {
                 _diagnostics.ReportUndefinedName(expression.IdentifierToken.Location, name);
@@ -510,16 +412,16 @@ namespace Blaze.Binding
 
         private BoundExpression BindCallExpression(CallExpressionSyntax expression)
         {
-            string name = expression.Identifier.Text;
+            var name = expression.Identifier.Text;
             if (expression.Arguments.Count == 1 && TypeSymbol.Lookup(name) is TypeSymbol type)
                 return BindConversion(expression.Arguments[0], type, true);
             
-            ImmutableArray<BoundExpression>.Builder boundArguments = ImmutableArray.CreateBuilder<BoundExpression>();
+            var boundArguments = ImmutableArray.CreateBuilder<BoundExpression>();
 
             foreach (ExpressionSyntax argument in expression.Arguments)
                 boundArguments.Add(BindExpression(argument));
 
-            FunctionSymbol? function = _scope.TryLookupFunction(expression.Identifier.Text);
+            var function = _scope.TryLookupFunction(expression.Identifier.Text);
             if (function == null)
             {
                 _diagnostics.ReportUndefinedFunction(expression.Identifier.Location, name);
@@ -533,9 +435,9 @@ namespace Blaze.Binding
 
             for (int i = 0; i < expression.Arguments.Count; i++)
             {
-                TextLocation argumentLocation = expression.Arguments[i].Location;
-                ParameterSymbol parameter = function.Parameters[i];
-                BoundExpression boundArgument = boundArguments[i];
+                var argumentLocation = expression.Arguments[i].Location;
+                var parameter = function.Parameters[i];
+                var boundArgument = boundArguments[i];
                 boundArguments[i] = BindConversion(boundArgument, parameter.Type, argumentLocation);
             }
             
@@ -544,29 +446,29 @@ namespace Blaze.Binding
         
         private BoundExpression BindAssignmentExpression(AssignmentExpressionSyntax expression)
         {
-            BoundExpression boundExpression = BindExpression(expression.Expression);
-            string name = expression.IdentifierToken.Text;
+            var boundExpression = BindExpression(expression.Expression);
+            var name = expression.IdentifierToken.Text;
 
-            VariableSymbol? variable = _scope.TryLookupVariable(name);
+            var variable = _scope.TryLookupVariable(name);
             if (variable == null)
             {
                 _diagnostics.ReportUndefinedName(expression.IdentifierToken.Location, name);
                 return boundExpression;
             }
 
-            BoundExpression convertedExpression = BindConversion(boundExpression, variable.Type, expression.Expression.Location);
+            var convertedExpression = BindConversion(boundExpression, variable.Type, expression.Expression.Location);
             return new BoundAssignmentExpression(variable, convertedExpression);
         }
 
         private BoundExpression BindConversion(ExpressionSyntax syntax, TypeSymbol type, bool allowExplicit = false)
         {
-            BoundExpression expression = BindExpression(syntax);
+            var expression = BindExpression(syntax);
             return BindConversion(expression, type, syntax.Location, allowExplicit);
         }
 
         private BoundExpression BindConversion(BoundExpression expression, TypeSymbol type, TextLocation diagnosticLocation, bool allowExplicit = false)
         {
-            Conversion conversion = Conversion.Classify(expression.Type, type);
+            var conversion = Conversion.Classify(expression.Type, type);
             if (!conversion.Exists)
             {
                 if (!expression.Type.IsError && !type.IsError)
@@ -586,7 +488,7 @@ namespace Blaze.Binding
 
         private VariableSymbol BindVariable(SyntaxToken identifier, TypeSymbol type, BoundConstant? constant = null)
         {
-            string name = identifier.Text;
+            var name = identifier.Text;
             VariableSymbol variable = _function == null
                                 ? new GlobalVariableSymbol(name, type, constant)
                                 : new LocalVariableSymbol(name, type, constant);
@@ -599,7 +501,7 @@ namespace Blaze.Binding
 
         private TypeSymbol? BindTypeClause(TypeClauseSyntax syntax)
         {
-            TypeSymbol? type = TypeSymbol.Lookup(syntax.Identifier.Text);
+            var type = TypeSymbol.Lookup(syntax.Identifier.Text);
             if (type == null)
                 _diagnostics.ReportUndefinedType(syntax.Identifier.Location, syntax.Identifier.Text);
             return type;
@@ -607,7 +509,7 @@ namespace Blaze.Binding
 
         private TypeSymbol? BindReturnTypeClause(ReturnTypeClauseSyntax syntax)
         {
-            TypeSymbol? type = TypeSymbol.Lookup(syntax.Identifier.Text);
+            var type = TypeSymbol.Lookup(syntax.Identifier.Text);
             if (type == null)
                 _diagnostics.ReportUndefinedType(syntax.Identifier.Location, syntax.Identifier.Text);
             return type;

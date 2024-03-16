@@ -10,7 +10,7 @@ namespace Blaze.Syntax_Nodes
 
         public override SyntaxKind Kind => SyntaxKind.BinaryExpression;
 
-        public BinaryExpressionSyntax(SyntaxTree tree, ExpressionSyntax left, SyntaxToken operatorToken, ExpressionSyntax right) : base(tree)
+        internal BinaryExpressionSyntax(SyntaxTree tree, ExpressionSyntax left, SyntaxToken operatorToken, ExpressionSyntax right) : base(tree)
         {
             Left = left;
             OperatorToken = operatorToken;

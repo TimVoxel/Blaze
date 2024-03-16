@@ -10,40 +10,34 @@ namespace Blaze
     public sealed class Compilation
     {
         private BoundGlobalScope? _globalScope;
-
-        public bool IsScript { get; private set; }
-        public ImmutableArray<SyntaxTree> SyntaxTrees { get; private set; }
-        public Compilation? Previous { get; private set; }
-        public ImmutableArray<FunctionSymbol> Functions => GlobalScope.Functions;
-        public ImmutableArray<VariableSymbol> Variables => GlobalScope.Variables;
-        public FunctionSymbol? MainFunction => GlobalScope.MainFunction;
-
         internal BoundGlobalScope GlobalScope
         {
             get
             {
                 if (_globalScope == null)
                 {
-                    BoundGlobalScope scope = Binder.BindGlobalScope(IsScript, Previous?.GlobalScope, SyntaxTrees);
+                    BoundGlobalScope scope = Binder.BindGlobalScope(SyntaxTrees);
                     Interlocked.CompareExchange(ref _globalScope, scope, null);
                 }
                 return _globalScope;
             }
         }
 
-        private Compilation(bool isScriptMode, Compilation? previous, params SyntaxTree[] trees)
+        public ImmutableArray<SyntaxTree> SyntaxTrees { get; private set; }
+        public ImmutableArray<FunctionSymbol> Functions => GlobalScope.Functions;
+        public ImmutableArray<VariableSymbol> Variables => GlobalScope.Variables;
+        public FunctionSymbol? MainFunction => GlobalScope.MainFunction;
+
+        private Compilation(params SyntaxTree[] trees)
         {
-            IsScript = isScriptMode;
-            Previous = previous;
             SyntaxTrees = trees.ToImmutableArray();
         }
 
-        public static Compilation Create(params SyntaxTree[] syntaxTrees) => new Compilation(false, null, syntaxTrees);
-        public static Compilation CreateScript(Compilation? previous, params SyntaxTree[] syntaxTrees) => new Compilation(true, previous, syntaxTrees);
+        public static Compilation Create(params SyntaxTree[] syntaxTrees) => new Compilation(syntaxTrees);
 
         public IEnumerable<Symbol> GetSymbols()
         {
-            Compilation? submission = this;
+            Compilation submission = this;
             HashSet<string> seenSymbolNames = new HashSet<string>(); 
 
             while (submission != null)
@@ -54,17 +48,11 @@ namespace Blaze
                 foreach (VariableSymbol variable in submission.Variables)
                     if (seenSymbolNames.Add(variable.Name))
                          yield return variable;
-
-                submission = submission.Previous;
             }
         }
 
-        private BoundProgram GetProgram()
-        {
-            BoundProgram? previous = Previous == null ? null : Previous.GetProgram();
-            return Binder.BindProgram(IsScript, previous, GlobalScope);
-        }
-
+        private BoundProgram GetProgram() => Binder.BindProgram(GlobalScope);
+ 
         public EvaluationResult Evaluate(Dictionary<VariableSymbol, object?> variables)
         {
             IEnumerable<Diagnostic> parseDiagnostics = SyntaxTrees.SelectMany(st => st.Diagnostics);
@@ -75,19 +63,7 @@ namespace Blaze
 
             BoundProgram program = GetProgram();
 
-            //BoundBlockStatement controlFlowGraphStatement = !program.Statement.Statements.Any() && program.Functions.Any()
-            //    ? program.Functions.Last().Value
-            //    : program.Statement;
-            //ControlFlowGraph cfg = ControlFlowGraph.Create(controlFlowGraphStatement);
-
-            //string appPath = Environment.GetCommandLineArgs()[0];
-            //string? appDirectory = Path.GetDirectoryName(appPath);
-            //if (appDirectory != null)
-            //{
-            //    string cfgPath = Path.Combine(appDirectory, "cfg.dot");
-            //    using (StreamWriter writer = new StreamWriter(cfgPath))
-            //        cfg.WriteTo(writer);
-            //}
+            //EmitControlFlowGraph(program);
 
             if (program.Diagnostics.Any())
                 return new EvaluationResult(program.Diagnostics.ToImmutableArray(), null);
@@ -101,8 +77,6 @@ namespace Blaze
         {
             if (GlobalScope.MainFunction != null)
                 EmitTree(GlobalScope.MainFunction, writer);
-            else if (GlobalScope.ScriptFunction != null)
-                EmitTree(GlobalScope.ScriptFunction, writer);
         }
 
         public void EmitTree(FunctionSymbol function, TextWriter writer)
@@ -121,6 +95,27 @@ namespace Blaze
         {
             BoundProgram program = GetProgram();
             return ILEmitter.Emit(program, moduleName, references, outputPath);
+        }
+
+        private void EmitControlFlowGraph(BoundProgram program)
+        {
+            BoundBlockStatement? controlFlowGraphStatement = program.Functions.Last().Value.Statements.Any() && program.Functions.Any()
+                ? program.Functions.Last().Value
+                : null;
+
+            if (controlFlowGraphStatement == null)
+                return;
+
+            ControlFlowGraph cfg = ControlFlowGraph.Create(controlFlowGraphStatement);
+
+            string appPath = Environment.GetCommandLineArgs()[0];
+            string? appDirectory = Path.GetDirectoryName(appPath);
+            if (appDirectory != null)
+            {
+                string cfgPath = Path.Combine(appDirectory, "cfg.dot");
+                using (StreamWriter writer = new StreamWriter(cfgPath))
+                    cfg.WriteTo(writer);
+            }
         }
     }
 }

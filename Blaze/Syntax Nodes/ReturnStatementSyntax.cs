@@ -10,7 +10,7 @@ namespace Blaze.Syntax_Nodes
 
         public override SyntaxKind Kind => SyntaxKind.ReturnStatement;
 
-        public ReturnStatementSyntax(SyntaxTree tree, SyntaxToken keyword, ExpressionSyntax? expression, SyntaxToken semicolon) : base(tree)
+        internal ReturnStatementSyntax(SyntaxTree tree, SyntaxToken keyword, ExpressionSyntax? expression, SyntaxToken semicolon) : base(tree)
         {
             Keyword = keyword;
             Expression = expression;

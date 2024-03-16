@@ -8,7 +8,7 @@ namespace Blaze.Syntax_Nodes
 
         public override SyntaxKind Kind => SyntaxKind.IdentifierExpression;
 
-        public IdentifierExpressionSyntax(SyntaxTree tree, SyntaxToken identifierToken) : base(tree)
+        internal IdentifierExpressionSyntax(SyntaxTree tree, SyntaxToken identifierToken) : base(tree)
         {
             IdentifierToken = identifierToken;
         }

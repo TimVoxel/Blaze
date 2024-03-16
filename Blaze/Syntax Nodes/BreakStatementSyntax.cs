@@ -9,7 +9,7 @@ namespace Blaze.Syntax_Nodes
 
         public override SyntaxKind Kind => SyntaxKind.BreakStatement;
 
-        public BreakStatementSyntax(SyntaxTree tree, SyntaxToken keyword, SyntaxToken semicolon) : base(tree)
+        internal BreakStatementSyntax(SyntaxTree tree, SyntaxToken keyword, SyntaxToken semicolon) : base(tree)
         {
             Keyword = keyword;
             Semicolon = semicolon;

@@ -9,13 +9,13 @@ namespace Blaze.Syntax_Nodes
 
         public override SyntaxKind Kind => SyntaxKind.LiteralExpression;
 
-        public LiteralExpressionSyntax(SyntaxTree tree, SyntaxToken literalToken, object? value) : base(tree)
+        internal LiteralExpressionSyntax(SyntaxTree tree, SyntaxToken literalToken, object? value) : base(tree)
         {
             LiteralToken = literalToken;
             Value = value;
         }
 
-        public LiteralExpressionSyntax(SyntaxTree tree, SyntaxToken literalToken) : this(tree, literalToken, literalToken.Value) { }
+        internal LiteralExpressionSyntax(SyntaxTree tree, SyntaxToken literalToken) : this(tree, literalToken, literalToken.Value) { }
 
         public override IEnumerable<SyntaxNode> GetChildren()
         {

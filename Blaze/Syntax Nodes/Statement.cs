@@ -2,6 +2,6 @@
 {
     public abstract class StatementSyntax : SyntaxNode
     {
-        public StatementSyntax(SyntaxTree tree) : base(tree) { }
+        internal StatementSyntax(SyntaxTree tree) : base(tree) { }
     }
 }

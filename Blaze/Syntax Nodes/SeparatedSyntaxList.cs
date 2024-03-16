@@ -12,7 +12,7 @@ namespace Blaze.Syntax_Nodes
 
         public T this[int index] => (T) _separatorsAndNodes[index * 2];
 
-        public SeparatedSyntaxList(ImmutableArray<SyntaxNode> separatorsAndNodes)
+        internal SeparatedSyntaxList(ImmutableArray<SyntaxNode> separatorsAndNodes)
         {
             _separatorsAndNodes = separatorsAndNodes;
         }

@@ -4,7 +4,7 @@ namespace Blaze.Binding
 {
     internal static class ConstantFolding
     {
-        public static BoundConstant? ComputeConstant(BoundExpression left, BoundBinaryOperator op, BoundExpression right)
+        public static BoundConstant? Fold(BoundExpression left, BoundBinaryOperator op, BoundExpression right)
         {
             BoundConstant? leftConstant = left.ConstantValue;
             BoundConstant? rightConstant = right.ConstantValue;

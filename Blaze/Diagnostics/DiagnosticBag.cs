@@ -170,6 +170,7 @@ namespace Blaze.Diagnostics
             Report(location, message);
         }
 
+        //OUTDATED
         public void ReportOnlyOneFileCanHaveGlobalStatements(TextLocation location)
         {
             string message = "At most one file can have global statements";
