@@ -5,6 +5,35 @@ using System.Collections.Immutable;
 
 namespace Blaze.IO
 {
+    public static class DirectoryExtensions
+    {
+        public static void Copy(string sourceDir, string destinationDir, bool recursive = true)
+        {
+            var directory = new DirectoryInfo(sourceDir);
+
+            if (!directory.Exists)
+                throw new DirectoryNotFoundException($"Source directory not found: {directory.FullName}");
+
+            var dirs = directory.GetDirectories();
+            Directory.CreateDirectory(destinationDir);
+
+            foreach (var file in directory.GetFiles())
+            {
+                var targetFilePath = Path.Combine(destinationDir, file.Name);
+                file.CopyTo(targetFilePath);
+            }
+
+            if (recursive)
+            {
+                foreach (var subDir in dirs)
+                {
+                    var newDestinationDir = Path.Combine(destinationDir, subDir.Name);
+                    Copy(subDir.FullName, newDestinationDir, true);
+                }
+            }
+        }
+    }
+
     public static class TextWriterExtensions
     {
         public static bool IsConsole(this TextWriter writer)

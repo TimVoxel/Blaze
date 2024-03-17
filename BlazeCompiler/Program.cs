@@ -46,6 +46,11 @@ namespace Blaze
                     Console.WriteLine($"error: couldn't parse {projectPath}");
                     return 1;
                 }
+                if (!configuration.OutputFolders.Any()) 
+                {
+                    Console.WriteLine($"error: specify at least one output folder");
+                    return 1;
+                }
 
                 var projectDirectory = Path.GetDirectoryName(projectPath);
 
