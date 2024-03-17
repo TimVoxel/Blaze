@@ -84,7 +84,7 @@ namespace ReplExperience
         protected override void EvaluateSubmission(string text)
         {
             var syntaxTree = SyntaxTree.Parse(text);
-            var compilation = Compilation.Create(syntaxTree);
+            var compilation = Compilation.CreateScript(syntaxTree);
 
             if (_showTree)
                 syntaxTree.Root.WriteTo(Console.Out);
@@ -218,7 +218,7 @@ namespace ReplExperience
             if (_previous == null)
                 return;
 
-            FunctionSymbol? function = _previous.GetSymbols().OfType<FunctionSymbol>().SingleOrDefault(f => f.Name == functionName);
+            FunctionSymbol? function = _previous.GetSymbols().OfType<FunctionSymbol>().LastOrDefault(f => f.Name == functionName);
             if (function == null)
             {
                 Console.ForegroundColor = ConsoleColor.Red;
@@ -229,5 +229,6 @@ namespace ReplExperience
 
             _previous.EmitTree(function, Console.Out);
         }
+
     }
 }

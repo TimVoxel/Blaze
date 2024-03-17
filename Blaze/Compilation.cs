@@ -27,49 +27,46 @@ namespace Blaze
         public ImmutableArray<FunctionSymbol> Functions => GlobalScope.Functions;
         public ImmutableArray<VariableSymbol> Variables => GlobalScope.Variables;
         public FunctionSymbol? MainFunction => GlobalScope.MainFunction;
+        public CompilationConfiguration? Configuration { get; }
 
-        private Compilation(params SyntaxTree[] trees)
+        private Compilation(CompilationConfiguration? configuration, params SyntaxTree[] trees)
         {
             SyntaxTrees = trees.ToImmutableArray();
+            Configuration = configuration;
         }
 
-        public static Compilation Create(params SyntaxTree[] syntaxTrees) => new Compilation(syntaxTrees);
+        public static Compilation Create(CompilationConfiguration configuration, params SyntaxTree[] syntaxTrees) => new Compilation(configuration, syntaxTrees);
+        public static Compilation CreateScript(params SyntaxTree[] syntaxTrees) => new Compilation(null, syntaxTrees);
+
 
         public IEnumerable<Symbol> GetSymbols()
         {
-            Compilation submission = this;
-            HashSet<string> seenSymbolNames = new HashSet<string>(); 
+            foreach (FunctionSymbol function in Functions)
+                yield return function;
 
-            while (submission != null)
-            {
-                foreach (FunctionSymbol function in submission.Functions)
-                    yield return function;
-
-                foreach (VariableSymbol variable in submission.Variables)
-                    if (seenSymbolNames.Add(variable.Name))
-                         yield return variable;
-            }
+            foreach (VariableSymbol variable in Variables)
+                yield return variable;
         }
 
         private BoundProgram GetProgram() => Binder.BindProgram(GlobalScope);
  
         public EvaluationResult Evaluate(Dictionary<VariableSymbol, object?> variables)
         {
-            IEnumerable<Diagnostic> parseDiagnostics = SyntaxTrees.SelectMany(st => st.Diagnostics);
-            ImmutableArray<Diagnostic> diagnostics = parseDiagnostics.Concat(GlobalScope.Diagnostics).ToImmutableArray();
+            var parseDiagnostics = SyntaxTrees.SelectMany(st => st.Diagnostics);
+            var diagnostics = parseDiagnostics.Concat(GlobalScope.Diagnostics).ToImmutableArray();
 
             if (diagnostics.Any())
                 return new EvaluationResult(diagnostics, null);
 
-            BoundProgram program = GetProgram();
+            var program = GetProgram();
 
             //EmitControlFlowGraph(program);
 
             if (program.Diagnostics.Any())
                 return new EvaluationResult(program.Diagnostics.ToImmutableArray(), null);
 
-            Evaluator evaluator = new Evaluator(program, variables);
-            object? value = evaluator.Evaluate();
+            var evaluator = new Evaluator(program, variables);
+            var value = evaluator.Evaluate();
             return new EvaluationResult(ImmutableArray<Diagnostic>.Empty, value);
         }
 
@@ -81,7 +78,7 @@ namespace Blaze
 
         public void EmitTree(FunctionSymbol function, TextWriter writer)
         {
-            BoundProgram program = GetProgram();
+            var program = GetProgram();
 
             if (!program.Functions.TryGetValue(function, out BoundBlockStatement? body))
                 return;
@@ -91,29 +88,29 @@ namespace Blaze
             body.WriteTo(Console.Out);
         }
 
-        public ImmutableArray<Diagnostic> Emit(string moduleName, string[] references, string outputPath)
+        public ImmutableArray<Diagnostic> Emit()
         {
-            BoundProgram program = GetProgram();
-            return ILEmitter.Emit(program, moduleName, references, outputPath);
+            var program = GetProgram();
+            return DatapackEmitter.Emit(program, Configuration);
         }
 
         private void EmitControlFlowGraph(BoundProgram program)
         {
-            BoundBlockStatement? controlFlowGraphStatement = program.Functions.Last().Value.Statements.Any() && program.Functions.Any()
+            var controlFlowGraphStatement = program.Functions.Last().Value.Statements.Any() && program.Functions.Any()
                 ? program.Functions.Last().Value
                 : null;
 
             if (controlFlowGraphStatement == null)
                 return;
 
-            ControlFlowGraph cfg = ControlFlowGraph.Create(controlFlowGraphStatement);
+            var cfg = ControlFlowGraph.Create(controlFlowGraphStatement);
 
-            string appPath = Environment.GetCommandLineArgs()[0];
-            string? appDirectory = Path.GetDirectoryName(appPath);
+            var appPath = Environment.GetCommandLineArgs()[0];
+            var appDirectory = Path.GetDirectoryName(appPath);
             if (appDirectory != null)
             {
-                string cfgPath = Path.Combine(appDirectory, "cfg.dot");
-                using (StreamWriter writer = new StreamWriter(cfgPath))
+                var cfgPath = Path.Combine(appDirectory, "cfg.dot");
+                using (var writer = new StreamWriter(cfgPath))
                     cfg.WriteTo(writer);
             }
         }

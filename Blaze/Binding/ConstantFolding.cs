@@ -6,8 +6,8 @@ namespace Blaze.Binding
     {
         public static BoundConstant? Fold(BoundExpression left, BoundBinaryOperator op, BoundExpression right)
         {
-            BoundConstant? leftConstant = left.ConstantValue;
-            BoundConstant? rightConstant = right.ConstantValue;
+            var leftConstant = left.ConstantValue;
+            var rightConstant = right.ConstantValue;
 
             if (op.OperatorKind == BoundBinaryOperatorKind.LogicalMultiplication)
             {
@@ -25,8 +25,8 @@ namespace Blaze.Binding
             if (leftConstant == null || rightConstant == null)
                 return null;
 
-            object leftValue = leftConstant.Value;
-            object rightValue = rightConstant.Value;
+            var leftValue = leftConstant.Value;
+            var rightValue = rightConstant.Value;
 
             return op.OperatorKind switch 
             {

@@ -1,7 +1,6 @@
-﻿using Blaze.Diagnostics;
-using Blaze.IO;
+﻿using Blaze.IO;
 using Mono.Options;
-using System.Collections.Immutable;
+using System.Text.Json;
 
 namespace Blaze
 {
@@ -9,21 +8,15 @@ namespace Blaze
     {
         private static int Main(string[] args)
         {
-            string? outputPath = null;
-            string? moduleName = null;
-            bool helpRequested = false;
-            List<string> referencePaths = new List<string>();
-            List<string> sourcePaths = new List<string>();
-
-            OptionSet options = new OptionSet
+            var helpRequested = false;
+            var projectPath = "";
+            var options = new OptionSet
             {
-                "usage: BlazeCompiler <source-paths> [options]",
-                { "r=", "The {path} of an assembly to reference", v => referencePaths.Add(v) },
-                { "o=", "The output {path} of the assembly to create", v => outputPath = v },
-                { "m=", "The {name} of the module", v => moduleName = v },
+                "usage: BlazeCompiler <project-yml-path>",
                 { "?|h|help", v => helpRequested = true },
-                { "<>", v => sourcePaths.Add(v) },
+                { "<>", v => projectPath = v },
             };
+
             options.Parse(args);
 
             if (helpRequested)
@@ -33,57 +26,71 @@ namespace Blaze
                 return 0;
             }
 
-            if (sourcePaths.Count == 0)
+            if (string.IsNullOrEmpty(projectPath))
             {
-                Console.Error.WriteLine("error: need at least one source file");
+                Console.Error.WriteLine("error: project file not provided");
                 return 1;
             }
 
-            if (outputPath == null)
-                outputPath = Path.ChangeExtension(sourcePaths[0], ".exe");       
-
-            if (moduleName == null)
-                moduleName = Path.GetFileNameWithoutExtension(outputPath);
-
-            bool hasErrors = false;
-            List<SyntaxTree> trees = new List<SyntaxTree>();
-            foreach (string path in sourcePaths)
+            if (!File.Exists(projectPath))
             {
-                if (!File.Exists(path))
+                Console.WriteLine($"error: file {projectPath} does not exist");
+                return 1;
+            }
+
+            try
+            {
+                var configuration = CompilationConfiguration.FromJson(projectPath);
+                if (configuration == null)
                 {
-                    Console.WriteLine($"error: file {path} does not exist");
-                    hasErrors = true;
-                    continue;
+                    Console.WriteLine($"error: couldn't parse {projectPath}");
+                    return 1;
                 }
-                SyntaxTree syntaxTree = SyntaxTree.Load(path);
-                trees.Add(syntaxTree);
-            }
 
-            foreach (string path in referencePaths)
-            {
-                if (!File.Exists(path))
+                var projectDirectory = Path.GetDirectoryName(projectPath);
+
+                if (projectDirectory == null)
                 {
-                    Console.WriteLine($"error: file {path} does not exist");
-                    hasErrors = true;
-                    continue;
+                    Console.WriteLine("error: project is not in a directory");
+                    return 1;
                 }
+
+                var trees = new List<SyntaxTree>();
+                var directoryScripts = GetAllScripts(projectDirectory);
+
+                foreach (string path in directoryScripts)
+                {
+                    var syntaxTree = SyntaxTree.Load(path);
+                    trees.Add(syntaxTree);
+                }
+
+                var compilation = Compilation.Create(configuration, trees.ToArray());
+                var diagnostics = compilation.Emit();
+
+                if (diagnostics.Any())
+                {
+                    Console.Error.WriteDiagnostics(diagnostics);
+                    return 1;
+                }
+
+                foreach (string path in configuration.OutputFolders)
+                    Console.WriteLine($"Successfully emmitted {configuration.Name} to {path}");
+
+                Console.ReadKey();
+                return 0;
             }
-
-            if (hasErrors)
-                return 1;
-
-            Compilation compilation = Compilation.Create(trees.ToArray());
-            ImmutableArray<Diagnostic> diagnostics = compilation.Emit(moduleName, referencePaths.ToArray(), outputPath);
-
-            if (diagnostics.Any())
+            catch (JsonException exception)
             {
-                Console.Error.WriteDiagnostics(diagnostics);
+                Console.WriteLine($"error: There appears to be a problem in the project file:");
+                Console.WriteLine(exception.Message);
+                Console.ReadKey();
                 return 1;
             }
+        }
 
-            Console.WriteLine(outputPath);
-            Console.ReadKey();
-            return 0;
+        private static IEnumerable<string> GetAllScripts(string directory)
+        {
+            return Directory.GetFiles(directory).Where(f => f.EndsWith(".blz"));
         }
     }
 }

@@ -63,9 +63,6 @@ namespace Blaze.Binding
                     binder.Diagnostics.ReportMainFunctionMustHaveCorrectSignature(mainFunction.Declaration.Identifier.Location);
             }
 
-            if (mainFunction == null)
-                mainFunction = new FunctionSymbol("main", ImmutableArray<ParameterSymbol>.Empty, TypeSymbol.Void);
-
             //5. Create the global scope
             var diagnostics = binder.Diagnostics.ToImmutableArray();
             var globalStatementFunction = mainFunction;
