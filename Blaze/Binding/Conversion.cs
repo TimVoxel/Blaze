@@ -38,11 +38,13 @@ namespace Blaze.Binding
             if (from == TypeSymbol.Int || from == TypeSymbol.Bool)
                 if (to == TypeSymbol.String)
                     return Explicit;
-            
+           
+            /*
             // string -> int or bool
             if (from == TypeSymbol.String)        
                 if (to == TypeSymbol.Int || to == TypeSymbol.Bool)
                     return Explicit;
+            */
     
             return None;
         }
