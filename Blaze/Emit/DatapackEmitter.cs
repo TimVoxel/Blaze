@@ -147,14 +147,45 @@ namespace Blaze.Emit
         private void EmitCallExpression(BoundCallExpression call, StringBuilder body, ImmutableArray<FunctionEmittion>.Builder children)
         {
             //Can be a built-in function -> EmitBuildInFunction();
-            //Can be a user defined function -> function <function>
+            //Can be a user defined function ->
+            //
+            //Assign every parameter to temp variable
+            //function <function>
+            //Reset every parameter
 
             var isBuiltIt = BuiltInFunctionEmitter.TryEmitBuiltInFunction(call, body, children);
             if (!isBuiltIt)
             {
+                var setNames = new Dictionary<ParameterSymbol, string>();
+
+                for (int i = 0; i < call.Arguments.Count(); i++)
+                {
+                    var argument = call.Arguments[i];
+                    var parameter = call.Function.Parameters[i];
+                    var paramName = EmitAssignmentExpression(parameter, argument, body, children);
+                    setNames.Add(parameter, paramName);
+                }
+
                 var functionName = call.Function.Name;
                 var command = $"function ns:{functionName}";
                 body.AppendLine(command);
+
+                foreach (var parameter in setNames.Keys)
+                {
+                    var name = setNames[parameter];
+
+                    if (parameter.Type == TypeSymbol.Int || parameter.Type == TypeSymbol.Bool)
+                    {
+                        var cleanUpCommand = $"scoreboard players reset {name} vars";
+                        body.AppendLine(cleanUpCommand);
+                    }
+                    else
+                    {
+                        var storageName = parameter.Type == TypeSymbol.String ? "strings" : "objects";
+                        var cleanUpCommand = $"data remove storage {storageName} {name}";
+                        body.AppendLine(cleanUpCommand);
+                    }
+                }
             }
         }
 
@@ -231,9 +262,10 @@ namespace Blaze.Emit
 
             var other = $"*{otherVar.Name}";
 
-            if (otherVar.Type == TypeSymbol.String)
+            if (otherVar.Type == TypeSymbol.String || otherVar.Type == TypeSymbol.Object)
             {
-                var command = $"data modify storage strings {varName} set from storage strings {other}";
+                var storageName = otherVar.Type == TypeSymbol.String ? "strings" : "objects";
+                var command = $"data modify storage {storageName} {varName} set from storage {storageName} {other}";
                 body.AppendLine(command);
             }
             else
