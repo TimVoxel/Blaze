@@ -5,6 +5,8 @@ using Blaze.Syntax_Nodes;
 using Blaze.SyntaxTokens;
 using Blaze.Text;
 using System.Collections.Immutable;
+using System.Diagnostics;
+using System.Runtime.CompilerServices;
 
 namespace Blaze.Binding
 {
@@ -53,21 +55,24 @@ namespace Blaze.Binding
 
             //4. Bind main function. Check
             //   if it has the correct signature
-            //   If there isn't a main function, fabricate it
+            //   if there is not main function, fabricate it
             var functions = binder._scope.GetDeclaredFunctions();
             var mainFunction = functions.SingleOrDefault(f => f.Name == "main");
 
-            if (mainFunction != null && mainFunction.Declaration != null)
+            if (mainFunction == null)
             {
+                mainFunction = new FunctionSymbol("main", ImmutableArray<ParameterSymbol>.Empty, TypeSymbol.Void, null);
+            }
+            else
+            {
+                Debug.Assert(mainFunction.Declaration != null);
                 if (mainFunction.ReturnType != TypeSymbol.Void || mainFunction.Parameters.Any())
                     binder.Diagnostics.ReportMainFunctionMustHaveCorrectSignature(mainFunction.Declaration.Identifier.Location);
             }
 
             //5. Create the global scope
             var diagnostics = binder.Diagnostics.ToImmutableArray();
-            var globalStatementFunction = mainFunction;
-            var variables = binder._scope.GetDeclaredVariables();
-            
+            var variables = binder._scope.GetDeclaredVariables();         
             return new BoundGlobalScope(diagnostics, mainFunction, variables, functions, statements.ToImmutable());
         }
 
@@ -97,7 +102,7 @@ namespace Blaze.Binding
 
             //2. Bind every function body and lower it,
             //   connect it to the declaration
-            var functionBodies = ImmutableDictionary.CreateBuilder<FunctionSymbol, BoundBlockStatement>();
+            var functionBodies = ImmutableDictionary.CreateBuilder<FunctionSymbol, BoundStatement>();
             var diagnostics = ImmutableArray.CreateBuilder<Diagnostic>();
 
             foreach (var function in globalScope.Functions)
@@ -107,10 +112,13 @@ namespace Blaze.Binding
                 {
                     var body = binder.BindStatement(function.Declaration.Body);
                     var loweredBody = Lowerer.Lower(body);
+                    var deepLoweredBody = Lowerer.DeepLower(body);
 
-                    if (function.ReturnType != TypeSymbol.Void && !ControlFlowGraph.AllPathsReturn(loweredBody))
+                    if (function.ReturnType != TypeSymbol.Void && !ControlFlowGraph.AllPathsReturn(deepLoweredBody))
                         binder._diagnostics.ReportAllPathsMustReturn(function.Declaration.Identifier.Location);
 
+                    //Passing the lowered body, not the deep lowered one, as it is
+                    //Easier to convert to mcfunctions
                     functionBodies.Add(function, loweredBody);
                     diagnostics.AddRange(binder.Diagnostics);
                 }
@@ -118,13 +126,15 @@ namespace Blaze.Binding
 
             //3. Bind the main function and connect it to the global statements
             //   If there are any
-            if (globalScope.MainFunction != null && globalScope.MainFunction.Declaration == null && globalScope.Statements.Any())
+            var mainFunction = globalScope.MainFunction;
+
+            if (mainFunction.Declaration == null && globalScope.Statements.Any())
             {
                 var body = Lowerer.Lower(new BoundBlockStatement(globalScope.Statements));
-                functionBodies.Add(globalScope.MainFunction, body);
+                functionBodies.Add(mainFunction, body);
             }
 
-            return new BoundProgram(diagnostics.ToImmutable(), globalScope.MainFunction, functionBodies.ToImmutable());
+            return new BoundProgram(diagnostics.ToImmutable(), mainFunction, functionBodies.ToImmutable());
         }
 
         private void BindFunctionDeclaration(FunctionDeclarationSyntax declaration)
@@ -166,7 +176,7 @@ namespace Blaze.Binding
 
             if (result is BoundExpressionStatement es)
             {
-                bool isAllowedExpression = es.Expression.Kind == BoundNodeKind.AssignmentExpression
+                var isAllowedExpression = es.Expression.Kind == BoundNodeKind.AssignmentExpression
                                         || es.Expression.Kind == BoundNodeKind.CallExpression
                                         || es.Expression.Kind == BoundNodeKind.ErrorExpression;
 
@@ -292,7 +302,7 @@ namespace Blaze.Binding
                 return BindErrorStatement();
             }
             var breakLabel = _loopStack.Peek().breakLabel;
-            return new BoundGotoStatement(breakLabel);
+            return new BoundBreakStatement(breakLabel);
         }
 
         private BoundStatement BindContinueStatement(ContinueStatementSyntax syntax)
@@ -303,7 +313,7 @@ namespace Blaze.Binding
                 return BindErrorStatement();
             }
             var continueLabel = _loopStack.Peek().continueLabel;
-            return new BoundGotoStatement(continueLabel);
+            return new BoundContinueStatement(continueLabel);
         }
 
         private BoundStatement BindBlockStatement(BlockStatementSyntax syntax)

@@ -74,6 +74,16 @@ namespace Blaze
         public static bool IsComment(SyntaxKind kind) 
             => kind == SyntaxKind.SingleLineCommentTrivia || kind == SyntaxKind.MultiLineCommentTrivia;
 
+        public static bool IsFunctionModifier(SyntaxKind kind)
+        {
+            return kind switch
+            {
+                SyntaxKind.TickKeyword => true,
+                SyntaxKind.LoadKeyword => true,
+                _ => false
+            };
+        }
+
         public static SyntaxKind GetKeywordKind(string text)
         {
             return text switch
@@ -90,8 +100,10 @@ namespace Blaze
                 "continue"  => SyntaxKind.ContinueKeyword,
                 "function"  => SyntaxKind.FunctionKeyword,
                 "return"    => SyntaxKind.ReturnKeyword,
+                "load"      => SyntaxKind.LoadKeyword,
+                "tick"      => SyntaxKind.TickKeyword,
                 _           => SyntaxKind.IdentifierToken,
-            };
+            };;
         }
 
         public static IEnumerable<SyntaxKind> GetBinaryOperators()
@@ -110,79 +122,46 @@ namespace Blaze
 
         public static string? GetText(SyntaxKind kind)
         {
-            switch (kind)
+            return kind switch
             {
-                case SyntaxKind.FalseKeyword:
-                    return "false";
-                case SyntaxKind.TrueKeyword:
-                    return "true";
-                case SyntaxKind.LetKeyword:
-                    return "let";
-                case SyntaxKind.IfKeyword:
-                    return "if";
-                case SyntaxKind.ElseKeyword:
-                    return "else";
-                case SyntaxKind.WhileKeyword:
-                    return "while";
-                case SyntaxKind.DoKeyword:
-                    return "do";
-                case SyntaxKind.ForKeyword:
-                    return "for";
-                case SyntaxKind.BreakKeyword:
-                    return "break";
-                case SyntaxKind.ContinueKeyword:
-                    return "continue";
-                case SyntaxKind.FunctionKeyword:
-                    return "function";
-                case SyntaxKind.ReturnKeyword:
-                    return "return";
-                case SyntaxKind.SemicolonToken:
-                    return ";";
-                case SyntaxKind.ColonToken:
-                    return ":";
-                case SyntaxKind.CommaToken:
-                    return ",";
-                case SyntaxKind.OpenBraceToken:
-                    return "{";
-                case SyntaxKind.CloseBraceToken:
-                    return "}";
-                case SyntaxKind.PlusToken:
-                    return "+";
-                case SyntaxKind.MinusToken:
-                    return "-";
-                case SyntaxKind.StarToken:
-                    return "*";
-                case SyntaxKind.SlashToken:
-                    return "/";
-                case SyntaxKind.OpenParenToken:
-                    return "(";
-                case SyntaxKind.CloseParenToken:
-                    return ")";
-                case SyntaxKind.ExclamationSignToken:
-                    return "!";
-                case SyntaxKind.EqualsToken:
-                    return "=";
-                case SyntaxKind.DoubleEqualsToken:
-                    return "==";
-                case SyntaxKind.LessToken:
-                    return "<";
-                case SyntaxKind.LessOrEqualsToken:
-                    return "<=";
-                case SyntaxKind.GreaterToken:
-                    return ">";
-                case SyntaxKind.GreaterOrEqualsToken:
-                    return ">=";
-                case SyntaxKind.DoubleAmpersandToken:
-                    return "&&";
-                case SyntaxKind.DoublePipeToken:
-                    return "||";
-                case SyntaxKind.DoubleDotToken:
-                    return "..";
-                case SyntaxKind.NotEqualsToken:
-                    return "!=";
-                default:
-                    return null;
-            }
+                SyntaxKind.FalseKeyword => "false",
+                SyntaxKind.TrueKeyword => "true",
+                SyntaxKind.LetKeyword => "let",
+                SyntaxKind.IfKeyword => "if",
+                SyntaxKind.ElseKeyword => "else",
+                SyntaxKind.WhileKeyword => "while",
+                SyntaxKind.DoKeyword => "do",
+                SyntaxKind.ForKeyword => "for",
+                SyntaxKind.BreakKeyword => "break",
+                SyntaxKind.ContinueKeyword => "continue",
+                SyntaxKind.FunctionKeyword => "function",
+                SyntaxKind.ReturnKeyword => "return",
+                SyntaxKind.LoadKeyword => "load",
+                SyntaxKind.TickKeyword => "tick",
+                SyntaxKind.SemicolonToken => ";",
+                SyntaxKind.ColonToken => ":",
+                SyntaxKind.CommaToken => ",",
+                SyntaxKind.OpenBraceToken => "{",
+                SyntaxKind.CloseBraceToken => "}",
+                SyntaxKind.PlusToken => "+",
+                SyntaxKind.MinusToken => "-",
+                SyntaxKind.StarToken => "*",
+                SyntaxKind.SlashToken => "/",
+                SyntaxKind.OpenParenToken => "(",
+                SyntaxKind.CloseParenToken => ")",
+                SyntaxKind.ExclamationSignToken => "!",
+                SyntaxKind.EqualsToken => "=",
+                SyntaxKind.DoubleEqualsToken => "==",
+                SyntaxKind.LessToken => "<",
+                SyntaxKind.LessOrEqualsToken => "<=",
+                SyntaxKind.GreaterToken => ">",
+                SyntaxKind.GreaterOrEqualsToken => ">=",
+                SyntaxKind.DoubleAmpersandToken => "&&",
+                SyntaxKind.DoublePipeToken => "||",
+                SyntaxKind.DoubleDotToken => "..",
+                SyntaxKind.NotEqualsToken => "!=",
+                _ => null,
+            };
         }
     }
 }

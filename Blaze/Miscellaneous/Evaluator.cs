@@ -1,5 +1,6 @@
 ﻿using Blaze.Binding;
 using Blaze.Symbols;
+using System.Diagnostics;
 
 namespace Blaze.Miscellaneuos
 {
@@ -7,7 +8,7 @@ namespace Blaze.Miscellaneuos
     {
         private readonly BoundProgram _program;
         private readonly Dictionary<VariableSymbol, object?> _globals;
-        private readonly Dictionary<FunctionSymbol, BoundBlockStatement> _functions = new Dictionary<FunctionSymbol, BoundBlockStatement>();
+        private readonly Dictionary<FunctionSymbol, BoundStatement> _functions = new Dictionary<FunctionSymbol, BoundStatement>();
         private readonly Stack<Dictionary<VariableSymbol, object?>> _locals = new Stack<Dictionary<VariableSymbol, object?>>();
         private Random? _random;
 
@@ -30,59 +31,11 @@ namespace Blaze.Miscellaneuos
             if (function == null)
                 return null;
 
-            BoundBlockStatement body = _functions[function];
-            return EvaluateStatement(body);
-        }
-
-        private object? EvaluateStatement(BoundBlockStatement body)
-        {
-            Dictionary<BoundLabel, int> labelToIndex = new Dictionary<BoundLabel, int>();
-
-            for (int i = 0; i < body.Statements.Length; i++)
-                if (body.Statements[i] is BoundLabelStatement l)
-                    labelToIndex.Add(l.Label, i + 1);
-
-            for (int i = 0; i < body.Statements.Length; i++)
-            {
-                BoundStatement statement = body.Statements[i];
-
-                switch (statement.Kind)
-                {
-                    case BoundNodeKind.NopStatement:
-                        break;
-                    case BoundNodeKind.ExpressionStatement:
-                        EvaluateExpressionStatement((BoundExpressionStatement)statement);
-                        break;
-                    case BoundNodeKind.VariableDeclarationStatement:
-                        EvaluateVariableDeclarationStatement((BoundVariableDeclarationStatement)statement);
-                        break;
-                    case BoundNodeKind.GoToStatement:
-                        BoundGotoStatement gotoStatement = (BoundGotoStatement)statement;
-                        i = labelToIndex[gotoStatement.Label] - 1;
-                        break;
-                    case BoundNodeKind.ConditionalGotoStatement:
-                        BoundConditionalGotoStatement conditional = (BoundConditionalGotoStatement)statement;
-                        object? evaluated = EvaluateExpression(conditional.Condition);
-                        if (evaluated == null) break;
-                        bool condition = (bool)evaluated;
-                        if (condition && !conditional.JumpIfFalse || !condition && conditional.JumpIfFalse)
-                            i = labelToIndex[conditional.Label] - 1;
-                        break;
-                    case BoundNodeKind.LabelStatement:
-                        break;
-                    case BoundNodeKind.ReturnStatement:
-                        BoundReturnStatement returnStatement = (BoundReturnStatement)statement;
-                        _lastValue = returnStatement.Expression == null ? null : EvaluateExpression(returnStatement.Expression);
-                        return _lastValue;
-                    default:
-                        throw new Exception($"Unexpected node {statement.Kind}");
-                }
-            }
-
+            BoundStatement body = _functions[function];
+            EvaluateStatement(body);
             return _lastValue;
         }
 
-        /*
         private void EvaluateStatement(BoundStatement node)
         {
             switch (node.Kind)
@@ -102,32 +55,63 @@ namespace Blaze.Miscellaneuos
                 case BoundNodeKind.WhileStatement:
                     EvaluateWhileStatement((BoundWhileStatement)node);
                     break;
+                case BoundNodeKind.DoWhileStatement:
+                    EvaluateDoWhileStatement((BoundDoWhileStatement)node);
+                    break;
+                //HACK: Should not just ignore break and continue statements
+                //      But this class shouldn't even exist so I guess it's fine
+                case BoundNodeKind.BreakStatement:
+                case BoundNodeKind.ContinueStatement:
+                    break;
                 default:
                     throw new Exception($"Unexpected node {node.Kind}");
             }
         }
 
-        
+        private void EvaluateDoWhileStatement(BoundDoWhileStatement node)
+        {
+            while (true)
+            {
+                EvaluateStatement(node.Body);
+
+                var conditionValue = EvaluateExpression(node.Condition);
+                if (conditionValue == null)
+                    return;
+
+                if (!(bool)conditionValue)
+                    break;
+            }
+        }
+
         private void EvaluateIfStatement(BoundIfStatement node)
         {
-            bool conditionValue = (bool) EvaluateExpression(node.Condition);
-            if (conditionValue)
+            var conditionValue =  EvaluateExpression(node.Condition);
+            Debug.Assert(conditionValue != null);
+
+            if ((bool) conditionValue)
                 EvaluateStatement(node.Body);
             else if (node.ElseBody != null)
                 EvaluateStatement(node.ElseBody);
         }
         
-
         private void EvaluateWhileStatement(BoundWhileStatement node)
         {
-            while ((bool) EvaluateExpression(node.Condition))
+            while (true)
+            {
+                var conditionValue = EvaluateExpression(node.Condition);
+                if (conditionValue == null)
+                    return;
+
+                if (!(bool)conditionValue)
+                    break;
+
                 EvaluateStatement(node.Body);
+            }
         }
-        */
 
         private void EvaluateVariableDeclarationStatement(BoundVariableDeclarationStatement node)
         {
-            object? value = EvaluateExpression(node.Initializer);
+            var value = EvaluateExpression(node.Initializer);
             _lastValue = value;
             Assign(node.Variable, value);
         }
@@ -137,13 +121,11 @@ namespace Blaze.Miscellaneuos
             _lastValue = EvaluateExpression(statement.Expression);
         }
 
-        /*
         private void EvaluateBlockStatement(BoundBlockStatement statement)
         {
             foreach (BoundStatement current in statement.Statements)
                 EvaluateStatement(current);
         }
-        */
 
         private object? EvaluateExpression(BoundExpression node)
         {
@@ -170,7 +152,7 @@ namespace Blaze.Miscellaneuos
 
         private object? EvaluateConversionExpression(BoundConversionExpression node)
         {
-            object? value = EvaluateExpression(node.Expression);
+            var value = EvaluateExpression(node.Expression);
             if (value == null) return null;
 
             if (node.Type == TypeSymbol.Object)
@@ -187,11 +169,14 @@ namespace Blaze.Miscellaneuos
 
         private object? EvaluateCallExpression(BoundCallExpression node)
         {
-            if (node.Function == BuiltInFunction.Input)
-                return Console.ReadLine();
+            if (node.Function == BuiltInFunction.RunCommand)
+            {
+                Console.WriteLine("Ran command:\n " + node.Arguments[0]);
+                return node.Arguments[0];
+            }
             else if (node.Function == BuiltInFunction.Print)
             {
-                object? message = EvaluateExpression(node.Arguments[0]);
+                var message = EvaluateExpression(node.Arguments[0]);
                 if (message != null)
                     Console.WriteLine(message);
                 return null;
@@ -200,30 +185,30 @@ namespace Blaze.Miscellaneuos
             {
                 if (_random == null)
                     _random = new Random();
-                int? origin = (int?)EvaluateExpression(node.Arguments[0]);
-                int? bound = (int?)EvaluateExpression(node.Arguments[1]);
+                var origin = (int?)EvaluateExpression(node.Arguments[0]);
+                var bound = (int?)EvaluateExpression(node.Arguments[1]);
                 if (origin == null || bound == null)
                     return null;
-                int value = _random.Next((int)origin, (int)bound);
+                var value = _random.Next((int)origin, (int)bound);
                 return value;
             }
             else
             {
                 if (node.Function.Declaration == null) return null;
 
-                Dictionary<VariableSymbol, object?> locals = new Dictionary<VariableSymbol, object?>();
+                var locals = new Dictionary<VariableSymbol, object?>();
                 for (int i = 0; i < node.Arguments.Length; i++)
                 {
-                    ParameterSymbol parameter = node.Function.Parameters[i];
-                    object? value = EvaluateExpression(node.Arguments[i]);
+                    var parameter = node.Function.Parameters[i];
+                    var value = EvaluateExpression(node.Arguments[i]);
                     locals.Add(parameter, value);
                 }
 
                 _locals.Push(locals);
-                BoundBlockStatement statement = _functions[node.Function];
-                object? result = EvaluateStatement(statement);
+                var statement = _functions[node.Function];
+                EvaluateStatement(statement);
                 _locals.Pop();
-                return result;
+                return _lastValue;
             }
         }
 
@@ -239,7 +224,7 @@ namespace Blaze.Miscellaneuos
 
         private object? EvaluateAssignmentExpression(BoundAssignmentExpression assignment)
         {
-            object? value = EvaluateExpression(assignment.Expression);
+            var value = EvaluateExpression(assignment.Expression);
             Assign(assignment.Variable, value);
             return value;
         }
@@ -259,7 +244,7 @@ namespace Blaze.Miscellaneuos
 
         private object? EvaluateUnaryExpression(BoundUnaryExpression unary)
         {
-            object? operand = EvaluateExpression(unary.Operand);
+            var operand = EvaluateExpression(unary.Operand);
 
             if (operand == null)
                 return null;
@@ -279,8 +264,8 @@ namespace Blaze.Miscellaneuos
 
         private object? EvaluateBinaryExpression(BoundBinaryExpression binary)
         {
-            object? left = EvaluateExpression(binary.Left);
-            object? right = EvaluateExpression(binary.Right);
+            var left = EvaluateExpression(binary.Left);
+            var right = EvaluateExpression(binary.Right);
 
             if (left == null || right == null)
                 return null;

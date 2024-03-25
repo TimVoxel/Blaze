@@ -254,7 +254,7 @@ namespace Blaze.Binding
                 writer.WriteKeyword("null");
                 return;
             }
-            string? value = node.Value.ToString();
+            var value = node.Value.ToString();
             if (value == null)
             {
                 writer.WriteKeyword("null");
@@ -266,7 +266,7 @@ namespace Blaze.Binding
                 writer.WriteNumber(value);
             else if (node.Type == TypeSymbol.String)
             {
-                value = "\"" + value.Replace("\"", "\"\"") + "\"";
+                value = "\"" + value.Replace("\"", "\\\"") + "\"";
                 writer.WriteString(value);
             }
             else
@@ -287,8 +287,8 @@ namespace Blaze.Binding
 
         private static void WriteUnaryExpression(BoundUnaryExpression node, IndentedTextWriter writer)
         {
-            int precedence = SyntaxFacts.GetUnaryOperatorPrecedence(node.Operator.SyntaxKind);
-            string? operatorText = SyntaxFacts.GetText(node.Operator.SyntaxKind);
+            var precedence = SyntaxFacts.GetUnaryOperatorPrecedence(node.Operator.SyntaxKind);
+            var operatorText = SyntaxFacts.GetText(node.Operator.SyntaxKind);
 
             if (operatorText != null)
                 writer.WritePunctuation(operatorText);
@@ -298,8 +298,8 @@ namespace Blaze.Binding
 
         private static void WriteBinaryExpression(BoundBinaryExpression node, IndentedTextWriter writer)
         {
-            int precedence = SyntaxFacts.GetBinaryOperatorPrecedence(node.Operator.SyntaxKind);
-            string? operatorText = SyntaxFacts.GetText(node.Operator.SyntaxKind);
+            var precedence = SyntaxFacts.GetBinaryOperatorPrecedence(node.Operator.SyntaxKind);
+            var operatorText = SyntaxFacts.GetText(node.Operator.SyntaxKind);
 
             writer.WriteNestedExpression(precedence, node.Left);
             writer.Write(" ");
@@ -314,8 +314,8 @@ namespace Blaze.Binding
             writer.WriteIdentifier(node.Function.Name);
             writer.WritePunctuation("(");
 
-            bool isFirst = true;
-            foreach (BoundExpression argument in node.Arguments)
+            var isFirst = true;
+            foreach (var argument in node.Arguments)
             {
                 if (isFirst)
                     isFirst = false;

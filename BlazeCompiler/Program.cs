@@ -29,12 +29,14 @@ namespace Blaze
             if (string.IsNullOrEmpty(projectPath))
             {
                 Console.Error.WriteLine("error: project file not provided");
+                Console.ReadKey();
                 return 1;
             }
 
             if (!File.Exists(projectPath))
             {
                 Console.WriteLine($"error: file {projectPath} does not exist");
+                Console.ReadKey();
                 return 1;
             }
 
@@ -44,11 +46,13 @@ namespace Blaze
                 if (configuration == null)
                 {
                     Console.WriteLine($"error: couldn't parse {projectPath}");
+                    Console.ReadKey();
                     return 1;
                 }
                 if (!configuration.OutputFolders.Any()) 
                 {
                     Console.WriteLine($"error: specify at least one output folder");
+                    Console.ReadKey();
                     return 1;
                 }
 
@@ -57,6 +61,7 @@ namespace Blaze
                 if (projectDirectory == null)
                 {
                     Console.WriteLine("error: project is not in a directory");
+                    Console.ReadKey();
                     return 1;
                 }
 
@@ -75,6 +80,7 @@ namespace Blaze
                 if (diagnostics.Any())
                 {
                     Console.Error.WriteDiagnostics(diagnostics);
+                    Console.ReadKey();
                     return 1;
                 }
 

@@ -162,12 +162,12 @@ namespace ReplExperience
         private string? EditSubmission()
         {
             _done = false;
-            ObservableCollection<string> document = new ObservableCollection<string>() { "" };
-            SubmissionView view = new SubmissionView(RenderLine, document);
+            var document = new ObservableCollection<string>() { "" };
+            var view = new SubmissionView(RenderLine, document);
 
             while (!_done)
             {
-                ConsoleKeyInfo key = Console.ReadKey(true);
+                var key = Console.ReadKey(true);
                 HandleKey(key, document, view);
             }
 

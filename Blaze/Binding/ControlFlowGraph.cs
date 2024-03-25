@@ -42,9 +42,9 @@ namespace Blaze.Binding
                 if (IsEnd)
                     return "<End>";
 
-                using (StringWriter writer = new StringWriter())
+                using (var writer = new StringWriter())
                 {
-                    foreach (BoundStatement statement in Statements)
+                    foreach (var statement in Statements)
                         statement.WriteTo(writer);
 
                     return writer.ToString();
@@ -81,7 +81,7 @@ namespace Blaze.Binding
 
             public List<BasicBlock> Build(BoundBlockStatement block)
             {
-                foreach (BoundStatement statement in block.Statements)
+                foreach (var statement in block.Statements)
                 {
                     switch (statement.Kind)
                     {
@@ -91,8 +91,8 @@ namespace Blaze.Binding
                             _statements.Add(statement);
                             break;
                         case BoundNodeKind.GoToStatement:
-                        case BoundNodeKind.ReturnStatement:
                         case BoundNodeKind.ConditionalGotoStatement:
+                        case BoundNodeKind.ReturnStatement:
                             _statements.Add(statement);
                             StartBlock();
                             break;
@@ -109,16 +109,13 @@ namespace Blaze.Binding
                 return _blocks.ToList();
             }
 
-            private void StartBlock()
-            {
-                EndBlock();
-            }
+            private void StartBlock() => EndBlock();
 
             private void EndBlock()
             {
                 if (_statements.Any())
                 {
-                    BasicBlock block = new BasicBlock();
+                    var block = new BasicBlock();
                     block.Statements.AddRange(_statements);
                     _blocks.Add(block);
                     _statements.Clear();
@@ -263,25 +260,25 @@ namespace Blaze.Binding
 
             writer.WriteLine("digraph G {");
 
-            Dictionary<BasicBlock, string> blockIds = new Dictionary<BasicBlock, string>();
+            var blockIds = new Dictionary<BasicBlock, string>();
             for (int i = 0; i < Blocks.Count; i++)
             {
-                string id = $"N{i}";
+                var id = $"N{i}";
                 blockIds.Add(Blocks[i], id);
             }
 
-            foreach (BasicBlock block in Blocks)
+            foreach (var block in Blocks)
             {
-                string id = blockIds[block];
-                string label = Quote(block.ToString().Replace(Environment.NewLine, "\\l"));
+                var id = blockIds[block];
+                var label = Quote(block.ToString().Replace(Environment.NewLine, "\\l"));
                 writer.WriteLine($"    {id} [label = {label} shape = box]");
             }
 
-            foreach (BasicBlockBranch branch in Branches)
+            foreach (var branch in Branches)
             {
-                string fromId = blockIds[branch.From];
-                string toId = blockIds[branch.To];
-                string label = Quote(branch.ToString());
+                var fromId = blockIds[branch.From];
+                var toId = blockIds[branch.To];
+                var label = Quote(branch.ToString());
                 writer.WriteLine($"    {fromId} -> {toId} [label = {label}]");
             }
 
@@ -290,20 +287,20 @@ namespace Blaze.Binding
 
         public static ControlFlowGraph Create(BoundBlockStatement body)
         {
-            BasicBlockBuilder builder = new BasicBlockBuilder();
-            List<BasicBlock> blocks = builder.Build(body);
+            var builder = new BasicBlockBuilder();
+            var blocks = builder.Build(body);
 
-            GraphBuilder graphBuilder = new GraphBuilder();
+            var graphBuilder = new GraphBuilder();
             return graphBuilder.Build(blocks);
         }
 
         public static bool AllPathsReturn(BoundBlockStatement body)
         {
-            ControlFlowGraph graph = Create(body);
+            var graph = Create(body);
 
-            foreach (BasicBlockBranch branch in graph.End.Incoming)
+            foreach (var branch in graph.End.Incoming)
             {
-                BoundStatement? last = branch.From.Statements.LastOrDefault();
+                var last = branch.From.Statements.LastOrDefault();
                 if (last == null || last.Kind != BoundNodeKind.ReturnStatement)
                     return false;
             }

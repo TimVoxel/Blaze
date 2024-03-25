@@ -43,10 +43,15 @@ namespace Blaze.Diagnostics
             Report(location, message);
         }
 
-
         public void ReportUnexpectedToken(TextLocation location, SyntaxKind kind, SyntaxKind expectedKind)
         {
             string message = $"Unexpected token <{kind}>, expected <{expectedKind}>";
+            Report(location, message);
+        }
+
+        public void ReportDuplicateFunctionModifier(TextLocation location)
+        {
+            string message = "Duplicate function modifiers are not allowed";
             Report(location, message);
         }
 
@@ -181,12 +186,6 @@ namespace Blaze.Diagnostics
         {
             string message = "Return can not be followed by an expression in global statements";
             Report(location, message);
-        }
-
-        public void ReportInvalidReference(string path)
-        {
-            string message = $"The reference is not a valid .NET assembly: '{path}'";
-            Report(default, message);
         }
     }
 }

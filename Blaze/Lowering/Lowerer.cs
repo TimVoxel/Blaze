@@ -4,26 +4,33 @@ using System.Collections.Immutable;
 
 namespace Blaze.Lowering
 {
-    internal sealed class Lowerer : BoundTreeRewriter
+    internal class Lowerer : BoundTreeRewriter
     {
-        private int _labelCount;
+        protected int _labelCount;
 
-        private Lowerer() 
+        protected Lowerer() 
         {
             _labelCount = 0;
         }
 
-        public static BoundBlockStatement Lower(BoundStatement statement)
+        public static BoundStatement Lower(BoundStatement statement)
         {
-            Lowerer lowerer = new Lowerer();
-            BoundStatement result = lowerer.RewriteStatement(statement);
+            var lowerer = new Lowerer();
+            var result = lowerer.RewriteStatement(statement);
+            return result;
+        } 
+
+        public static BoundBlockStatement DeepLower(BoundStatement statement)
+        {
+            var lowerer = new DeepLowerer();
+            var result = lowerer.RewriteStatement(statement);
             return RemoveDeadCode(Flatten(result));
         }
 
         public static BoundBlockStatement RemoveDeadCode(BoundBlockStatement node)
         {
-            ControlFlowGraph controlFlowGraph = ControlFlowGraph.Create(node);
-            HashSet<BoundStatement> reachableStatements = new HashSet<BoundStatement>(controlFlowGraph.Blocks.SelectMany(b => b.Statements));
+            var controlFlowGraph = ControlFlowGraph.Create(node);
+            var reachableStatements = new HashSet<BoundStatement>(controlFlowGraph.Blocks.SelectMany(b => b.Statements));
 
             var builder = node.Statements.ToBuilder();
             for (int i = builder.Count - 1; i >= 0; i--)
@@ -33,18 +40,18 @@ namespace Blaze.Lowering
             return new BoundBlockStatement(builder.ToImmutable());
         }
 
-        private static BoundBlockStatement Flatten(BoundStatement statement)
+        protected static BoundBlockStatement Flatten(BoundStatement statement)
         {
-            ImmutableArray<BoundStatement>.Builder builder = ImmutableArray.CreateBuilder<BoundStatement>();
-            Stack<BoundStatement> stack = new Stack<BoundStatement>();
+            var builder = ImmutableArray.CreateBuilder<BoundStatement>();
+            var stack = new Stack<BoundStatement>();
             stack.Push(statement);
 
             while (stack.Count > 0)
             {
-                BoundStatement current = stack.Pop();
+                var current = stack.Pop();
                 if (current is BoundBlockStatement block)
                 {
-                    foreach (BoundStatement subStatement in block.Statements.Reverse())
+                    foreach (var subStatement in block.Statements.Reverse())
                         stack.Push(subStatement);
                 }
                 else
@@ -53,98 +60,42 @@ namespace Blaze.Lowering
             return new BoundBlockStatement(builder.ToImmutable());
         }
 
-        private BoundLabel GenerateLabel()
+        protected BoundLabel GenerateLabel()
         {
-            var name = $"label{++_labelCount}";
+            var name = $"sub{++_labelCount}";
             return new BoundLabel(name);
-        }
-
-        protected override BoundStatement RewriteIfStatement(BoundIfStatement node)
-        {
-            if (node.ElseBody == null)
-            {
-                BoundLabel endLabel = GenerateLabel();
-                BoundConditionalGotoStatement gotoFalse = new BoundConditionalGotoStatement(endLabel, node.Condition, true);
-                BoundLabelStatement endLabelStatement = new BoundLabelStatement(endLabel);
-                BoundBlockStatement result = new BoundBlockStatement(ImmutableArray.Create(gotoFalse, node.Body, endLabelStatement));
-                return RewriteStatement(result);
-            }
-            else
-            {
-                BoundLabel elseLabel = GenerateLabel();
-                BoundLabel endLabel = GenerateLabel();
-
-                BoundConditionalGotoStatement gotoFalse = new BoundConditionalGotoStatement(elseLabel, node.Condition, true);
-                BoundGotoStatement gotoEnd = new BoundGotoStatement(endLabel);
-                BoundLabelStatement elseLabelStatement = new BoundLabelStatement(elseLabel);
-                BoundLabelStatement endLabelStatement = new BoundLabelStatement(endLabel);
-                BoundBlockStatement result = new BoundBlockStatement(ImmutableArray.Create(
-                    gotoFalse,
-                    node.Body,
-                    gotoEnd, 
-                    elseLabelStatement,
-                    node.ElseBody,
-                    endLabelStatement
-                ));
-                return RewriteStatement(result);
-            }
-        }
-
-        protected override BoundStatement RewriteWhileStatement(BoundWhileStatement node)
-        {
-            BoundLabel checkLabel = GenerateLabel();
-            BoundLabelStatement breakLabelStatement = new BoundLabelStatement(node.BreakLabel);
-            BoundLabelStatement continueLabelStatement = new BoundLabelStatement(node.ContinueLabel);
-            BoundLabelStatement checkLabelStatement = new BoundLabelStatement(checkLabel);
-            BoundGotoStatement gotoCheck = new BoundGotoStatement(checkLabel);
-
-            BoundConditionalGotoStatement gotoTrue = new BoundConditionalGotoStatement(node.ContinueLabel, node.Condition, false);
-            BoundBlockStatement result = new BoundBlockStatement(ImmutableArray.Create(
-                gotoCheck,
-                continueLabelStatement,
-                node.Body,
-                checkLabelStatement,
-                gotoTrue,
-                breakLabelStatement
-            ));
-            return RewriteStatement(result);
-        }
-
-        protected override BoundStatement RewriteDoWhileStatement(BoundDoWhileStatement node)
-        {
-            BoundLabelStatement breakLabelStatement = new BoundLabelStatement(node.BreakLabel);
-            BoundLabelStatement continueLabelStatement = new BoundLabelStatement(node.ContinueLabel);
-            
-            BoundConditionalGotoStatement gotoTrue = new BoundConditionalGotoStatement(node.ContinueLabel, node.Condition, false);
-            BoundBlockStatement result = new BoundBlockStatement(ImmutableArray.Create(
-                continueLabelStatement,
-                node.Body,
-                gotoTrue,
-                breakLabelStatement
-            ));
-            return RewriteStatement(result);
         }
 
         protected override BoundStatement RewriteForStatement(BoundForStatement node)
         {
-            BoundBinaryOperator op = BoundBinaryOperator.SafeBind(BoundBinaryOperatorKind.LessOrEquals, TypeSymbol.Int, TypeSymbol.Int);
-            BoundBinaryOperator plusOp = BoundBinaryOperator.SafeBind(BoundBinaryOperatorKind.Addition, TypeSymbol.Int, TypeSymbol.Int);
+            //source:
+            //      let a = initial;
+            //      let upperBound = final;
+            //      while (a <= upperBound) {
+            //          ...
+            //          a = a - 1;
+            //      }
+            //  
+            //than rewrite that
 
-            BoundVariableDeclarationStatement declarationStatement = new BoundVariableDeclarationStatement(node.Variable, node.LowerBound);
+            var op = BoundBinaryOperator.SafeBind(BoundBinaryOperatorKind.LessOrEquals, TypeSymbol.Int, TypeSymbol.Int);
+            var plusOp = BoundBinaryOperator.SafeBind(BoundBinaryOperatorKind.Addition, TypeSymbol.Int, TypeSymbol.Int);
 
-            GlobalVariableSymbol upperBound = new GlobalVariableSymbol("upperBound", TypeSymbol.Int, node.UpperBound.ConstantValue);
-            BoundVariableDeclarationStatement upperBoundDeclarationStatement = new BoundVariableDeclarationStatement(upperBound, node.UpperBound);
+            var declarationStatement = new BoundVariableDeclarationStatement(node.Variable, node.LowerBound);
 
-            BoundVariableExpression variableExpression = new BoundVariableExpression(node.Variable);
-            BoundVariableExpression upperBoundExpression = new BoundVariableExpression(upperBound);
+            var upperBound = new GlobalVariableSymbol("upperBound", TypeSymbol.Int, node.UpperBound.ConstantValue);
+            var upperBoundDeclarationStatement = new BoundVariableDeclarationStatement(upperBound, node.UpperBound);
 
-            BoundBinaryExpression condition = new BoundBinaryExpression(variableExpression, op, upperBoundExpression);
-            BoundLabelStatement continueLabelStatement = new BoundLabelStatement(node.ContinueLabel);
-            BoundExpressionStatement increment = new BoundExpressionStatement(new BoundAssignmentExpression(node.Variable, new BoundBinaryExpression(variableExpression, plusOp, new BoundLiteralExpression(1))));
+            var variableExpression = new BoundVariableExpression(node.Variable);
+            var upperBoundExpression = new BoundVariableExpression(upperBound);
 
-            BoundBlockStatement whileBlock = new BoundBlockStatement(ImmutableArray.Create(node.Body, continueLabelStatement, increment));
-            BoundWhileStatement whileStatement = new BoundWhileStatement(condition, whileBlock, node.BreakLabel, GenerateLabel());
-            BoundStatement result = new BoundBlockStatement(ImmutableArray.Create<BoundStatement>(
+            var condition = new BoundBinaryExpression(variableExpression, op, upperBoundExpression);
+            //var continueLabelStatement = new BoundLabelStatement(node.ContinueLabel);
+            var increment = new BoundExpressionStatement(new BoundAssignmentExpression(node.Variable, new BoundBinaryExpression(variableExpression, plusOp, new BoundLiteralExpression(1))));
+
+            var whileBlock = new BoundBlockStatement(ImmutableArray.Create(node.Body, increment));
+            var whileStatement = new BoundWhileStatement(condition, whileBlock, node.BreakLabel, GenerateLabel());
+            var result = new BoundBlockStatement(ImmutableArray.Create<BoundStatement>(
                 declarationStatement,
                 upperBoundDeclarationStatement,
                 whileStatement
@@ -152,11 +103,14 @@ namespace Blaze.Lowering
             return RewriteStatement(result);
         }
 
+        //This stuff doesn't seem to work correctly without constant variables duh
+        /*
         protected override BoundStatement RewriteConditionalGotoStatement(BoundConditionalGotoStatement node)
         {
+
             if (node.Condition.ConstantValue != null)
             {
-                bool condition = (bool) node.Condition.ConstantValue.Value;
+                var condition = (bool) node.Condition.ConstantValue.Value;
                 condition = node.JumpIfFalse ? !condition : condition;
 
                 if (condition)
@@ -166,6 +120,6 @@ namespace Blaze.Lowering
             }
             return base.RewriteConditionalGotoStatement(node);
         }
-
+        */
     }
 }

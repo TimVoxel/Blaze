@@ -114,7 +114,7 @@ namespace Blaze
 
         private MemberSyntax ParseMember()
         {
-            if (Current.Kind == SyntaxKind.FunctionKeyword)
+            if (SyntaxFacts.IsFunctionModifier(Current.Kind) || Current.Kind == SyntaxKind.FunctionKeyword)
                 return ParseFunctionDeclaration();
             else
                 return ParseGlobalStatement();
@@ -122,19 +122,37 @@ namespace Blaze
 
         private MemberSyntax ParseFunctionDeclaration()
         {
-            SyntaxToken functionKeyword = TryConsume(SyntaxKind.FunctionKeyword);
-            SyntaxToken identifier = TryConsume(SyntaxKind.IdentifierToken);
+            var modifiers = ImmutableArray.CreateBuilder<SyntaxToken>();
+            var modifierKinds = new HashSet<SyntaxKind>();
 
-            SyntaxToken openParen = TryConsume(SyntaxKind.OpenParenToken);
-            SeparatedSyntaxList<ParameterSyntax> parameters = ParseParameters();
-            SyntaxToken closeParen = TryConsume(SyntaxKind.CloseParenToken);
+            while (SyntaxFacts.IsFunctionModifier(Current.Kind))
+            {
+                if (modifierKinds.Contains(Current.Kind))
+                {
+                    var location = new TextLocation(_syntaxTree.Text, Current.Span);
+                    _diagnostics.ReportDuplicateFunctionModifier(location);
+                }
+                else
+                {
+                    var current = Consume();
+                    modifiers.Add(current);
+                    modifierKinds.Add(current.Kind);
+                }
+            }
 
+            var functionKeyword = TryConsume(SyntaxKind.FunctionKeyword);
+            var identifier = TryConsume(SyntaxKind.IdentifierToken);
+
+            var openParen = TryConsume(SyntaxKind.OpenParenToken);
+            var parameters = ParseParameters();
+            var closeParen = TryConsume(SyntaxKind.CloseParenToken);
+            
             ReturnTypeClauseSyntax? returnTypeClause = null;
             if (Current.Kind == SyntaxKind.ColonToken)
                 returnTypeClause = ParseReturnTypeClause();
 
-            BlockStatementSyntax body = ParseBlockStatement();
-            return new FunctionDeclarationSyntax(_syntaxTree, functionKeyword, identifier, openParen, parameters, closeParen, returnTypeClause, body);
+            var body = ParseBlockStatement();
+            return new FunctionDeclarationSyntax(_syntaxTree, modifiers.ToImmutable(), functionKeyword, identifier, openParen, parameters, closeParen, returnTypeClause, body);
         }
 
         private MemberSyntax ParseGlobalStatement()

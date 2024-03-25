@@ -33,20 +33,20 @@ namespace Blaze
         public SyntaxToken Lex()
         {
             ReadTrivia(true);
-            ImmutableArray<Trivia> leadingTrivia = _triviaBuilder.ToImmutable();
+            var leadingTrivia = _triviaBuilder.ToImmutable();
 
-            int tokenStart = _position;
+            var tokenStart = _position;
 
             ReadToken();
 
-            SyntaxKind tokenKind = _kind;
-            object? tokenValue = _value;
-            int tokenLength = _position - _start;
+            var tokenKind = _kind;
+            var tokenValue = _value;
+            var tokenLength = _position - _start;
 
             ReadTrivia(false);
-            ImmutableArray<Trivia> trailingTrivia = _triviaBuilder.ToImmutable();
 
-            string? tokenText = SyntaxFacts.GetText(tokenKind);
+            var trailingTrivia = _triviaBuilder.ToImmutable();
+            var tokenText = SyntaxFacts.GetText(tokenKind);
             if (tokenText == null)
                 tokenText = _text.ToString(tokenStart, tokenLength);
 
@@ -181,7 +181,7 @@ namespace Blaze
         private void ReadTrivia(bool isLeading)
         {
             _triviaBuilder.Clear();
-            bool done = false;
+            var done = false;
             while (!done)
             {
                 _start = _position;
@@ -219,11 +219,11 @@ namespace Blaze
                         break;
                 }
 
-                int length = _position - _start;
+                var length = _position - _start;
                 if (length > 0)
                 {
-                    string text = _text.ToString(_start, length);
-                    Trivia trivia = new Trivia(_syntaxTree, _kind, _start, text);
+                    var text = _text.ToString(_start, length);
+                    var trivia = new Trivia(_syntaxTree, _kind, _start, text);
                     _triviaBuilder.Add(trivia);
                 }
             }
@@ -231,8 +231,8 @@ namespace Blaze
 
         private void ConsumeStray()
         {
-            TextSpan span = new TextSpan(_position, 1);
-            TextLocation location = new TextLocation(_text, span);
+            var span = new TextSpan(_position, 1);
+            var location = new TextLocation(_text, span);
             _diagnostics.ReportStrayCharacter(location, Current);
             _position++;
         }

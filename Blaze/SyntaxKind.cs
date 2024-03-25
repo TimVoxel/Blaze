@@ -45,6 +45,8 @@
         BreakKeyword,
         ContinueKeyword,
         FunctionKeyword,
+        LoadKeyword,
+        TickKeyword,
         ReturnKeyword,
 
         //Nodes

@@ -1,6 +1,7 @@
 ﻿using Blaze.Binding;
 using Blaze.Diagnostics;
 using Blaze.Emit;
+using Blaze.Lowering;
 using Blaze.Miscellaneuos;
 using Blaze.Symbols;
 using System.Collections.Immutable;
@@ -80,7 +81,7 @@ namespace Blaze
         {
             var program = GetProgram();
 
-            if (!program.Functions.TryGetValue(function, out BoundBlockStatement? body))
+            if (!program.Functions.TryGetValue(function, out BoundStatement? body))
                 return;
 
             function.WriteTo(Console.Out);
@@ -96,8 +97,9 @@ namespace Blaze
 
         private void EmitControlFlowGraph(BoundProgram program)
         {
-            var controlFlowGraphStatement = program.Functions.Last().Value.Statements.Any() && program.Functions.Any()
-                ? program.Functions.Last().Value
+            var loweredBody = Lowerer.DeepLower(program.Functions.Last().Value);
+            var controlFlowGraphStatement = loweredBody.Statements.Any() && program.Functions.Any()
+                ? loweredBody
                 : null;
 
             if (controlFlowGraphStatement == null)

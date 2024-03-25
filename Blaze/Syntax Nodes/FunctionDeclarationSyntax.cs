@@ -1,21 +1,24 @@
 ﻿using Blaze.SyntaxTokens;
+using System.Collections.Immutable;
 
 namespace Blaze.Syntax_Nodes
 {
     public sealed class FunctionDeclarationSyntax : MemberSyntax
     {
-        public SyntaxToken FunctionKeyword { get; private set; }
-        public SyntaxToken Identifier { get; private set; }
-        public SyntaxToken OpenParen { get; private set; }
-        public SeparatedSyntaxList<ParameterSyntax> Parameters { get; private set; }
-        public SyntaxToken CloseParen { get; private set; }
-        public ReturnTypeClauseSyntax? ReturnTypeClause { get; private set; }
-        public BlockStatementSyntax Body { get; private set; }
+        public ImmutableArray<SyntaxToken> Modifiers { get; }
+        public SyntaxToken FunctionKeyword { get; }
+        public SyntaxToken Identifier { get; }
+        public SyntaxToken OpenParen { get; }
+        public SeparatedSyntaxList<ParameterSyntax> Parameters { get; }
+        public SyntaxToken CloseParen { get; }
+        public ReturnTypeClauseSyntax? ReturnTypeClause { get; }
+        public BlockStatementSyntax Body { get; }
 
         public override SyntaxKind Kind => SyntaxKind.FunctionDeclaration;
 
-        internal FunctionDeclarationSyntax(SyntaxTree tree, SyntaxToken functionKeyword, SyntaxToken identifier, SyntaxToken openParen, SeparatedSyntaxList<ParameterSyntax> parameters, SyntaxToken closeParen, ReturnTypeClauseSyntax? returnTypeClause, BlockStatementSyntax body) : base(tree)
+        internal FunctionDeclarationSyntax(SyntaxTree tree, ImmutableArray<SyntaxToken> modifiers, SyntaxToken functionKeyword, SyntaxToken identifier, SyntaxToken openParen, SeparatedSyntaxList<ParameterSyntax> parameters, SyntaxToken closeParen, ReturnTypeClauseSyntax? returnTypeClause, BlockStatementSyntax body) : base(tree)
         {
+            Modifiers = modifiers;
             FunctionKeyword = functionKeyword;
             Identifier = identifier;
             OpenParen = openParen;
@@ -27,6 +30,9 @@ namespace Blaze.Syntax_Nodes
 
         public override IEnumerable<SyntaxNode> GetChildren()
         {
+            foreach (SyntaxToken modifier in Modifiers)
+                yield return modifier;
+
             yield return FunctionKeyword;
             yield return Identifier;
             
