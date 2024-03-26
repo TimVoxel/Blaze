@@ -528,7 +528,7 @@ namespace Blaze.Emit
         private void EmitComparisonBinaryOperation(FunctionEmittion emittion, BoundExpression left, BoundExpression right, string name, string sign, bool inverted = false)
         {
             var leftName = EmitAssignmentToTemp("lTemp", left, emittion);
-            var rightName = EmitAssignmentToTemp("rTemp", left, emittion);
+            var rightName = EmitAssignmentToTemp("rTemp", right, emittion);
 
             var initialValue = inverted ? 1 : 0;
             var successValue = inverted ? 0 : 1;
