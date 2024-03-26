@@ -2,7 +2,9 @@
 {
     public class FunctionEmittion
     {
-        private int _subCount;
+        private int _loopCount;
+        private int _ifCount;
+        private int _elseCount;
 
         public string Name { get; }
         public string Body { get; set; }
@@ -13,7 +15,9 @@
             Name = name;
             Body = string.Empty;
             Children = new List<FunctionEmittion>();
-            _subCount = 0;
+            _loopCount = 0;
+            _ifCount = 0;
+            _elseCount = 0;
         }
 
         public void AppendLine(string line)
@@ -26,10 +30,22 @@
             Body += Environment.NewLine;
         }
 
-        public string GetFreeSubName()
+        public string GetFreeSubIfName()
         {
-            _subCount++;
-            return $"{Name}_sw{_subCount}";
+            _ifCount++;
+            return $"{Name}_sif{_ifCount}";
+        }
+
+        public string GetFreeSubElseName()
+        {
+            _elseCount++;
+            return $"{Name}_sel{_elseCount}";
+        }
+
+        public string GetFreeSubLoopName()
+        {
+            _loopCount++;
+            return $"{Name}_sw{_loopCount}";
         }
 
         /*

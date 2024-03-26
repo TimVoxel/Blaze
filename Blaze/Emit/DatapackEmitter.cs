@@ -118,8 +118,32 @@ namespace Blaze.Emit
 
         private void EvaluateIfStatement(BoundIfStatement node, FunctionEmittion emittion)
         {
-            //This one's hella hard though
-            throw new NotImplementedException();
+            //Emit condition into <.temp>
+            //execute if <.temp> run subfunction
+            //else generate a sub function and run it instead
+            //if there is an else clause generate another sub with the else body
+
+            var subName = emittion.GetFreeSubIfName();
+            var subFunction = new FunctionEmittion(subName);
+            EmitStatement(node.Body, subFunction);
+
+            var temp = new LocalVariableSymbol(".temp", node.Condition.Type, null);
+            var tempName = EmitAssignmentExpression(temp, node.Condition, emittion);
+            var callClauseCommand = $"execute if score {tempName} vars matches 1 run function ns:{subName}";
+
+            emittion.AppendLine(callClauseCommand);
+            emittion.Children.Add(subFunction);
+
+            if (node.ElseBody != null)
+            {
+                var elseName = emittion.GetFreeSubElseName();
+                var elseSubFunction = new FunctionEmittion(elseName);
+                EmitStatement(node.ElseBody, elseSubFunction);
+                var elseCallClauseCommand = $"execute if score {tempName} vars matches 0 run function ns:{elseName}";
+
+                emittion.AppendLine(elseCallClauseCommand);
+                emittion.Children.Add(elseSubFunction);
+            }
         }
 
         private void EvaluateWhileStatement(BoundWhileStatement node, FunctionEmittion emittion)
@@ -132,7 +156,7 @@ namespace Blaze.Emit
             //execute if <.temp> run return 0
             //body
 
-            var subName = emittion.GetFreeSubName();
+            var subName = emittion.GetFreeSubLoopName();
             var subFunction = new FunctionEmittion(subName);
             var callCommand = $"function ns:{subName}";
 
@@ -160,7 +184,7 @@ namespace Blaze.Emit
             //Emit condition into <.temp>
             //execute if <.temp> run function <subfunction>
 
-            var subName = emittion.GetFreeSubName();
+            var subName = emittion.GetFreeSubLoopName();
             var subFunction = new FunctionEmittion(subName);
             var callCommand = $"function ns:{subName}";
 
@@ -168,8 +192,8 @@ namespace Blaze.Emit
 
             var temp = new LocalVariableSymbol(".temp", node.Condition.Type, null);
             var tempName = EmitAssignmentExpression(temp, node.Condition, subFunction);
-            var breakClauseCommand = $"execute if score {tempName} vars matches 1 run {callCommand}";
-            subFunction.AppendLine(breakClauseCommand);
+            var loopClauseCommand = $"execute if score {tempName} vars matches 1 run {callCommand}";
+            subFunction.AppendLine(loopClauseCommand);
             subFunction.AppendLine();
 
             emittion.AppendLine(callCommand);
