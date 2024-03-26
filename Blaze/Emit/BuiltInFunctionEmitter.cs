@@ -7,7 +7,7 @@ namespace Blaze.Emit
 {
     internal static class BuiltInFunctionEmitter
     {
-        public static bool TryEmitBuiltInFunction(BoundCallExpression call, StringBuilder body, ImmutableArray<FunctionEmittion>.Builder children)
+        public static bool TryEmitBuiltInFunction(BoundCallExpression call, FunctionEmittion emittion)
         {
             if (call.Function == BuiltInFunction.RunCommand)
             {
@@ -20,7 +20,7 @@ namespace Blaze.Emit
                 }
 
                 var message = (string)costant.Value;
-                body.AppendLine(message);
+                emittion.AppendLine(message);
                 return true;
 
             }
@@ -28,7 +28,7 @@ namespace Blaze.Emit
             {
                 var message = call.Arguments[0].ToString().Replace("\"", "\\\"");
                 var convertedMessage = "{\"text\":\"§e" + message + "\"}";
-                body.AppendLine($"tellraw @a {convertedMessage}");
+                emittion.AppendLine($"tellraw @a {convertedMessage}");
                 return true;
             }
             return false;

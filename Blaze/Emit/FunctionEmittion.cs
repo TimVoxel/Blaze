@@ -1,18 +1,61 @@
-﻿using System.Collections.Immutable;
-
-namespace Blaze.Emit
+﻿namespace Blaze.Emit
 {
     public class FunctionEmittion
     {
-        public string Name { get; }
-        public string Body { get; }
-        public ImmutableArray<FunctionEmittion> SubFunctions { get; }
+        private int _subCount;
 
-        public FunctionEmittion(string name, string body, ImmutableArray<FunctionEmittion> subFunctions)
+        public string Name { get; }
+        public string Body { get; set; }
+        public List<FunctionEmittion> Children { get; }
+
+        public FunctionEmittion(string name)
         {
             Name = name;
-            Body = body;
-            SubFunctions = subFunctions;
+            Body = string.Empty;
+            Children = new List<FunctionEmittion>();
+            _subCount = 0;
         }
+
+        public void AppendLine(string line)
+        {
+            Body += line + Environment.NewLine;
+        }
+
+        public void AppendLine()
+        {
+            Body += Environment.NewLine;
+        }
+
+        public string GetFreeSubName()
+        {
+            _subCount++;
+            return $"{Name}_sw{_subCount}";
+        }
+
+        /*
+        public string GetCallName()
+        {
+            var stack = new Stack<FunctionEmittion>();
+            var current = Parent;
+
+            stack.Push(this);
+
+            while (current != null)
+            {
+                stack.Push(current);
+                current = Parent;
+            }
+
+            var callName = new StringBuilder("ns:");
+            while (stack.Any())
+            {
+                var isLast = stack.Count == 1;
+                var thisEmittion = stack.Pop();
+                var ending = isLast ? string.Empty : "/";
+                callName.Append($"{thisEmittion.Name}{ending}");
+            }
+            return callName.ToString();
+        }
+        */
     }
 }

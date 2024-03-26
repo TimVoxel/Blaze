@@ -78,19 +78,12 @@ namespace Blaze.Emit
 
         private void BuildFunction(string functionsDirectory, FunctionEmittion function)
         {
-            if (function.SubFunctions.Any())
-            {
-                var subFunctionDirectory = Path.Combine(functionsDirectory, function.Name);
-                Directory.CreateDirectory(subFunctionDirectory);
-                foreach (var subFunction in function.SubFunctions)
-                    BuildFunction(subFunctionDirectory, subFunction);
-            }
-            else
-            {
-                var functionFile = Path.Combine(functionsDirectory, function.Name + ".mcfunction");
-                using (var streamWriter = new StreamWriter(functionFile))
-                    streamWriter.Write(function.Body);
-            }
+            var functionFile = Path.Combine(functionsDirectory, function.Name + ".mcfunction");
+            using (var streamWriter = new StreamWriter(functionFile))
+                streamWriter.Write(function.Body);
+
+            foreach (var child in function.Children)
+                BuildFunction(functionsDirectory, child);
         }
 
         private void WriteMcMeta(TextWriter textWriter)

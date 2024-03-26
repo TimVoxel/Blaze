@@ -83,7 +83,7 @@ namespace Blaze.Lowering
 
             var declarationStatement = new BoundVariableDeclarationStatement(node.Variable, node.LowerBound);
 
-            var upperBound = new GlobalVariableSymbol("upperBound", TypeSymbol.Int, node.UpperBound.ConstantValue);
+            var upperBound = new GlobalVariableSymbol(".upperBound", TypeSymbol.Int, node.UpperBound.ConstantValue);
             var upperBoundDeclarationStatement = new BoundVariableDeclarationStatement(upperBound, node.UpperBound);
 
             var variableExpression = new BoundVariableExpression(node.Variable);
