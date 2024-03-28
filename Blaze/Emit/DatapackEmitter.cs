@@ -8,7 +8,7 @@ namespace Blaze.Emit
     internal class DatapackEmitter
     {
         private const string TEMP = ".temp";
-        private const string RETURN_TEMP_NAME = ".returnTemp";
+        private const string RETURN_TEMP_NAME = "return.value";
 
         private readonly BoundProgram _program;
         private readonly CompilationConfiguration _configuration;
@@ -54,6 +54,9 @@ namespace Blaze.Emit
         {
             switch (node.Kind)
             {
+                case BoundNodeKind.NopStatement:
+                    EmitNopStatement(emittion);
+                    break;
                 case BoundNodeKind.BlockStatement:
                     EvaluateBlockStatement((BoundBlockStatement)node, emittion);
                     break;
@@ -78,6 +81,9 @@ namespace Blaze.Emit
                 case BoundNodeKind.ContinueStatement:
                     EmitContinueStatement((BoundContinueStatement)node, emittion);
                     break;
+                case BoundNodeKind.ReturnStatement:
+                    EmitReturnStatement((BoundReturnStatement)node, emittion);
+                    break;
                 default:
                     throw new Exception($"Unexpected node {node.Kind}");
             }
@@ -87,25 +93,6 @@ namespace Blaze.Emit
         {
             foreach (BoundStatement statement in node.Statements)
                 EmitStatement(statement, emittion);
-        }
-
-        private void EvaluateExpressionStatement(BoundExpressionStatement node, FunctionEmittion emittion)
-        {
-            //Can be either call or assignment
-            var expression = node.Expression;
-
-            if (expression is BoundAssignmentExpression assignment)
-            {
-                EmitAssignmentExpression(assignment, emittion, 0);
-            }
-            else if (expression is BoundCallExpression call)
-            {
-                EmitCallExpression(call, emittion);
-            }
-            else
-            {
-                throw new Exception($"Unexpected expression statement kind {expression.Kind}");
-            }
         }
 
         private void EmitVariableDeclarationStatement(BoundVariableDeclarationStatement node, FunctionEmittion emittion)
@@ -209,6 +196,57 @@ namespace Blaze.Emit
             throw new NotImplementedException();
         }
 
+        private void EmitReturnStatement(BoundReturnStatement node, FunctionEmittion emittion)
+        {
+            //Emit cleanup before we break the function
+            //Assign the return value to <return.value>
+            //If the return value is an integer or a bool, return it
+
+            var returnExpression = node.Expression;
+            if (returnExpression == null)
+            {
+                emittion.AppendComment("Clean up before break");
+                emittion.Append(emittion.CleanUp);
+                emittion.AppendLine();
+                emittion.AppendLine("return 0");
+                return;
+            }
+
+            var returnName = EmitAssignmentToTemp(RETURN_TEMP_NAME, returnExpression, emittion, 0, false);
+            emittion.AppendComment("Clean up before break");
+            emittion.Append(emittion.CleanUp);
+            emittion.AppendLine();
+
+            if (returnExpression.Type == TypeSymbol.Int || returnExpression.Type == TypeSymbol.Bool)
+            {
+                var returnCommand = $"return run scoreboard players get {returnName} vars";
+                emittion.AppendLine(returnCommand);
+            }
+            else
+            {
+                emittion.AppendLine("return 0");
+            }
+        }
+
+        private void EvaluateExpressionStatement(BoundExpressionStatement node, FunctionEmittion emittion)
+        {
+            //Can be either call or assignment
+            var expression = node.Expression;
+
+            if (expression is BoundAssignmentExpression assignment)
+            {
+                EmitAssignmentExpression(assignment, emittion, 0);
+            }
+            else if (expression is BoundCallExpression call)
+            {
+                EmitCallExpression(call, emittion);
+            }
+            else
+            {
+                throw new Exception($"Unexpected expression statement kind {expression.Kind}");
+            }
+        }
+
         private void EmitCallExpression(BoundCallExpression call, FunctionEmittion emittion)
         {
             //Can be a built-in function -> EmitBuildInFunction();
@@ -221,26 +259,18 @@ namespace Blaze.Emit
             var isBuiltIt = BuiltInFunctionEmitter.TryEmitBuiltInFunction(call, emittion);
             if (!isBuiltIt)
             {
-                var setNames = new Dictionary<ParameterSymbol, string>();
-
-                for (int i = 0; i < call.Arguments.Count(); i++)
-                {
-                    var argument = call.Arguments[i];
-                    var parameter = call.Function.Parameters[i];
-                    var paramName = EmitAssignmentExpression(parameter, argument, emittion, 0);
-                    setNames.Add(parameter, paramName);
-                }
-
+                var setNames = EmitFunctionParametersAssignment(call, emittion);
                 var functionName = call.Function.Name;
                 var command = $"function ns:{functionName}";
                 emittion.AppendLine(command);
 
-                foreach (var parameter in setNames.Keys)
-                {
-                    var name = setNames[parameter];
-                    EmitCleanUp(name, parameter.Type, emittion);
-                }
+                EmitFunctionParameterCleanUp(setNames, emittion);
             }
+        }
+
+        private void EmitNopStatement(FunctionEmittion emittion)
+        {
+            emittion.AppendLine("tellraw @a {\"text\":\"Nop statement in program\", \"color\":\"red\"}");
         }
 
         private string EmitAssignmentExpression(BoundAssignmentExpression assignment, FunctionEmittion emittion, int current) 
@@ -542,20 +572,44 @@ namespace Blaze.Emit
             //2. BOOL: execute store result <*name> vars run function ...
             //3. STRING: data modify storage strings <*name> set from storage strings <*return>
 
-            //TODO: Add parameter emittion for int and bool
-
             emittion.AppendComment($"Assigning return value of {call.Function.Name} to \"{name}\"");
 
             if (call.Function.ReturnType == TypeSymbol.Int || call.Function.ReturnType == TypeSymbol.Bool)
             {
+                var setParameters = EmitFunctionParametersAssignment(call, emittion);
                 var command = $"execute store result score {name} vars run function ns:{call.Function.Name}";
                 emittion.AppendLine(command);
+
+                EmitFunctionParameterCleanUp(setParameters, emittion);
             }
             else
             {
                 EmitCallExpression(call, emittion);
                 var command2 = $"data modify storage strings {name} set from storage strings {RETURN_TEMP_NAME}";
                 emittion.AppendLine(command2);
+            }
+        }
+
+        private Dictionary<ParameterSymbol, string> EmitFunctionParametersAssignment(BoundCallExpression call, FunctionEmittion emittion)
+        {
+            var setNames = new Dictionary<ParameterSymbol, string>();
+
+            for (int i = 0; i < call.Arguments.Count(); i++)
+            {
+                var argument = call.Arguments[i];
+                var parameter = call.Function.Parameters[i];
+                var paramName = EmitAssignmentExpression(parameter, argument, emittion, 0);
+                setNames.Add(parameter, paramName);
+            }
+            return setNames;
+        }
+
+        private void EmitFunctionParameterCleanUp(Dictionary<ParameterSymbol, string> parameters, FunctionEmittion emittion)
+        {
+            foreach (var parameter in parameters.Keys)
+            {
+                var name = parameters[parameter];
+                EmitCleanUp(name, parameter.Type, emittion);
             }
         }
 

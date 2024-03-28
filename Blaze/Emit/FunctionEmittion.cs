@@ -9,6 +9,7 @@
         public string Name { get; }
         public string Body { get; private set; }
         public string CleanUp { get; private set; }
+
         public List<FunctionEmittion> Children { get; }
 
         public FunctionEmittion(string name)
@@ -20,6 +21,11 @@
             _loopCount = 0;
             _ifCount = 0;
             _elseCount = 0;
+        }
+
+        public void Append(string text)
+        {
+            Body += text;
         }
 
         public void AppendLine(string line)
