@@ -82,13 +82,10 @@ namespace Blaze.Emit
                 streamWriter.Write(function.Body);
                 if (!string.IsNullOrEmpty(function.CleanUp))
                 {
-                    streamWriter.WriteLine();
                     streamWriter.WriteLine("#Clean up commands");
                     streamWriter.Write(function.CleanUp);
                 }
             }
-
-                
 
             foreach (var child in function.Children)
                 BuildFunction(functionsDirectory, child);
