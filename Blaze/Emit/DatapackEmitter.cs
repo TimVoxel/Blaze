@@ -2,7 +2,6 @@
 using Blaze.Diagnostics;
 using Blaze.Symbols;
 using System.Collections.Immutable;
-using System.Xml.Linq;
 
 namespace Blaze.Emit
 {
@@ -56,6 +55,8 @@ namespace Blaze.Emit
 
         private void EmitStatement(BoundStatement node, FunctionEmittion emittion)
         {
+            _currentTemp = 0;
+
             switch (node.Kind)
             {
                 case BoundNodeKind.BlockStatement:
@@ -351,6 +352,7 @@ namespace Blaze.Emit
             //            If it is 1, set the <*name> to 0
             //            If it is 0, set the <*name> to 1
 
+            emittion.AppendComment($"Emitting unary expression \"{unary}\" to \"{variable.Name}\"");
             var expression = unary.Operand;
             var operatorKind = unary.Operator.OperatorKind;
             var name = $"*{variable.Name}";
@@ -379,6 +381,7 @@ namespace Blaze.Emit
                 default:
                     throw new Exception($"Unexpected unary operator kind {operatorKind}");
             }
+            emittion.AppendLine();
         }
 
         private void EmitBinaryExpressionAssignment(VariableSymbol variable, BoundBinaryExpression binary, FunctionEmittion emittion)
@@ -408,11 +411,12 @@ namespace Blaze.Emit
             //Greater, GreaterOrEquals Set < *name > to 0
             //                         if score < *left > is <sign> than <.right >, set < *name > to 1
 
-
+            emittion.AppendComment($"Emitting binary expression \"{binary}\" to \"{variable.Name}\"");
             var left = binary.Left;
             var right = binary.Right;
             var operatorKind = binary.Operator.OperatorKind;
             var name = $"*{variable.Name}";
+            var current = _currentTemp++;
 
             switch (operatorKind)
             {
@@ -438,8 +442,8 @@ namespace Blaze.Emit
                     break;
                 case BoundBinaryOperatorKind.LogicalMultiplication:
                     {
-                        var leftName = EmitAssignmentToTemp("lTemp", left, emittion);
-                        var rightName = EmitAssignmentToTemp("rTemp", right, emittion);
+                        var leftName = EmitAssignmentToTemp($"lbTemp", left, emittion, current);
+                        var rightName = EmitAssignmentToTemp($"rbTemp", right, emittion, current);
 
                         var command1 = $"scoreboard players set {name} vars 0";
                         var command2 = $"execute if score {leftName} vars matches 1 if score {rightName} vars matches 1 run scoreboard players set {name} vars 1";
@@ -453,8 +457,8 @@ namespace Blaze.Emit
                     break;
                 case BoundBinaryOperatorKind.LogicalAddition:
                     {
-                        var leftName = EmitAssignmentToTemp("lTemp", left, emittion);
-                        var rightName = EmitAssignmentToTemp("rTemp", right, emittion);
+                        var leftName = EmitAssignmentToTemp($"lbTemp", left, emittion, current);
+                        var rightName = EmitAssignmentToTemp($"rbTemp", right, emittion, current);
 
                         var command1 = $"scoreboard players set {name} vars 0";
                         var command2 = $"execute if score {leftName} vars matches 1 run scoreboard players set {name} vars 1";
@@ -471,20 +475,20 @@ namespace Blaze.Emit
                 case BoundBinaryOperatorKind.Equals:
                     if (left.Type == TypeSymbol.String)
                     {
-                        var leftName = EmitAssignmentToTemp("lTemp", left, emittion, false);
-                        var rightName = EmitAssignmentToTemp("rTemp", right, emittion, false);
+                        var leftName = EmitAssignmentToTemp("lTemp", left, emittion, current, false);
+                        var rightName = EmitAssignmentToTemp("rTemp", right, emittion, current, false);
 
                         var command1 = $"execute store success score {TEMP} vars run data modify storage strings {leftName} set from storage strings {rightName}";
                         var command2 = $"execute if score {TEMP} vars matches 1 run scoreboard players set {name} vars 0";
                         var command3 = $"execute if score {TEMP} vars matches 0 run scoreboard players set {name} vars 1";
-                        var cleanup1 = $"scoreboard players reset {leftName} vars";
-                        var cleanup2 = $"scoreboard players reset {rightName} vars";
+                        var cleanup1 = $"data remove storage strings {leftName}";
+                        var cleanup2 = $"data remove storage strings {rightName}";
                         var cleanup3 = $"scoreboard players reset {TEMP} vars";
                         emittion.AppendLine(command1);
                         emittion.AppendLine(command2);
                         emittion.AppendLine(command3);
                         emittion.AppendLine(cleanup1);
-                        emittion.AppendLine(cleanup2);
+                        emittion.AppendLine(cleanup2); 
                         emittion.AppendLine(cleanup3);
                     }
                     else
@@ -495,12 +499,12 @@ namespace Blaze.Emit
                 case BoundBinaryOperatorKind.NotEquals:
                     if (left.Type == TypeSymbol.String)
                     {
-                        var leftName = EmitAssignmentToTemp("lTemp", left, emittion, false);
-                        var rightName = EmitAssignmentToTemp("rTemp", right, emittion, false);
+                        var leftName = EmitAssignmentToTemp("lTemp", left, emittion, current, false);
+                        var rightName = EmitAssignmentToTemp("rTemp", right, emittion, current, false);
 
                         var command1 = $"execute store success score {name} vars run data modify storage strings {leftName} set from storage strings {rightName}";
-                        var cleanup1 = $"scoreboard players reset {leftName} vars";
-                        var cleanup2 = $"scoreboard players reset {rightName} vars";
+                        var cleanup1 = $"data remove storage strings {leftName}";
+                        var cleanup2 = $"data remove storage strings {rightName}";
                         emittion.AppendLine(command1);
                         emittion.AppendLine(cleanup1);
                         emittion.AppendLine(cleanup2);
@@ -523,12 +527,15 @@ namespace Blaze.Emit
                     EmitComparisonBinaryOperation(emittion, left, right, name, ">=");
                     break;
             }
+            emittion.AppendLine();
+            _currentTemp--;
         }
 
         private void EmitComparisonBinaryOperation(FunctionEmittion emittion, BoundExpression left, BoundExpression right, string name, string sign, bool inverted = false)
         {
-            var leftName = EmitAssignmentToTemp("lTemp", left, emittion);
-            var rightName = EmitAssignmentToTemp("rTemp", right, emittion);
+            var current = _currentTemp++;
+            var leftName = EmitAssignmentToTemp("lTemp", left, emittion, current);
+            var rightName = EmitAssignmentToTemp("rTemp", right, emittion, current);
 
             var initialValue = inverted ? 1 : 0;
             var successValue = inverted ? 0 : 1;
@@ -541,18 +548,21 @@ namespace Blaze.Emit
             emittion.AppendLine(command2);
             emittion.AppendLine(cleanup1);
             emittion.AppendLine(cleanup2);
+            _currentTemp--;
         }
 
         private void EmitIntBinaryOperation(VariableSymbol variable, FunctionEmittion emittion, BoundExpression left, BoundExpression right, string operation)
         {
             var leftName = EmitAssignmentExpression(variable, left, emittion);
-            var rightName = EmitAssignmentToTemp("rTemp", right, emittion);
+            var index = _currentTemp++;
+            var rightName = EmitAssignmentToTemp("rTemp", right, emittion, index);
 
             var command = $"scoreboard players operation {leftName} vars {operation} {rightName} vars";
             var cleanUpCommand = $"scoreboard players reset {rightName} vars";
 
             emittion.AppendLine(command);
             emittion.AppendLine(cleanUpCommand);
+            _currentTemp--;
         }
 
         private void EmitCallExpressionAssignment(string name, BoundCallExpression call, FunctionEmittion emittion)
@@ -564,6 +574,10 @@ namespace Blaze.Emit
             //2. BOOL: execute store result <*name> vars run function ...
             //3. STRING: data modify storage strings <*name> set from storage strings <*return>
 
+            //TODO: Add parameter emittion for int and bool
+
+            emittion.AppendComment($"Assigning return value of {call.Function.Name} to \"{name}\"");
+
             if (call.Function.ReturnType == TypeSymbol.Int || call.Function.ReturnType == TypeSymbol.Bool)
             {
                 var command = $"execute store result score {name} vars run function ns:{call.Function.Name}";
@@ -571,9 +585,8 @@ namespace Blaze.Emit
             }
             else
             {
-                var command1 = $"function ns:{call.Function.Name}";
+                EmitCallExpression(call, emittion);
                 var command2 = $"data modify storage strings {name} set from storage strings {RETURN_TEMP_NAME}";
-                emittion.AppendLine(command1);
                 emittion.AppendLine(command2);
             }
         }
@@ -584,6 +597,7 @@ namespace Blaze.Emit
             //to string -> copy to storage, than copy with data modify ... string
             //to object -> data modify storage
 
+            emittion.AppendComment($"Assigning a conversion from {conv.Expression.Type} to {conv.Type} to variable \"{name}\"");
             var resultType = conv.Type;
             var sourceType = conv.Expression.Type;
             var tempName = EmitAssignmentToTemp(conv.Expression, emittion);
@@ -619,9 +633,9 @@ namespace Blaze.Emit
             }
         }
 
-        private string EmitAssignmentToTemp(string tempName, BoundExpression expression, FunctionEmittion emittion, bool addDot = true)
+        private string EmitAssignmentToTemp(string tempName, BoundExpression expression, FunctionEmittion emittion, int index = 0, bool addDot = true)
         {
-            var varName = (addDot ? "." : string.Empty) + tempName;
+            var varName = $"{(addDot ? "." : string.Empty)}{tempName}{index}";
             var temp = new LocalVariableSymbol(varName, expression.Type, null);
             var resultName = EmitAssignmentExpression(temp, expression, emittion);
             return resultName;

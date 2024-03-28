@@ -51,9 +51,7 @@ namespace Blaze.Emit
                 Directory.CreateDirectory(functionsDirectory);
 
                 foreach (var function in _functions)
-                {
                     BuildFunction(functionsDirectory, function);
-                }
             }
 
             //4. Copy the result pack to all of the output paths
@@ -80,7 +78,17 @@ namespace Blaze.Emit
         {
             var functionFile = Path.Combine(functionsDirectory, function.Name + ".mcfunction");
             using (var streamWriter = new StreamWriter(functionFile))
+            {
                 streamWriter.Write(function.Body);
+                if (!string.IsNullOrEmpty(function.CleanUp))
+                {
+                    streamWriter.WriteLine();
+                    streamWriter.WriteLine("#Clean up commands");
+                    streamWriter.Write(function.CleanUp);
+                }
+            }
+
+                
 
             foreach (var child in function.Children)
                 BuildFunction(functionsDirectory, child);

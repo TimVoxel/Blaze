@@ -7,13 +7,15 @@
         private int _elseCount;
 
         public string Name { get; }
-        public string Body { get; set; }
+        public string Body { get; private set; }
+        public string CleanUp { get; private set; }
         public List<FunctionEmittion> Children { get; }
 
         public FunctionEmittion(string name)
         {
             Name = name;
             Body = string.Empty;
+            CleanUp = string.Empty;
             Children = new List<FunctionEmittion>();
             _loopCount = 0;
             _ifCount = 0;
@@ -25,15 +27,19 @@
             Body += line + Environment.NewLine;
         }
 
-        public void AppendLine()
+        public void AppendLine() => Body += Environment.NewLine;
+        public void AppendComment(string text) => AppendLine($"#{text}");
+
+        public void AppendCleanUp(string line)
         {
-            Body += Environment.NewLine;
+            if (!CleanUp.Contains(line))
+                CleanUp += line + Environment.NewLine;
         }
 
         public string GetFreeSubIfName()
         {
             _ifCount++;
-            return $"{Name}_sif{_ifCount}";
+            return $"{Name}_sif{_ifCount}"; 
         }
 
         public string GetFreeSubElseName()
