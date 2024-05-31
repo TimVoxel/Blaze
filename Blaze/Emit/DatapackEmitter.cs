@@ -357,8 +357,11 @@ namespace Blaze.Emit
             }
             else
             {
-                var command = $"scoreboard players operation {varName} vars = {other} vars";
-                emittion.AppendLine(command);
+                if (varName != other)
+                {
+                    var command = $"scoreboard players operation {varName} vars = {other} vars";
+                    emittion.AppendLine(command);
+                }
             }
         }
 
@@ -501,7 +504,7 @@ namespace Blaze.Emit
                     }
                     else
                     {
-                        EmitComparisonBinaryOperation(emittion, left, right, name, "=", current);
+                        EmitComparisonBinaryOperation(emittion, left, right, name, operatorKind, current);
                     }
                     break;
                 case BoundBinaryOperatorKind.NotEquals:
@@ -517,44 +520,82 @@ namespace Blaze.Emit
                     }
                     else
                     {
-                        EmitComparisonBinaryOperation(emittion, left, right, name, "=", current, true);
+                        EmitComparisonBinaryOperation(emittion, left, right, name, operatorKind, current);
                     }
                     break;
                 case BoundBinaryOperatorKind.Less:
-                    EmitComparisonBinaryOperation(emittion, left, right, name, "<", current);
-                    break;
                 case BoundBinaryOperatorKind.LessOrEquals:
-                    EmitComparisonBinaryOperation(emittion, left, right, name, "<=", current);
-                    break;
                 case BoundBinaryOperatorKind.Greater:
-                    EmitComparisonBinaryOperation(emittion, left, right, name, ">", current);
-                    break;
                 case BoundBinaryOperatorKind.GreaterOrEquals:
-                    EmitComparisonBinaryOperation(emittion, left, right, name, ">=", current);
+                    EmitComparisonBinaryOperation(emittion, left, right, name, operatorKind, current);
                     break;
             }
             emittion.AppendLine();
         }
 
-        private void EmitComparisonBinaryOperation(FunctionEmittion emittion, BoundExpression left, BoundExpression right, string name, string sign, int index, bool inverted = false)
+        private void EmitComparisonBinaryOperation(FunctionEmittion emittion, BoundExpression left, BoundExpression right, string name, BoundBinaryOperatorKind operation, int index)
         {
             var leftName = EmitAssignmentToTemp("lTemp", left, emittion, index + 1);
-            var rightName = EmitAssignmentToTemp("rTemp", right, emittion, index + 1);
 
-            var initialValue = inverted ? 1 : 0;
-            var successValue = inverted ? 0 : 1;
+            var initialValue = operation == BoundBinaryOperatorKind.NotEquals ? 1 : 0;
+            var successValue = operation == BoundBinaryOperatorKind.NotEquals ? 0 : 1;
 
             var command1 = $"scoreboard players set {name} vars {initialValue}";
-            var command2 = $"execute if score {leftName} vars {sign} {rightName} vars run scoreboard players set {name} vars {successValue}";
+            var command2 = string.Empty;
+
+            if (right is BoundLiteralExpression l)
+            {
+                int value = (int)l.Value;
+                var comparason = "matches" + operation switch
+                {
+                    BoundBinaryOperatorKind.Less => ".." + (value - 1).ToString(),
+                    BoundBinaryOperatorKind.LessOrEquals => ".." + value,
+                    BoundBinaryOperatorKind.Greater => (value + 1).ToString() + "..",
+                    BoundBinaryOperatorKind.GreaterOrEquals => value + "..",
+                    _ => value
+                };
+                command2 = $"execute unless score {leftName} vars {comparason} run scoreboard players set {name} vars {successValue}";
+            }
+            else
+            {
+                var rightName = EmitAssignmentToTemp("rTemp", right, emittion, index + 1);
+                var operationSign = operation switch
+                {
+                    BoundBinaryOperatorKind.Less => "<",
+                    BoundBinaryOperatorKind.LessOrEquals => "<=",
+                    BoundBinaryOperatorKind.Greater => ">",
+                    BoundBinaryOperatorKind.GreaterOrEquals => ">=",
+                    _ => "="
+                };
+                command2 = $"execute if score {leftName} vars {operationSign} {rightName} vars run scoreboard players set {name} vars {successValue}";
+                EmitCleanUp(rightName, right.Type, emittion);
+            }
+
             emittion.AppendLine(command1);
             emittion.AppendLine(command2);
             EmitCleanUp(leftName, left.Type, emittion);
-            EmitCleanUp(rightName, right.Type, emittion);
+            
         }
 
         private void EmitIntBinaryOperation(VariableSymbol variable, FunctionEmittion emittion, BoundExpression left, BoundExpression right, BoundBinaryOperatorKind operation, int index)
         {
             var leftName = EmitAssignmentExpression(variable, left, emittion, index);
+
+            if (right is BoundLiteralExpression l)
+            {
+                if (operation == BoundBinaryOperatorKind.Addition)
+                {
+                    var command1 = $"scoreboard players add {leftName} vars {l.Value}";
+                    emittion.AppendLine(command1);
+                    return;
+                }
+                else if (operation == BoundBinaryOperatorKind.Subtraction)
+                {
+                    var command1 = $"scoreboard players remove {leftName} vars {l.Value}";
+                    emittion.AppendLine(command1);
+                    return;
+                }
+            }
             var rightName = EmitAssignmentToTemp("rTemp", right, emittion, index + 1);
 
             var operationSign = operation switch
