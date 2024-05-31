@@ -202,20 +202,23 @@ namespace Blaze.Emit
             //Assign the return value to <return.value>
             //If the return value is an integer or a bool, return it
 
-            var returnExpression = node.Expression;
-            if (returnExpression == null)
+            void EmitCleanUp()
             {
                 emittion.AppendComment("Clean up before break");
                 emittion.Append(emittion.CleanUp);
                 emittion.AppendLine();
+            }
+
+            var returnExpression = node.Expression;
+            if (returnExpression == null)
+            {
+                EmitCleanUp();
                 emittion.AppendLine("return 0");
                 return;
             }
 
             var returnName = EmitAssignmentToTemp(RETURN_TEMP_NAME, returnExpression, emittion, 0, false);
-            emittion.AppendComment("Clean up before break");
-            emittion.Append(emittion.CleanUp);
-            emittion.AppendLine();
+            EmitCleanUp();
 
             if (returnExpression.Type == TypeSymbol.Int || returnExpression.Type == TypeSymbol.Bool)
             {
@@ -440,7 +443,7 @@ namespace Blaze.Emit
 
                     if (left.Type == TypeSymbol.Int)
                     {
-                        EmitIntBinaryOperation(variable, emittion, left, right, "+=", current);
+                        EmitIntBinaryOperation(variable, emittion, left, right, operatorKind, current);
                     }
                     else
                     {
@@ -448,13 +451,9 @@ namespace Blaze.Emit
                     }
                     break;
                 case BoundBinaryOperatorKind.Subtraction:
-                    EmitIntBinaryOperation(variable, emittion, left, right, "-=", current);
-                    break;
                 case BoundBinaryOperatorKind.Multiplication:
-                    EmitIntBinaryOperation(variable, emittion, left, right, "*=", current);
-                    break;
                 case BoundBinaryOperatorKind.Division:
-                    EmitIntBinaryOperation(variable, emittion, left, right, "/=", current);
+                    EmitIntBinaryOperation(variable, emittion, left, right, operatorKind, current);
                     break;
                 case BoundBinaryOperatorKind.LogicalMultiplication:
                     {
@@ -553,12 +552,20 @@ namespace Blaze.Emit
             EmitCleanUp(rightName, right.Type, emittion);
         }
 
-        private void EmitIntBinaryOperation(VariableSymbol variable, FunctionEmittion emittion, BoundExpression left, BoundExpression right, string operation, int index)
+        private void EmitIntBinaryOperation(VariableSymbol variable, FunctionEmittion emittion, BoundExpression left, BoundExpression right, BoundBinaryOperatorKind operation, int index)
         {
             var leftName = EmitAssignmentExpression(variable, left, emittion, index);
             var rightName = EmitAssignmentToTemp("rTemp", right, emittion, index + 1);
 
-            var command = $"scoreboard players operation {leftName} vars {operation} {rightName} vars";
+            var operationSign = operation switch
+            {
+                BoundBinaryOperatorKind.Addition => "+=",
+                BoundBinaryOperatorKind.Subtraction => "-=",
+                BoundBinaryOperatorKind.Multiplication => "*=",
+                BoundBinaryOperatorKind.Division => "/=",
+                _ => "="
+            };
+            var command = $"scoreboard players operation {leftName} vars {operationSign} {rightName} vars";
             emittion.AppendLine(command);
             EmitCleanUp(rightName, left.Type, emittion);
         }

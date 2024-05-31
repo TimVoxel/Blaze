@@ -12,7 +12,7 @@ namespace Blaze
             var projectPath = "";
             var options = new OptionSet
             {
-                "usage: BlazeCompiler <project-yml-path>",
+                "usage: BlazeCompiler <project-json-path>",
                 { "?|h|help", v => helpRequested = true },
                 { "<>", v => projectPath = v },
             };
