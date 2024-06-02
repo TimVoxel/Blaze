@@ -128,7 +128,6 @@ namespace Blaze.Emit
                 emittion.AppendLine(elseCallClauseCommand);          
                 emittion.Children.Add(elseSubFunction);
             }
-
             EmitCleanUp(tempName, TypeSymbol.Bool, emittion);
         }
 
@@ -535,14 +534,22 @@ namespace Blaze.Emit
 
         private void EmitComparisonBinaryOperation(FunctionEmittion emittion, BoundExpression left, BoundExpression right, string name, BoundBinaryOperatorKind operation, int index)
         {
-            var leftName = EmitAssignmentToTemp("lTemp", left, emittion, index + 1);
-
+            var leftName = string.Empty;
+            if (left is BoundVariableExpression v)
+            {
+                leftName = $"*{v.Variable.Name}";
+            }
+            else
+            {
+                leftName = EmitAssignmentToTemp("lTemp", left, emittion, index + 1);
+                EmitCleanUp(leftName, left.Type, emittion);
+            }
+                
             var initialValue = operation == BoundBinaryOperatorKind.NotEquals ? 1 : 0;
             var successValue = operation == BoundBinaryOperatorKind.NotEquals ? 0 : 1;
 
             var command1 = $"scoreboard players set {name} vars {initialValue}";
             var command2 = string.Empty;
-
             if (right is BoundLiteralExpression l)
             {
                 int value = (int)l.Value;
@@ -558,7 +565,16 @@ namespace Blaze.Emit
             }
             else
             {
-                var rightName = EmitAssignmentToTemp("rTemp", right, emittion, index + 1);
+                var rightName = string.Empty;
+                if (right is BoundVariableExpression vr)
+                {
+                    rightName = $"*{vr.Variable.Name}";
+                }
+                else
+                {
+                    EmitAssignmentToTemp("rTemp", right, emittion, index + 1);
+                    EmitCleanUp(rightName, right.Type, emittion);
+                }
                 var operationSign = operation switch
                 {
                     BoundBinaryOperatorKind.Less => "<",
@@ -568,18 +584,17 @@ namespace Blaze.Emit
                     _ => "="
                 };
                 command2 = $"execute if score {leftName} vars {operationSign} {rightName} vars run scoreboard players set {name} vars {successValue}";
-                EmitCleanUp(rightName, right.Type, emittion);
             }
 
             emittion.AppendLine(command1);
             emittion.AppendLine(command2);
-            EmitCleanUp(leftName, left.Type, emittion);
-            
+             
         }
 
         private void EmitIntBinaryOperation(VariableSymbol variable, FunctionEmittion emittion, BoundExpression left, BoundExpression right, BoundBinaryOperatorKind operation, int index)
         {
             var leftName = EmitAssignmentExpression(variable, left, emittion, index);
+            var rightName = string.Empty;
 
             if (right is BoundLiteralExpression l)
             {
@@ -596,7 +611,15 @@ namespace Blaze.Emit
                     return;
                 }
             }
-            var rightName = EmitAssignmentToTemp("rTemp", right, emittion, index + 1);
+            else if (right is BoundVariableExpression v)
+            {
+                rightName = $"*{v.Variable.Name}";
+            }
+            else
+            {
+                rightName = EmitAssignmentToTemp("rTemp", right, emittion, index + 1);
+                EmitCleanUp(rightName, left.Type, emittion);
+            }
 
             var operationSign = operation switch
             {
@@ -608,7 +631,6 @@ namespace Blaze.Emit
             };
             var command = $"scoreboard players operation {leftName} vars {operationSign} {rightName} vars";
             emittion.AppendLine(command);
-            EmitCleanUp(rightName, left.Type, emittion);
         }
 
         private void EmitCallExpressionAssignment(string name, BoundCallExpression call, FunctionEmittion emittion)
