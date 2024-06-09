@@ -7,5 +7,6 @@
         Type,
         Function,
         Parameter,
+        Namespace
     }
 }

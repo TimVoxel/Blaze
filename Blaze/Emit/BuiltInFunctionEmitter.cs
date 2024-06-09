@@ -9,6 +9,8 @@ namespace Blaze.Emit
     {
         public static bool TryEmitBuiltInFunction(BoundCallExpression call, FunctionEmittion emittion)
         {
+            return false;
+            /*
             if (call.Function == BuiltInFunction.RunCommand)
             {
                 var costant = call.Arguments[0].ConstantValue;
@@ -32,6 +34,7 @@ namespace Blaze.Emit
                 return true;
             }
             return false;
+            */
         }
     }
 }

@@ -25,11 +25,8 @@ namespace Blaze
         }
 
         public ImmutableArray<SyntaxTree> SyntaxTrees { get; private set; }
-        public ImmutableArray<FunctionSymbol> Functions => GlobalScope.Functions;
-        public ImmutableArray<VariableSymbol> Variables => GlobalScope.Variables;
-        public FunctionSymbol? MainFunction => GlobalScope.MainFunction;
         public CompilationConfiguration? Configuration { get; }
-
+        
         private Compilation(CompilationConfiguration? configuration, params SyntaxTree[] trees)
         {
             SyntaxTrees = trees.ToImmutableArray();
@@ -39,15 +36,31 @@ namespace Blaze
         public static Compilation Create(CompilationConfiguration configuration, params SyntaxTree[] syntaxTrees) => new Compilation(configuration, syntaxTrees);
         public static Compilation CreateScript(params SyntaxTree[] syntaxTrees) => new Compilation(null, syntaxTrees);
 
-
         public IEnumerable<Symbol> GetSymbols()
         {
-            foreach (FunctionSymbol function in Functions)
-                yield return function;
-
-            foreach (VariableSymbol variable in Variables)
-                yield return variable;
+            foreach (var ns in GlobalScope.Namespaces)
+                foreach (var symbol in GetSymbolsInNamespace(ns))
+                    yield return symbol;
         }
+
+        private IEnumerable<Symbol> GetSymbolsInNamespace(NamespaceSymbol ns)
+        {
+            yield return ns;
+
+            if (ns.Scope != null)
+            {
+                foreach (var function in ns.Scope.GetDeclaredFunctions())
+                    yield return function;
+
+                foreach (var variable in ns.Scope.GetDeclaredVariables())
+                    yield return variable;
+            }
+
+            foreach (var child in ns.Children)
+                foreach (var symbol in GetSymbolsInNamespace(child))
+                    yield return symbol;
+        }
+
 
         private BoundProgram GetProgram() => Binder.BindProgram(GlobalScope);
  
@@ -71,22 +84,31 @@ namespace Blaze
             return new EvaluationResult(ImmutableArray<Diagnostic>.Empty, value);
         }
 
+
         public void EmitTree(TextWriter writer)
         {
-            if (GlobalScope.MainFunction != null)
-                EmitTree(GlobalScope.MainFunction, writer);
+            var program = GetProgram();
+
+            foreach (var ns in program.Namespaces.Values)
+            {
+                ns.WriteTo(writer);
+            }
         }
 
         public void EmitTree(FunctionSymbol function, TextWriter writer)
         {
             var program = GetProgram();
 
-            if (!program.Functions.TryGetValue(function, out BoundStatement? body))
-                return;
+            foreach (var ns in program.Namespaces.Values)
+            {
+                if (ns.Functions.TryGetValue(function, out var body))
+                    return;
 
-            function.WriteTo(Console.Out);
-            Console.WriteLine();
-            body.WriteTo(Console.Out);
+                function.WriteTo(writer);
+                writer.WriteLine();
+                if (body != null)
+                    body.WriteTo(writer);
+            }
         }
 
         public ImmutableArray<Diagnostic> Emit()
@@ -97,8 +119,9 @@ namespace Blaze
 
         private void EmitControlFlowGraph(BoundProgram program)
         {
-            var loweredBody = Lowerer.DeepLower(program.Functions.Last().Value);
-            var controlFlowGraphStatement = loweredBody.Statements.Any() && program.Functions.Any()
+            var targetNamespace = program.Namespaces.Values.First();
+            var loweredBody = Lowerer.DeepLower(targetNamespace.Functions.Last().Value);
+            var controlFlowGraphStatement = loweredBody.Statements.Any() && targetNamespace.Functions.Any()
                 ? loweredBody
                 : null;
 

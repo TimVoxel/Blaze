@@ -1,5 +1,6 @@
 ﻿using System.Collections;
 using Blaze.Symbols;
+using Blaze.Syntax_Nodes;
 using Blaze.Text;
 
 namespace Blaze.Diagnostics
@@ -185,6 +186,23 @@ namespace Blaze.Diagnostics
         public void ReportReturnWithExpressionInGlobalStatement(TextLocation location)
         {
             string message = "Return can not be followed by an expression in global statements";
+            Report(location, message);
+        }
+
+        public void ReportNamespaceAlreadyDeclared(TextLocation location, string name)
+        {
+            string message = $"Namespace \"{name}\" is already declared ";
+            Report(location, message);
+        }
+
+        public void ReportUpperCaseInFunctionName(TextLocation location, string name)
+        {
+            string message = $"Function name \"{name}\" contains upper case letters, which are illegal in function names";
+            Report(location, message);
+        }
+        public void ReportUpperCaseInNamespaceName(TextLocation location, string name)
+        {
+            string message = $"Namespace name \"{name}\" contains upper case letters, which are illegal in namespace names";
             Report(location, message);
         }
     }

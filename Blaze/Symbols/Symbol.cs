@@ -4,7 +4,7 @@ namespace Blaze.Symbols
 {
     public abstract class Symbol
     {
-        public string Name { get; private set; }
+        public string Name { get; }
 
         public abstract SymbolKind Kind { get; }
 

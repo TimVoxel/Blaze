@@ -78,9 +78,33 @@ namespace Blaze.Binding
                 case BoundNodeKind.ReturnStatement:
                     WriteReturnStatement((BoundReturnStatement)node, writer);
                     break;
+                case BoundNodeKind.Namespace:
+                    WriteNamespace((BoundNamespace)node, writer);
+                    break;
                 default:
                     throw new Exception($"Unexpected node kind {node.Kind}");
             }
+        }
+
+        private static void WriteNamespace(BoundNamespace node, IndentedTextWriter writer)
+        {
+            node.Namespace.WriteTo(writer);
+            writer.WriteLine();
+            writer.WritePunctuation("{");
+            writer.WriteLine();
+
+            writer.Indent++;
+
+            foreach (var function in node.Functions)
+            {
+                function.Key.WriteTo(writer);
+                writer.WriteLine();
+                function.Value.WriteTo(writer);
+            }
+            writer.Indent--;
+            writer.WriteLine();
+            writer.WritePunctuation("}");
+            writer.WriteLine();
         }
 
         private static void WriteNopStatement(BoundNopStatement node, IndentedTextWriter writer)

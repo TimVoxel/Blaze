@@ -1,7 +1,6 @@
 ﻿using Blaze;
 using Blaze.Symbols;
 using Blaze.IO;
-using Blaze.Syntax_Nodes;
 using Blaze.Classification;
 
 namespace ReplExperience
@@ -30,16 +29,21 @@ namespace ReplExperience
 
         protected override bool IsCompleteSubmission(string text)
         {
+            //This used to be viable but no longer works
+            //In case you want to have multiple namespaces
+
+            /*
             if (string.IsNullOrEmpty(text))
                 return false;
 
             SyntaxTree syntaxTree = SyntaxTree.Parse(text);
 
-            MemberSyntax? lastMember = syntaxTree.Root.Members.LastOrDefault();
+            MemberSyntax? lastMember = syntaxTree.Root.Namespaces.LastOrDefault();
             if (lastMember == null) 
                 return false;
 
-            return !lastMember.GetLastToken().IsMissingText;
+            return !lastMember.GetLastToken().IsMissingText;*/
+            return false;
         }
 
         protected override object? RenderLine(IReadOnlyList<string> lines, int lineIndex, object? state)

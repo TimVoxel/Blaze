@@ -7,12 +7,12 @@ namespace Blaze.Emit
     {
         private readonly CompilationConfiguration _configuration;
 
-        private readonly ImmutableArray<FunctionEmittion> _functions;
+        private readonly ImmutableArray<FunctionNamespaceEmittion> _namespaces;
 
-        public Datapack(CompilationConfiguration configuration, ImmutableArray<FunctionEmittion> functionEmittions)
+        public Datapack(CompilationConfiguration configuration, ImmutableArray<FunctionNamespaceEmittion> namespaceEmittions)
         {
             _configuration = configuration;
-            _functions = functionEmittions;
+            _namespaces = namespaceEmittions;
         }
 
         public void Build()
@@ -31,7 +31,6 @@ namespace Blaze.Emit
 
             Directory.CreateDirectory(packDirectory);
 
-
             //2. Create pack.mcmeta
             var packMcMetaPath = Path.Combine(packDirectory, "pack.mcmeta");
             using (var streamWriter = new StreamWriter(packMcMetaPath))
@@ -40,18 +39,17 @@ namespace Blaze.Emit
             var dataDirectory = Path.Combine(packDirectory, "data");
             Directory.CreateDirectory(dataDirectory);
 
-
-            //3. Generate all functions
-            //TODO: Add namespaces
-
-            if (_functions.Any())
+            //3. Generate namespaces all functions
+            if (_namespaces.Any())
             {
-                var namespaceDirectory = Path.Combine(dataDirectory, "ns");
-                var functionsDirectory = Path.Combine(namespaceDirectory, "functions");
+                var rootNamespaceDirectory = Path.Combine(dataDirectory, _configuration.RootNamespace);
+                Directory.CreateDirectory(rootNamespaceDirectory);
+
+                var functionsDirectory = Path.Combine(rootNamespaceDirectory, "functions");
                 Directory.CreateDirectory(functionsDirectory);
 
-                foreach (var function in _functions)
-                    BuildFunction(functionsDirectory, function);
+                foreach (var namespaceEmittion in _namespaces)
+                    BuildFunctionNamespace(functionsDirectory, namespaceEmittion);
             }
 
             //4. Copy the result pack to all of the output paths
@@ -73,10 +71,24 @@ namespace Blaze.Emit
             }
         }
 
-
-        private void BuildFunction(string functionsDirectory, FunctionEmittion emittion)
+        private void BuildFunctionNamespace(string parentDirectory, FunctionNamespaceEmittion namespaceEmittion)
         {
-            var functionFile = Path.Combine(functionsDirectory, emittion.Name + ".mcfunction");
+            //1. Generate sub directory of the namespace inside the needed directory
+            //2. Generate all functions in the namespace and all child namespaces
+
+            var namespaceDirectory = Path.Combine(parentDirectory, namespaceEmittion.Name);
+            Directory.CreateDirectory(namespaceDirectory);
+
+            foreach (var function in namespaceEmittion.Functions)
+                BuildFunction(namespaceDirectory, function);
+
+            foreach (var child in namespaceEmittion.Children)
+                BuildFunctionNamespace(namespaceDirectory, child);
+        }
+
+        private void BuildFunction(string targetDirectory, FunctionEmittion emittion)
+        {
+            var functionFile = Path.Combine(targetDirectory, emittion.Name + ".mcfunction");
             using (var streamWriter = new StreamWriter(functionFile))
             {
                 streamWriter.Write(emittion.Body);
@@ -88,7 +100,7 @@ namespace Blaze.Emit
             }
 
             foreach (var child in emittion.Children)
-                BuildFunction(functionsDirectory, child);
+                BuildFunction(targetDirectory, child);
         }
 
         private void WriteMcMeta(TextWriter textWriter)

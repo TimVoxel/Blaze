@@ -7,14 +7,12 @@ namespace Blaze.Binding
     internal class BoundProgram
     {
         public ImmutableArray<Diagnostic> Diagnostics { get; private set; }
-        public FunctionSymbol? MainFunction { get; private set; }
-        public ImmutableDictionary<FunctionSymbol, BoundStatement> Functions { get; private set; }
-
-        public BoundProgram(ImmutableArray<Diagnostic> diagnostics, FunctionSymbol? mainFunction, ImmutableDictionary<FunctionSymbol, BoundStatement> functions)
+        public ImmutableDictionary<NamespaceSymbol, BoundNamespace> Namespaces { get; private set; }
+        
+        public BoundProgram(ImmutableArray<Diagnostic> diagnostics, ImmutableDictionary<NamespaceSymbol, BoundNamespace> namespaces)
         {
             Diagnostics = diagnostics;
-            MainFunction = mainFunction;
-            Functions = functions;
+            Namespaces = namespaces;
         }
     }
 }

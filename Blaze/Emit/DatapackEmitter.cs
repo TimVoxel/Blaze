@@ -13,6 +13,8 @@ namespace Blaze.Emit
         private readonly BoundProgram _program;
         private readonly CompilationConfiguration _configuration;
 
+        private string RootNamespace => _configuration.RootNamespace;
+
         public DatapackEmitter(BoundProgram program, CompilationConfiguration configuration)
         {
             _program = program;
@@ -32,20 +34,56 @@ namespace Blaze.Emit
 
         private void BuildPacks()
         {
-            var emittionsBuilder = ImmutableArray.CreateBuilder<FunctionEmittion>();
-            foreach (var function in _program.Functions)
+            var functionNamespaceEmittionBuilder = ImmutableArray.CreateBuilder<FunctionNamespaceEmittion>();
+            
+            foreach (var ns in _program.Namespaces)
             {
+                var namespaceSymbol = ns.Key;
+                var boundNamespace = ns.Value;
+
+                var namespaceEmittion = EmitFunctionNamespace(namespaceSymbol, boundNamespace);
+                functionNamespaceEmittionBuilder.Add(namespaceEmittion);
+            }
+            
+            var datapack = new Datapack(_configuration, functionNamespaceEmittionBuilder.ToImmutable());
+            datapack.Build();
+        }
+
+        private string GetCallLink(FunctionEmittion emittion)
+        {
+            return $"{RootNamespace}:{emittion.CallName}";
+        }
+
+        private string GetCallLink(FunctionSymbol symbol)
+        {
+            return $"{RootNamespace}:{symbol.AddressName}";
+        }
+
+        private FunctionNamespaceEmittion EmitFunctionNamespace(NamespaceSymbol symbol, BoundNamespace boundNamespace)
+        {
+            var functionsBuilder = ImmutableArray.CreateBuilder<FunctionEmittion>();
+            var childrenBuilder = ImmutableArray.CreateBuilder<FunctionNamespaceEmittion>();
+
+            foreach (var function in boundNamespace.Functions)
+            {
+                //TODO: Pass the namespace in the function emittion
                 var functionEmittion = EmitFunction(function.Key, function.Value);
-                emittionsBuilder.Add(functionEmittion);
+                functionsBuilder.Add(functionEmittion);
             }
 
-            var datapack = new Datapack(_configuration, emittionsBuilder.ToImmutable());
-            datapack.Build();
+            foreach (var child in boundNamespace.Children)
+            {
+                var childEmittion = EmitFunctionNamespace(child.Key, child.Value);
+                childrenBuilder.Add(childEmittion);
+            }
+
+            var namespaceEmittion = new FunctionNamespaceEmittion(symbol.Name, childrenBuilder.ToImmutable(), functionsBuilder.ToImmutable());
+            return namespaceEmittion;
         }
 
         private FunctionEmittion EmitFunction(FunctionSymbol function, BoundStatement bodyBlock)
         {
-            var emittion = new FunctionEmittion(function.Name);
+            var emittion = FunctionEmittion.FromSymbol(function);
             EmitStatement(bodyBlock, emittion);
             return emittion;
         }
@@ -108,25 +146,21 @@ namespace Blaze.Emit
             //else generate a sub function and run it instead
             //if there is an else clause generate another sub with the else body
 
-            var subName = emittion.GetFreeSubIfName();
-            var subFunction = new FunctionEmittion(subName);
+            var subFunction = FunctionEmittion.CreateSub(emittion, SubFunctionKind.If);
             EmitStatement(node.Body, subFunction);
 
             var tempName = EmitAssignmentToTemp(node.Condition, emittion, 0);
-            var callClauseCommand = $"execute if score {tempName} vars matches 1 run function ns:{subName}";
+            var callClauseCommand = $"execute if score {tempName} vars matches 1 run function {GetCallLink(subFunction)}";
 
             emittion.AppendLine(callClauseCommand);
-            emittion.Children.Add(subFunction);
 
             if (node.ElseBody != null)
             {
-                var elseName = emittion.GetFreeSubElseName();
-                var elseSubFunction = new FunctionEmittion(elseName);
+                var elseSubFunction = FunctionEmittion.CreateSub(emittion, SubFunctionKind.Else);
                 EmitStatement(node.ElseBody, elseSubFunction);
-                var elseCallClauseCommand = $"execute if score {tempName} vars matches 0 run function ns:{elseName}";
+                var elseCallClauseCommand = $"execute if score {tempName} vars matches 0 run function {GetCallLink(elseSubFunction)}";
 
-                emittion.AppendLine(elseCallClauseCommand);          
-                emittion.Children.Add(elseSubFunction);
+                emittion.AppendLine(elseCallClauseCommand);
             }
             EmitCleanUp(tempName, TypeSymbol.Bool, emittion);
         }
@@ -141,9 +175,8 @@ namespace Blaze.Emit
             //execute if <.temp> run return 0
             //body
 
-            var subName = emittion.GetFreeSubLoopName();
-            var subFunction = new FunctionEmittion(subName);
-            var callCommand = $"function ns:{subName}";
+            var subFunction = FunctionEmittion.CreateSub(emittion, SubFunctionKind.Loop);
+            var callCommand = $"function {GetCallLink(subFunction)}";
 
             var tempName = EmitAssignmentToTemp(node.Condition, subFunction, 0);
             var breakClauseCommand = $"execute if score {tempName} vars matches 0 run return 0";
@@ -156,7 +189,6 @@ namespace Blaze.Emit
             
             emittion.AppendLine(callCommand);
             EmitCleanUp(tempName, TypeSymbol.Bool, emittion);
-            emittion.Children.Add(subFunction);
         }
 
         private void EvaluateDoWhileStatement(BoundDoWhileStatement node, FunctionEmittion emittion)
@@ -169,9 +201,8 @@ namespace Blaze.Emit
             //Emit condition into <.temp>
             //execute if <.temp> run function <subfunction>
 
-            var subName = emittion.GetFreeSubLoopName();
-            var subFunction = new FunctionEmittion(subName);
-            var callCommand = $"function ns:{subName}";
+            var subFunction = FunctionEmittion.CreateSub(emittion, SubFunctionKind.Loop);
+            var callCommand = $"function {GetCallLink(subFunction)}";
 
             EmitStatement(node.Body, subFunction);
 
@@ -182,7 +213,6 @@ namespace Blaze.Emit
 
             emittion.AppendLine(callCommand);
             EmitCleanUp(tempName, TypeSymbol.Bool, emittion);
-            emittion.Children.Add(subFunction);
         }
 
         private void EmitContinueStatement(BoundContinueStatement node, FunctionEmittion emittion)
@@ -262,8 +292,7 @@ namespace Blaze.Emit
             if (!isBuiltIt)
             {
                 var setNames = EmitFunctionParametersAssignment(call, emittion);
-                var functionName = call.Function.Name;
-                var command = $"function ns:{functionName}";
+                var command = $"function {GetCallLink(call.Function)}";
                 emittion.AppendLine(command);
 
                 EmitFunctionParameterCleanUp(setNames, emittion);
@@ -550,9 +579,9 @@ namespace Blaze.Emit
 
             var command1 = $"scoreboard players set {name} vars {initialValue}";
             var command2 = string.Empty;
-            if (right is BoundLiteralExpression l)
+            if (right is BoundLiteralExpression l && l.Value is int)
             {
-                int value = (int)l.Value;
+                int value = (int) l.Value;
                 var comparason = "matches" + operation switch
                 {
                     BoundBinaryOperatorKind.Less => ".." + (value - 1).ToString(),
@@ -572,7 +601,7 @@ namespace Blaze.Emit
                 }
                 else
                 {
-                    EmitAssignmentToTemp("rTemp", right, emittion, index + 1);
+                    rightName = EmitAssignmentToTemp("rTemp", right, emittion, index + 1);
                     EmitCleanUp(rightName, right.Type, emittion);
                 }
                 var operationSign = operation switch
@@ -588,7 +617,6 @@ namespace Blaze.Emit
 
             emittion.AppendLine(command1);
             emittion.AppendLine(command2);
-             
         }
 
         private void EmitIntBinaryOperation(VariableSymbol variable, FunctionEmittion emittion, BoundExpression left, BoundExpression right, BoundBinaryOperatorKind operation, int index)
@@ -647,7 +675,7 @@ namespace Blaze.Emit
             if (call.Function.ReturnType == TypeSymbol.Int || call.Function.ReturnType == TypeSymbol.Bool)
             {
                 var setParameters = EmitFunctionParametersAssignment(call, emittion);
-                var command = $"execute store result score {name} vars run function ns:{call.Function.Name}";
+                var command = $"execute store result score {name} vars run function {GetCallLink(call.Function)}";
                 emittion.AppendLine(command);
 
                 EmitFunctionParameterCleanUp(setParameters, emittion);

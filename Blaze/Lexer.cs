@@ -131,7 +131,7 @@ namespace Blaze
                         _position += 2;
                     }
                     else
-                        ConsumeStray();
+                        ConsumeOfKind(SyntaxKind.DotToken);
                     break;
                 case '<':
                     if (Next == '=')

@@ -102,6 +102,7 @@ namespace Blaze
                 "return"    => SyntaxKind.ReturnKeyword,
                 "load"      => SyntaxKind.LoadKeyword,
                 "tick"      => SyntaxKind.TickKeyword,
+                "namespace" => SyntaxKind.NamespaceKeyword,
                 _           => SyntaxKind.IdentifierToken,
             };;
         }
@@ -138,9 +139,11 @@ namespace Blaze
                 SyntaxKind.ReturnKeyword => "return",
                 SyntaxKind.LoadKeyword => "load",
                 SyntaxKind.TickKeyword => "tick",
+                SyntaxKind.NamespaceKeyword => "namespace",
                 SyntaxKind.SemicolonToken => ";",
                 SyntaxKind.ColonToken => ":",
                 SyntaxKind.CommaToken => ",",
+                SyntaxKind.DotToken => ".",
                 SyntaxKind.OpenBraceToken => "{",
                 SyntaxKind.CloseBraceToken => "}",
                 SyntaxKind.PlusToken => "+",

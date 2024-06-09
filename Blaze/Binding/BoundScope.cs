@@ -3,7 +3,7 @@ using Blaze.Symbols;
 
 namespace Blaze.Binding
 {
-    internal sealed class BoundScope
+    public sealed class BoundScope
     {
         private Dictionary<string, VariableSymbol>? _variables;
         private Dictionary<string, FunctionSymbol>? _functions;
@@ -43,8 +43,8 @@ namespace Blaze.Binding
             if (_functions == null)
                 _functions = new Dictionary<string, FunctionSymbol>();
 
-            if (_functions.ContainsKey(function.Name)) return false;
-            _functions.Add(function.Name, function);
+            if (_functions.ContainsKey(function.Name.ToLower())) return false;
+            _functions.Add(function.Name.ToLower(), function);
             return true;
         }
 
@@ -52,11 +52,11 @@ namespace Blaze.Binding
         {
             FunctionSymbol? function = null;
 
-            if (_functions != null && _functions.TryGetValue(name, out function))
+            if (_functions != null && _functions.TryGetValue(name.ToLower(), out function))
                 return function;
 
             if (Parent != null)
-                return Parent.TryLookupFunction(name);
+                return Parent.TryLookupFunction(name.ToLower());
 
             return function;
         }

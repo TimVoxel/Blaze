@@ -6,19 +6,13 @@ namespace Blaze.Binding
 {
     internal sealed class BoundGlobalScope
     {
-        public ImmutableArray<Diagnostic> Diagnostics { get; private set; }
-        public FunctionSymbol MainFunction { get; private set; }
-        public ImmutableArray<VariableSymbol> Variables { get; private set; }
-        public ImmutableArray<FunctionSymbol> Functions { get; private set; }
-        public ImmutableArray<BoundStatement> Statements { get; private set; }
+        public ImmutableArray<Diagnostic> Diagnostics { get; }
+        public ImmutableArray<NamespaceSymbol> Namespaces { get; }
 
-        public BoundGlobalScope(ImmutableArray<Diagnostic> diagnostics, FunctionSymbol mainFunction, ImmutableArray<VariableSymbol> variables, ImmutableArray<FunctionSymbol> functions, ImmutableArray<BoundStatement> statements)
+        public BoundGlobalScope(ImmutableArray<Diagnostic> diagnostics, ImmutableArray<NamespaceSymbol> namespaces)
         {
             Diagnostics = diagnostics;
-            MainFunction = mainFunction;
-            Variables = variables;
-            Functions = functions;
-            Statements = statements;
+            Namespaces = namespaces;
         }
     }
 }

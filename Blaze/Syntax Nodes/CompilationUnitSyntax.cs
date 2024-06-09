@@ -5,27 +5,22 @@ namespace Blaze.Syntax_Nodes
 {
     public sealed class CompilationUnitSyntax : SyntaxNode
     {
-        public ImmutableArray<MemberSyntax> Members { get; private set; }
+        public ImmutableArray<NamespaceDeclarationSyntax> Namespaces { get; private set; }
         public SyntaxToken EndOfFileToken { get; private set; }
 
         public override SyntaxKind Kind => SyntaxKind.CompilationUnit;
 
-        internal CompilationUnitSyntax(SyntaxTree tree, ImmutableArray<MemberSyntax> members, SyntaxToken endOfFileToken) : base(tree)
+        internal CompilationUnitSyntax(SyntaxTree tree, ImmutableArray<NamespaceDeclarationSyntax> namespaces, SyntaxToken endOfFileToken) : base(tree)
         {
-            Members = members;
+            Namespaces = namespaces;
             EndOfFileToken = endOfFileToken;
         }
 
         public override IEnumerable<SyntaxNode> GetChildren()
         {
-            foreach (MemberSyntax member in Members)
+            foreach (MemberSyntax member in Namespaces)
                 yield return member;
             yield return EndOfFileToken;
         }
-    }
-
-    public abstract class MemberSyntax : SyntaxNode
-    {
-        public MemberSyntax(SyntaxTree tree) : base(tree) { }
     }
 }

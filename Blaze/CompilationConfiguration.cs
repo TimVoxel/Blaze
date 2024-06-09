@@ -10,21 +10,25 @@ namespace Blaze
         public string? Description { get; }
         public string? Author { get; }
         public int Format { get; }
+        public string RootNamespace { get; }
         //public ImmutableArray<string>? LoadFunctions { get; }
         //public ImmutableArray<string>? TickFunctions { get; }
 
         public ImmutableArray<string> OutputFolders { get; }
 
         [JsonConstructor]
-        public CompilationConfiguration(string name,
-                                        int format,
-                                        ImmutableArray<string> outputFolders,
-                                        string? description = null,
-                                        string? author = null)//,
-                                        //ImmutableArray<string>? loadFunctions = null,
-                                        //ImmutableArray<string>? tickFunctions = null)
+        public CompilationConfiguration(
+            string name,
+            string rootNamespace,
+            int format,
+            ImmutableArray<string> outputFolders,
+            string? description = null,
+            string? author = null)//,
+            //ImmutableArray<string>? loadFunctions = null,
+            //ImmutableArray<string>? tickFunctions = null)
         {
             Name = name;
+            RootNamespace = rootNamespace.ToLower();
             Format = format;
             OutputFolders = outputFolders;
             Description = description;

@@ -2,6 +2,9 @@
 {
     internal enum BoundNodeKind
     {
+        //Misc
+        Namespace,
+
         //Expessions
         ErrorExpression,
         LiteralExpression,

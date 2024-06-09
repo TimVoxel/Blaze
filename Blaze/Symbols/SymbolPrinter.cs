@@ -1,4 +1,6 @@
 ﻿using Blaze.IO;
+using System.Text;
+using System.Windows.Markup;
 
 namespace Blaze.Symbols
 {
@@ -19,9 +21,18 @@ namespace Blaze.Symbols
                 case SymbolKind.Function:
                     WriteFunction((FunctionSymbol)symbol, writer);
                     break;
+                case SymbolKind.Namespace:
+                    WriteNamespace((NamespaceSymbol)symbol, writer);
+                    break;
                 default:
                     throw new Exception($"Unexpected symbol kind {symbol.Kind}");
             }
+        }
+
+        private static void WriteNamespace(NamespaceSymbol symbol, TextWriter writer)
+        {
+            writer.WriteKeyword("namespace ");
+            writer.WriteIdentifier(symbol.GetFullName());
         }
 
         private static void WriteFunction(FunctionSymbol symbol, TextWriter writer)

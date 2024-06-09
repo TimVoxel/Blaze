@@ -21,19 +21,17 @@ namespace Blaze.Miscellaneuos
             _lastValue = 0;
             _locals.Push(new Dictionary<VariableSymbol, object?>());
 
-            foreach (var functionWithBody in program.Functions)
-                _functions.Add(functionWithBody.Key, functionWithBody.Value);
+            foreach (var valuePair in program.Namespaces.First().Value.Functions)
+                _functions.Add(valuePair.Key, valuePair.Value);
         }
 
         public object? Evaluate()
         {
-            FunctionSymbol? function = _program.MainFunction;
-            if (function == null)
-                return null;
+            return null;
 
-            BoundStatement body = _functions[function];
-            EvaluateStatement(body);
-            return _lastValue;
+            //BoundStatement body = _functions[function];
+            //EvaluateStatement(body);
+            //return _lastValue;
         }
 
         private void EvaluateStatement(BoundStatement node)
@@ -85,7 +83,7 @@ namespace Blaze.Miscellaneuos
 
         private void EvaluateIfStatement(BoundIfStatement node)
         {
-            var conditionValue =  EvaluateExpression(node.Condition);
+            var conditionValue = EvaluateExpression(node.Condition);
             Debug.Assert(conditionValue != null);
 
             if ((bool) conditionValue)
@@ -169,6 +167,9 @@ namespace Blaze.Miscellaneuos
 
         private object? EvaluateCallExpression(BoundCallExpression node)
         {
+            return null;
+
+            /*
             if (node.Function == BuiltInFunction.RunCommand)
             {
                 Console.WriteLine("Ran command:\n " + node.Arguments[0]);
@@ -210,6 +211,7 @@ namespace Blaze.Miscellaneuos
                 _locals.Pop();
                 return _lastValue;
             }
+            */
         }
 
         private object EvaluateLiteral(BoundLiteralExpression literal) => literal.Value;

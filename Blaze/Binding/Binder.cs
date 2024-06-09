@@ -5,8 +5,8 @@ using Blaze.Syntax_Nodes;
 using Blaze.SyntaxTokens;
 using Blaze.Text;
 using System.Collections.Immutable;
+using System.Collections.Specialized;
 using System.Diagnostics;
-using System.Runtime.CompilerServices;
 
 namespace Blaze.Binding
 {
@@ -18,6 +18,7 @@ namespace Blaze.Binding
         private Stack<(BoundLabel breakLabel, BoundLabel continueLabel)> _loopStack = new Stack<(BoundLabel breakLabel, BoundLabel continueLabel)>();
         private int _labelCounter = 0;
 
+        private List<NamespaceSymbol> _namespaces = new List<NamespaceSymbol>();
         private BoundScope _scope;
 
         public DiagnosticBag Diagnostics => _diagnostics;
@@ -37,79 +38,62 @@ namespace Blaze.Binding
             //1. Create a root scope that contains all the built-in functions 
             var parentScope = CreateRootScope();
             var binder = new Binder(parentScope, null);
+            
+            //2. Bind all namespace declarations
+            var namespaceDeclarations = syntaxTrees.SelectMany(st => st.Root.Namespaces)
+                .OrderBy(s => s.IdentifierPath.Count);
 
-            //2. Bind function declarations
-            var functionDeclarations = syntaxTrees.SelectMany(st => st.Root.Members).OfType<FunctionDeclarationSyntax>();
+            foreach (var ns in namespaceDeclarations)
+                binder.BindNamespaceDeclaration(ns);
 
-            foreach (var function in functionDeclarations)
-                binder.BindFunctionDeclaration(function);
+            //3. Create the global scope
+            var diagnostics = ImmutableArray.CreateBuilder<Diagnostic>();
+            diagnostics.AddRange(syntaxTrees.SelectMany(d => d.Diagnostics));
+            diagnostics.AddRange(binder.Diagnostics);
+            
+            var namespaces = binder._namespaces.ToImmutableArray();
 
-            //3. Bind global statements
-            var globalStatements = syntaxTrees.SelectMany(st => st.Root.Members).OfType<GlobalStatementSyntax>();
-            var statements = ImmutableArray.CreateBuilder<BoundStatement>();
-            foreach (var globalStatement in globalStatements)
-            {
-                var boundStatement = binder.BindGlobalStatement(globalStatement.Statement);
-                statements.Add(boundStatement);
-            }
-
-            //4. Bind main function. Check
-            //   if it has the correct signature
-            //   if there is not main function, fabricate it
-            var functions = binder._scope.GetDeclaredFunctions();
-            var mainFunction = functions.SingleOrDefault(f => f.Name == "main");
-
-            if (mainFunction == null)
-            {
-                mainFunction = new FunctionSymbol("main", ImmutableArray<ParameterSymbol>.Empty, TypeSymbol.Void, null);
-            }
-            else
-            {
-                Debug.Assert(mainFunction.Declaration != null);
-                if (mainFunction.ReturnType != TypeSymbol.Void || mainFunction.Parameters.Any())
-                    binder.Diagnostics.ReportMainFunctionMustHaveCorrectSignature(mainFunction.Declaration.Identifier.Location);
-            }
-
-            //5. Create the global scope
-            var diagnostics = binder.Diagnostics.ToImmutableArray();
-            var variables = binder._scope.GetDeclaredVariables();         
-            return new BoundGlobalScope(diagnostics, mainFunction, variables, functions, statements.ToImmutable());
+            return new BoundGlobalScope(diagnostics.ToImmutable(), namespaces);
         }
 
-        private static BoundScope CreateRootScope(BoundGlobalScope? globalScope = null)
+        private static BoundScope CreateRootScope()
         {
             var result = new BoundScope(null);
+
             foreach (var builtInFunction in BuiltInFunction.GetAll())
                 result.TryDeclareFunction(builtInFunction);
-
-            if (globalScope == null)
-                return result;
-
-            foreach (var function in globalScope.Functions)
-                result.TryDeclareFunction(function);
-
-            foreach (var function in globalScope.Variables)
-                result.TryDeclareVariable(function);
 
             return result;
         }
 
         public static BoundProgram BindProgram(BoundGlobalScope globalScope)
         {
-            //1. Create a root scope, which contains the built-in functions as well as 
-            //   functions and variables declared in the global scope
-            var parentScope = CreateRootScope(globalScope);
-
-            //2. Bind every function body and lower it,
-            //   connect it to the declaration
-            var functionBodies = ImmutableDictionary.CreateBuilder<FunctionSymbol, BoundStatement>();
+            var boundNamespaces = ImmutableDictionary.CreateBuilder<NamespaceSymbol, BoundNamespace>();
             var diagnostics = ImmutableArray.CreateBuilder<Diagnostic>();
+            diagnostics.AddRange(globalScope.Diagnostics);
 
-            foreach (var function in globalScope.Functions)
+            //2. Bind every namespace
+
+            foreach (var ns in globalScope.Namespaces)
             {
-                var binder = new Binder(parentScope, function);
+                var boundNamespace = BindNamespace(ns, ref diagnostics);
+                boundNamespaces.Add(ns, boundNamespace);
+            }
+
+            return new BoundProgram(diagnostics.ToImmutable(), boundNamespaces.ToImmutable());
+        }
+
+        private static BoundNamespace BindNamespace(NamespaceSymbol ns, ref ImmutableArray<Diagnostic>.Builder diagnostics)
+        {
+            var functionBodies = ImmutableDictionary.CreateBuilder<FunctionSymbol, BoundStatement>();
+            var childrenBuilder = ImmutableDictionary.CreateBuilder<NamespaceSymbol, BoundNamespace>();
+
+            foreach (var function in ns.Scope.GetDeclaredFunctions())
+            {
                 if (function.Declaration != null)
                 {
+                    var binder = new Binder(ns.Scope, function);
+
                     var body = binder.BindStatement(function.Declaration.Body);
                     var loweredBody = Lowerer.Lower(body);
                     var deepLoweredBody = Lowerer.DeepLower(body);
@@ -124,21 +108,91 @@ namespace Blaze.Binding
                 }
             }
 
-            //3. Bind the main function and connect it to the global statements
-            //   If there are any
-            var mainFunction = globalScope.MainFunction;
-
-            if (mainFunction.Declaration == null && globalScope.Statements.Any())
+            foreach (var child in ns.Children)
             {
-                var body = Lowerer.Lower(new BoundBlockStatement(globalScope.Statements));
-                functionBodies.Add(mainFunction, body);
+                var childBoundNamespace = BindNamespace(child, ref diagnostics);
+                childrenBuilder.Add(child, childBoundNamespace);
             }
 
-            return new BoundProgram(diagnostics.ToImmutable(), mainFunction, functionBodies.ToImmutable());
+            var boundNamespace = new BoundNamespace(ns, childrenBuilder.ToImmutable(), functionBodies.ToImmutable());
+            return boundNamespace;
         }
 
-        private void BindFunctionDeclaration(FunctionDeclarationSyntax declaration)
+        private void BindNamespaceDeclaration(NamespaceDeclarationSyntax ns)
         {
+            var identifierPath = ns.IdentifierPath;
+            var name = identifierPath.First().Text;
+            NamespaceSymbol? currentNamespace = null;
+
+            for (int i = 0; i < identifierPath.Count; i++)
+            {
+                var previous = currentNamespace;
+
+                name = identifierPath[i].Text;
+
+                if (name.ToLower() != name)
+                    _diagnostics.ReportUpperCaseInNamespaceName(identifierPath[i].Location, name);
+
+                if (previous == null)
+                    currentNamespace = _namespaces.FirstOrDefault(n => n.Name == name);
+                else
+                    currentNamespace = previous.Children.FirstOrDefault(n => n.Name == name);
+
+                if (currentNamespace != null)
+                {
+                    //Found the namespace
+                    if (identifierPath.Count == i + 1)
+                    {
+                        _diagnostics.ReportNamespaceAlreadyDeclared(identifierPath.Last().Location, currentNamespace.GetFullName());
+                        break;
+                    }
+                    else
+                    {
+                        _scope = currentNamespace.Scope;
+                    }
+                }
+                else
+                {
+                    //Create missing namespace
+                    _scope = new BoundScope(_scope);
+
+                    var newNamespace = new NamespaceSymbol(name, _scope, previous, ns);
+
+                    if (previous != null)
+                        previous.Children.Add(newNamespace);
+                    else
+                        _namespaces.Add(newNamespace);
+                    
+                    currentNamespace = newNamespace;
+                }
+            }
+
+            Debug.Assert(currentNamespace != null);
+
+            var functionDeclarations = ns.Members.OfType<FunctionDeclarationSyntax>();
+
+            foreach (var function in functionDeclarations)
+                BindFunctionDeclaration(function, currentNamespace);
+
+            /*
+            var globalStatements = ns.Members.OfType<GlobalStatementSyntax>();
+            var statements = ImmutableArray.CreateBuilder<BoundStatement>();
+
+            foreach (var globalStatement in globalStatements)
+            {
+                var boundStatement = BindGlobalStatement(globalStatement.Statement);
+                statements.Add(boundStatement);
+            }
+            */
+        }
+
+        private void BindFunctionDeclaration(FunctionDeclarationSyntax declaration, NamespaceSymbol ns)
+        {
+            var identifierText = declaration.Identifier.Text;
+
+            if (identifierText.ToLower() != identifierText)
+                _diagnostics.ReportUpperCaseInFunctionName(declaration.Identifier.Location, identifierText);
+
             var parameters = ImmutableArray.CreateBuilder<ParameterSymbol>();
             var seenParameterNames = new HashSet<string>();
 
@@ -160,8 +214,9 @@ namespace Blaze.Binding
             if (returnType == null)
                 returnType = TypeSymbol.Void;
 
-            var function = new FunctionSymbol(declaration.Identifier.Text, parameters.ToImmutable(), returnType, declaration);
-            if (!_scope.TryDeclareFunction(function))
+            var function = new FunctionSymbol(identifierText, ns, parameters.ToImmutable(), returnType, declaration);
+
+            if (!ns.Scope.TryDeclareFunction(function))
                 _diagnostics.ReportFunctionAlreadyDeclared(declaration.Identifier.Location, function.Name);
         }
 

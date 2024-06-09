@@ -8,6 +8,7 @@
         SemicolonToken,
         ColonToken,
         CommaToken,
+        DotToken,
         PlusToken,
         MinusToken,
         StarToken,
@@ -48,6 +49,7 @@
         LoadKeyword,
         TickKeyword,
         ReturnKeyword,
+        NamespaceKeyword,
 
         //Nodes
         CompilationUnit,
@@ -56,6 +58,7 @@
         ElseClause,
         GlobalStatement,
         FunctionDeclaration,
+        NamespaceDeclaration,
         Parameter,
 
         //Expressions

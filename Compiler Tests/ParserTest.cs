@@ -56,7 +56,7 @@ namespace Blaze.Tests
         {
             SyntaxTree syntaxTree = SyntaxTree.Parse(text);
             CompilationUnitSyntax root = syntaxTree.Root;
-            MemberSyntax member = Assert.Single(root.Members);
+            MemberSyntax member = Assert.Single(root.Namespaces);
             GlobalStatementSyntax globalStatement = Assert.IsType<GlobalStatementSyntax>(member);
             return Assert.IsType<ExpressionStatementSyntax>(globalStatement.Statement).Expression;
         }
