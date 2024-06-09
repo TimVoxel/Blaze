@@ -13,22 +13,22 @@ namespace Blaze
             {
                 case SyntaxKind.StarToken:
                 case SyntaxKind.SlashToken:
-                    return 6;
+                    return 7;
                 case SyntaxKind.PlusToken:
                 case SyntaxKind.MinusToken:
-                    return 5;
+                    return 6;
                 case SyntaxKind.LessToken:
                 case SyntaxKind.LessOrEqualsToken:
                 case SyntaxKind.GreaterToken:
                 case SyntaxKind.GreaterOrEqualsToken:
-                    return 4;
+                    return 5;
                 case SyntaxKind.DoubleEqualsToken:
                 case SyntaxKind.NotEqualsToken:
-                    return 3;
+                    return 4;
                 case SyntaxKind.DoubleAmpersandToken:
-                    return 2;
+                    return 3;
                 case SyntaxKind.DoublePipeToken:
-                    return 1;
+                    return 2;
 
                 default: return 0;
             }
@@ -39,12 +39,28 @@ namespace Blaze
             switch (kind) 
             {
                 case SyntaxKind.ExclamationSignToken:
-                    return 8;
+                    return 9;
                 case SyntaxKind.PlusToken:
                 case SyntaxKind.MinusToken:
-                    return 7;
+                    return 8;
 
                 default: return 0;
+            }
+        }
+
+        public static int GetAssignmentOperatorPrecedence(this SyntaxKind kind)
+        {
+            switch (kind)
+            {
+                case SyntaxKind.PlusEqualsToken:
+                case SyntaxKind.MinusEqualsToken:
+                case SyntaxKind.StarEqualsToken:
+                case SyntaxKind.SlashEqualsToken:
+                case SyntaxKind.EqualsToken:
+                    return 1;
+
+                default:
+                    return 0;
             }
         }
 
@@ -119,6 +135,18 @@ namespace Blaze
             foreach (SyntaxKind kind in AllSyntaxKinds)
                 if (GetUnaryOperatorPrecedence(kind) > 0)
                     yield return kind;
+        }
+
+        public static SyntaxKind GetCorrespondingBinaryOperatorKind(SyntaxKind assignmentOperator)
+        {
+            return assignmentOperator switch
+            {
+                SyntaxKind.PlusEqualsToken => SyntaxKind.PlusToken,
+                SyntaxKind.MinusEqualsToken => SyntaxKind.MinusToken,
+                SyntaxKind.StarEqualsToken => SyntaxKind.StarToken,
+                SyntaxKind.SlashEqualsToken => SyntaxKind.SlashToken,
+                _ => assignmentOperator
+            };
         }
 
         public static string? GetText(SyntaxKind kind)

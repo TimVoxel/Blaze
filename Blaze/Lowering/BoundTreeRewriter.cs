@@ -175,6 +175,8 @@ namespace Blaze.Lowering
                     return RewriteBinaryExpression((BoundBinaryExpression)node);
                 case BoundNodeKind.AssignmentExpression:
                     return RewriteAssignmentExpression((BoundAssignmentExpression)node);
+                case BoundNodeKind.CompoundAssignmentExpression:
+                    return RewriteCompoundAssignmentExpression((BoundCompoundAssignmentExpression)node);
                 case BoundNodeKind.CallExpression:
                     return RewriteCallExpression((BoundCallExpression)node);
                 case BoundNodeKind.ConversionExpression:
@@ -225,6 +227,15 @@ namespace Blaze.Lowering
                 return node;
 
             return new BoundAssignmentExpression(node.Variable, expression);
+        }
+
+        protected virtual BoundExpression RewriteCompoundAssignmentExpression(BoundCompoundAssignmentExpression node)
+        {
+            BoundExpression expression = RewriteExpression(node.Expression);
+            if (expression == node.Expression)
+                return node;
+
+            return new BoundCompoundAssignmentExpression(node.Variable, node.Operator, expression);
         }
 
         protected virtual BoundExpression RewriteCallExpression(BoundCallExpression node)

@@ -232,6 +232,7 @@ namespace Blaze.Binding
             if (result is BoundExpressionStatement es)
             {
                 var isAllowedExpression = es.Expression.Kind == BoundNodeKind.AssignmentExpression
+                                        || es.Expression.Kind == BoundNodeKind.CompoundAssignmentExpression
                                         || es.Expression.Kind == BoundNodeKind.CallExpression
                                         || es.Expression.Kind == BoundNodeKind.ErrorExpression;
 
@@ -518,8 +519,25 @@ namespace Blaze.Binding
                 return boundExpression;
             }
 
-            var convertedExpression = BindConversion(boundExpression, variable.Type, expression.Expression.Location);
-            return new BoundAssignmentExpression(variable, convertedExpression);
+            if (expression.AssignmentToken.Kind != SyntaxKind.EqualsToken)
+            {
+                var correspondingBinaryOperatorKind = SyntaxFacts.GetCorrespondingBinaryOperatorKind(expression.AssignmentToken.Kind);
+                var boundOperator = BoundBinaryOperator.Bind(correspondingBinaryOperatorKind, variable.Type, boundExpression.Type);
+
+                if (boundOperator == null)
+                {
+                    _diagnostics.ReportUndefinedBinaryOperator(expression.AssignmentToken.Location, expression.AssignmentToken.Text, variable.Type, boundExpression.Type);
+                    return new BoundErrorExpression();
+                }
+
+                var convertedExpression = BindConversion(boundExpression, variable.Type, expression.Expression.Location);
+                return new BoundCompoundAssignmentExpression(variable, boundOperator, convertedExpression);
+            }
+            else
+            {
+                var convertedExpression = BindConversion(boundExpression, variable.Type, expression.Expression.Location);
+                return new BoundAssignmentExpression(variable, convertedExpression);
+            }
         }
 
         private BoundExpression BindConversion(ExpressionSyntax syntax, TypeSymbol type, bool allowExplicit = false)

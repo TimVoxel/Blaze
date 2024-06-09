@@ -74,16 +74,40 @@ namespace Blaze
                     ConsumeOfKind(SyntaxKind.CommaToken);
                     break;
                 case '+':
-                    ConsumeOfKind(SyntaxKind.PlusToken);
+                    if (Next == '=')
+                    {
+                        _kind = SyntaxKind.PlusEqualsToken;
+                        _position += 2;
+                    }
+                    else
+                        ConsumeOfKind(SyntaxKind.PlusToken);
                     break;
                 case '-':
-                    ConsumeOfKind(SyntaxKind.MinusToken);
+                    if (Next == '=')
+                    {
+                        _kind = SyntaxKind.MinusEqualsToken;
+                        _position += 2;
+                    }
+                    else
+                        ConsumeOfKind(SyntaxKind.MinusToken);
                     break;
                 case '*':
-                    ConsumeOfKind(SyntaxKind.StarToken);
+                    if (Next == '=')
+                    {
+                        _kind = SyntaxKind.StarEqualsToken;
+                        _position += 2;
+                    }
+                    else
+                        ConsumeOfKind(SyntaxKind.StarToken);
                     break;
                 case '/':
-                    ConsumeOfKind(SyntaxKind.SlashToken);
+                    if (Next == '=')
+                    {
+                        _kind = SyntaxKind.SlashEqualsToken;
+                        _position += 2;
+                    }
+                    else
+                        ConsumeOfKind(SyntaxKind.SlashToken);
                     break;
                 case '(':
                     ConsumeOfKind(SyntaxKind.OpenParenToken);

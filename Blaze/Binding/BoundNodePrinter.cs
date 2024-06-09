@@ -95,12 +95,16 @@ namespace Blaze.Binding
 
             writer.Indent++;
 
+            foreach (var child in node.Children)
+                WriteNamespace(child.Value, writer);
+
             foreach (var function in node.Functions)
             {
                 function.Key.WriteTo(writer);
                 writer.WriteLine();
                 function.Value.WriteTo(writer);
             }
+
             writer.Indent--;
             writer.WriteLine();
             writer.WritePunctuation("}");

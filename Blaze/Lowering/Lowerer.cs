@@ -103,6 +103,18 @@ namespace Blaze.Lowering
             return RewriteStatement(result);
         }
 
+        protected override BoundExpression RewriteCompoundAssignmentExpression(BoundCompoundAssignmentExpression node)
+        {
+            // a += b;
+            // >
+            // a = a + b;
+
+            var variable = new BoundVariableExpression(node.Variable);
+            var binary = new BoundBinaryExpression(variable, node.Operator, node.Expression);
+            var assignment = new BoundAssignmentExpression(node.Variable, binary);
+            return assignment;
+        }
+
         //This stuff doesn't seem to work correctly without constant variables duh
         /*
         protected override BoundStatement RewriteConditionalGotoStatement(BoundConditionalGotoStatement node)

@@ -24,6 +24,11 @@
         DoubleDotToken,
         NotEqualsToken,
         EqualsToken,
+        PlusEqualsToken,
+        MinusEqualsToken,
+        StarEqualsToken,
+        SlashEqualsToken,
+
         GreaterToken,
         GreaterOrEqualsToken,
         LessToken,
