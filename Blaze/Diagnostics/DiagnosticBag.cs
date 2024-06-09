@@ -68,6 +68,12 @@ namespace Blaze.Diagnostics
             Report(location, message);
         }
 
+        public void ReportUndefinedIncrementOperator(TextLocation location, string operatorText, TypeSymbol leftType)
+        {
+            string message = $"Operator '{operatorText}' can not be applied to operand of type {leftType}";
+            Report(location, message);
+        }
+
         public void ReportUndefinedName(TextLocation location, string name)
         {
             string message = $"Variable \"{name}\" doesn't exist";
@@ -160,7 +166,7 @@ namespace Blaze.Diagnostics
 
         public void ReportInvalidExpressionStatement(TextLocation location)
         {
-            string message = "Only assignment and call expressions can be used as a statement";
+            string message = "Only assignment, increment, decrement and call expressions can be used as a statement";
             Report(location, message);
         }
 

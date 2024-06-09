@@ -52,6 +52,9 @@ namespace Blaze
         {
             switch (kind)
             {
+                case SyntaxKind.DoublePlusToken:
+                case SyntaxKind.DoubleMinusToken:
+                    return 10;
                 case SyntaxKind.PlusEqualsToken:
                 case SyntaxKind.MinusEqualsToken:
                 case SyntaxKind.StarEqualsToken:
@@ -145,6 +148,8 @@ namespace Blaze
                 SyntaxKind.MinusEqualsToken => SyntaxKind.MinusToken,
                 SyntaxKind.StarEqualsToken => SyntaxKind.StarToken,
                 SyntaxKind.SlashEqualsToken => SyntaxKind.SlashToken,
+                SyntaxKind.DoublePlusToken => SyntaxKind.PlusToken,
+                SyntaxKind.DoubleMinusToken => SyntaxKind.MinusToken,
                 _ => assignmentOperator
             };
         }

@@ -28,6 +28,8 @@
         MinusEqualsToken,
         StarEqualsToken,
         SlashEqualsToken,
+        DoublePlusToken,
+        DoubleMinusToken,
 
         GreaterToken,
         GreaterOrEqualsToken,
@@ -73,6 +75,7 @@
         ParenthesizedExpression,
         UnaryExpression,
         AssignmentExpression,
+        IncrementExpression,
         CallExpression,
 
         //Statements

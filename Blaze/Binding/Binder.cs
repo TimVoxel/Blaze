@@ -234,6 +234,7 @@ namespace Blaze.Binding
                 var isAllowedExpression = es.Expression.Kind == BoundNodeKind.AssignmentExpression
                                         || es.Expression.Kind == BoundNodeKind.CompoundAssignmentExpression
                                         || es.Expression.Kind == BoundNodeKind.CallExpression
+                                        || es.Expression.Kind == BoundNodeKind.IncrementExpression
                                         || es.Expression.Kind == BoundNodeKind.ErrorExpression;
 
                 if (!isAllowedExpression)
@@ -412,6 +413,7 @@ namespace Blaze.Binding
                 SyntaxKind.IdentifierExpression => BindIdentifierExpression((IdentifierExpressionSyntax)expression),
                 SyntaxKind.AssignmentExpression => BindAssignmentExpression((AssignmentExpressionSyntax)expression),
                 SyntaxKind.CallExpression => BindCallExpression((CallExpressionSyntax)expression),
+                SyntaxKind.IncrementExpression => BindIncrementExpression((IncrementExpressionSyntax)expression),
                 _ => throw new Exception($"Unexpected syntax {expression.Kind}"),
             };
         }
@@ -516,7 +518,7 @@ namespace Blaze.Binding
             if (variable == null)
             {
                 _diagnostics.ReportUndefinedName(expression.IdentifierToken.Location, name);
-                return boundExpression;
+                return new BoundErrorExpression();
             }
 
             if (expression.AssignmentToken.Kind != SyntaxKind.EqualsToken)
@@ -538,6 +540,29 @@ namespace Blaze.Binding
                 var convertedExpression = BindConversion(boundExpression, variable.Type, expression.Expression.Location);
                 return new BoundAssignmentExpression(variable, convertedExpression);
             }
+        }
+
+        private BoundExpression BindIncrementExpression(IncrementExpressionSyntax expression)
+        {
+            var name = expression.IdentifierToken.Text;
+
+            var variable = _scope.TryLookupVariable(name);
+            if (variable == null)
+            {
+                _diagnostics.ReportUndefinedName(expression.IdentifierToken.Location, name);
+                return new BoundErrorExpression();
+            }
+
+            var correspondingBinaryOperatorKind = SyntaxFacts.GetCorrespondingBinaryOperatorKind(expression.AssignmentToken.Kind);
+            var boundOperator = BoundBinaryOperator.Bind(correspondingBinaryOperatorKind, variable.Type, TypeSymbol.Int);
+
+            if (boundOperator == null)
+            {
+                _diagnostics.ReportUndefinedIncrementOperator(expression.AssignmentToken.Location, expression.AssignmentToken.Text, variable.Type);
+                return new BoundErrorExpression();
+            }
+
+            return new BoundIncrementExpression(variable, boundOperator);
         }
 
         private BoundExpression BindConversion(ExpressionSyntax syntax, TypeSymbol type, bool allowExplicit = false)

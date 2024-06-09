@@ -11,11 +11,12 @@
         VariableExpression,
         AssignmentExpression,
         CompoundAssignmentExpression,
+        IncrementExpression,
         UnaryExpression,
         BinaryExpression,
         CallExpression,
         ConversionExpression,
-
+       
         //Statements
         NopStatement,
         ExpressionStatement,

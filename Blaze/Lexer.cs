@@ -79,6 +79,11 @@ namespace Blaze
                         _kind = SyntaxKind.PlusEqualsToken;
                         _position += 2;
                     }
+                    else if (Next == '+')
+                    {
+                        _kind = SyntaxKind.DoublePlusToken;
+                        _position += 2;
+                    }
                     else
                         ConsumeOfKind(SyntaxKind.PlusToken);
                     break;
@@ -86,6 +91,11 @@ namespace Blaze
                     if (Next == '=')
                     {
                         _kind = SyntaxKind.MinusEqualsToken;
+                        _position += 2;
+                    }
+                    else if (Next == '-')
+                    {
+                        _kind = SyntaxKind.DoubleMinusToken;
                         _position += 2;
                     }
                     else

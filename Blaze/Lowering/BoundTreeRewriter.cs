@@ -49,8 +49,8 @@ namespace Blaze.Lowering
 
         protected virtual BoundStatement RewriteDoWhileStatement(BoundDoWhileStatement node)
         {
-            BoundStatement statement = RewriteStatement(node.Body);
-            BoundExpression condition = RewriteExpression(node.Condition);
+            var statement = RewriteStatement(node.Body);
+            var condition = RewriteExpression(node.Condition);
 
             if (statement == node.Body && condition == node.Condition)
                 return node;
@@ -62,7 +62,7 @@ namespace Blaze.Lowering
 
         protected virtual BoundStatement RewriteConditionalGotoStatement(BoundConditionalGotoStatement node)
         {
-            BoundExpression condition = RewriteExpression(node.Condition);
+            var condition = RewriteExpression(node.Condition);
             if (condition == node.Condition)
                 return node;
             return new BoundConditionalGotoStatement(node.Label, condition);
@@ -76,8 +76,8 @@ namespace Blaze.Lowering
             
             for (int i = 0; i < node.Statements.Length; i++)
             {
-                BoundStatement oldStatement = node.Statements[i];
-                BoundStatement rewriten = RewriteStatement(oldStatement);
+                var oldStatement = node.Statements[i];
+                var rewriten = RewriteStatement(oldStatement);
                 if (rewriten != oldStatement)
                 {
                     if (builder == null)
@@ -101,7 +101,7 @@ namespace Blaze.Lowering
             if (node.Expression == null)
                 return node;
 
-            BoundExpression rewrittenExression = RewriteExpression(node.Expression);
+            var rewrittenExression = RewriteExpression(node.Expression);
             if (node.Expression == rewrittenExression)
                 return node;
 
@@ -110,7 +110,7 @@ namespace Blaze.Lowering
 
         protected virtual BoundStatement RewriteExpressionStatement(BoundExpressionStatement node)
         {
-            BoundExpression expression = RewriteExpression(node.Expression);
+            var expression = RewriteExpression(node.Expression);
             if (expression == node.Expression)
                 return node;
             return new BoundExpressionStatement(expression);
@@ -118,7 +118,7 @@ namespace Blaze.Lowering
     
         protected virtual BoundStatement RewriteVariableDeclarationStatement(BoundVariableDeclarationStatement node)
         {
-            BoundExpression initializer = RewriteExpression(node.Initializer);
+            var initializer = RewriteExpression(node.Initializer);
             if (initializer == node.Initializer)
                 return node;
 
@@ -127,9 +127,9 @@ namespace Blaze.Lowering
 
         protected virtual BoundStatement RewriteIfStatement(BoundIfStatement node)
         {
-            BoundExpression condition = RewriteExpression(node.Condition);
-            BoundStatement body = RewriteStatement(node.Body);
-            BoundStatement? elseBody = node.ElseBody == null ? null : RewriteStatement(node.ElseBody);
+            var condition = RewriteExpression(node.Condition);
+            var body = RewriteStatement(node.Body);
+            var elseBody = node.ElseBody == null ? null : RewriteStatement(node.ElseBody);
 
             if (condition == node.Condition && body == node.Body && elseBody == node.ElseBody)
                 return node;
@@ -139,8 +139,8 @@ namespace Blaze.Lowering
 
         protected virtual BoundStatement RewriteWhileStatement(BoundWhileStatement node)
         {
-            BoundExpression condition = RewriteExpression(node.Condition);
-            BoundStatement body = RewriteStatement(node.Body);
+            var condition = RewriteExpression(node.Condition);
+            var body = RewriteStatement(node.Body);
 
             if (condition == node.Condition && body == node.Body)
                 return node;
@@ -150,9 +150,9 @@ namespace Blaze.Lowering
 
         protected virtual BoundStatement RewriteForStatement(BoundForStatement node)
         {
-            BoundExpression lowerBound = RewriteExpression(node.LowerBound);
-            BoundExpression upperBound = RewriteExpression(node.UpperBound);
-            BoundStatement body = RewriteStatement(node.Body);
+            var lowerBound = RewriteExpression(node.LowerBound);
+            var upperBound = RewriteExpression(node.UpperBound);
+            var body = RewriteStatement(node.Body);
             if (lowerBound == node.LowerBound && upperBound == node.UpperBound && body == node.Body)
                 return node;
 
@@ -181,14 +181,21 @@ namespace Blaze.Lowering
                     return RewriteCallExpression((BoundCallExpression)node);
                 case BoundNodeKind.ConversionExpression:
                     return RewriteConversionExpression((BoundConversionExpression)node);
+                case BoundNodeKind.IncrementExpression:
+                    return RewriteIncrementExpression((BoundIncrementExpression)node);
                 default:
                     throw new Exception($"Unexpected node {node.Kind}");
             }
         }
 
+        protected virtual BoundExpression RewriteIncrementExpression(BoundIncrementExpression node)
+        {
+            return node;
+        }
+
         protected virtual BoundExpression RewriteConversionExpression(BoundConversionExpression node)
         {
-            BoundExpression expression = RewriteExpression(node.Expression);
+            var expression = RewriteExpression(node.Expression);
             if (expression == node.Expression)
                 return node;
             return new BoundConversionExpression(node.Type, expression);
@@ -202,7 +209,7 @@ namespace Blaze.Lowering
 
         protected virtual BoundExpression RewriteUnaryExpression(BoundUnaryExpression node)
         {
-            BoundExpression operand = RewriteExpression(node.Operand);
+            var operand = RewriteExpression(node.Operand);
             if (operand == node.Operand)
                 return node;
 
@@ -211,8 +218,8 @@ namespace Blaze.Lowering
 
         protected virtual BoundExpression RewriteBinaryExpression(BoundBinaryExpression node)
         {
-            BoundExpression left = RewriteExpression(node.Left);
-            BoundExpression right = RewriteExpression(node.Right);
+            var left = RewriteExpression(node.Left);
+            var right = RewriteExpression(node.Right);
 
             if (left == node.Left && right == node.Right)
                 return node;
@@ -222,7 +229,7 @@ namespace Blaze.Lowering
 
         protected virtual BoundExpression RewriteAssignmentExpression(BoundAssignmentExpression node)
         {
-            BoundExpression expression = RewriteExpression(node.Expression);
+            var expression = RewriteExpression(node.Expression);
             if (expression == node.Expression)
                 return node;
 
@@ -231,7 +238,7 @@ namespace Blaze.Lowering
 
         protected virtual BoundExpression RewriteCompoundAssignmentExpression(BoundCompoundAssignmentExpression node)
         {
-            BoundExpression expression = RewriteExpression(node.Expression);
+            var expression = RewriteExpression(node.Expression);
             if (expression == node.Expression)
                 return node;
 
@@ -244,8 +251,8 @@ namespace Blaze.Lowering
 
             for (int i = 0; i < node.Arguments.Length; i++)
             {
-                BoundExpression oldArgument = node.Arguments[i];
-                BoundExpression rewritenArgument = RewriteExpression(oldArgument);
+                var oldArgument = node.Arguments[i];
+                var rewritenArgument = RewriteExpression(oldArgument);
                 if (rewritenArgument != oldArgument)
                 {
                     if (builder == null)

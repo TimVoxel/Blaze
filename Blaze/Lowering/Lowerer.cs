@@ -115,6 +115,19 @@ namespace Blaze.Lowering
             return assignment;
         }
 
+        protected override BoundExpression RewriteIncrementExpression(BoundIncrementExpression node)
+        {
+            // a++;
+            // >
+            // a = a + 1;
+
+            var variable = new BoundVariableExpression(node.Variable);
+            var oneLiteral = new BoundLiteralExpression(1);
+            var binary = new BoundBinaryExpression(variable, node.IncrementOperator, oneLiteral);
+            var assignment = new BoundAssignmentExpression(node.Variable, binary);
+            return assignment;
+        }
+
         //This stuff doesn't seem to work correctly without constant variables duh
         /*
         protected override BoundStatement RewriteConditionalGotoStatement(BoundConditionalGotoStatement node)

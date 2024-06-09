@@ -383,6 +383,14 @@ namespace Blaze
 
         private ExpressionSyntax ParseAssignmentExpression()
         {
+            if (Current.Kind == SyntaxKind.IdentifierToken && Next.Kind == SyntaxKind.DoubleMinusToken
+                || Next.Kind == SyntaxKind.DoublePlusToken)
+            {
+                var identifierToken = Consume();
+                var assignmentToken = Consume();
+                return new IncrementExpressionSyntax(_syntaxTree, identifierToken, assignmentToken);
+            }
+
             if (Current.Kind == SyntaxKind.IdentifierToken && Next.Kind.GetAssignmentOperatorPrecedence() != 0)
             {
                 var identifierToken = Consume();
