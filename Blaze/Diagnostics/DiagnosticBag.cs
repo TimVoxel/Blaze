@@ -224,5 +224,11 @@ namespace Blaze.Diagnostics
             string message = $"Namespace \"{name}\" doesn't exist";
             Report(location, message);
         }
+
+        public void ReportUsingNotInTheBeginningOfTheFile(TextLocation location)
+        {
+            string message = $"Usings must precede namespace declarations";
+            Report(location, message);
+        }
     }
 }

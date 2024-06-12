@@ -6,6 +6,7 @@ using Blaze.SyntaxTokens;
 using Blaze.Text;
 using System.Collections.Immutable;
 using System.Diagnostics;
+using System.Linq;
 
 namespace Blaze.Binding
 {
@@ -18,14 +19,22 @@ namespace Blaze.Binding
         private int _labelCounter = 0;
 
         private List<NamespaceSymbol> _namespaces = new List<NamespaceSymbol>();
+
+        //The key is the namespace, the values are all the namespaces the symbol uses
+        private Dictionary<NamespaceSymbol, List<NamespaceSymbol>> _usings = new Dictionary<NamespaceSymbol, List<NamespaceSymbol>>();
         private BoundScope _scope;
 
         public DiagnosticBag Diagnostics => _diagnostics;
 
-        public Binder(BoundScope? parent, FunctionSymbol? function, ImmutableArray<NamespaceSymbol>? definedNamespaces)
+        public Binder(BoundScope? parentScope, FunctionSymbol? function, ImmutableArray<NamespaceSymbol>? definedNamespaces,
+            ImmutableDictionary<NamespaceSymbol, List<NamespaceSymbol>>? usings)
         {
-            _scope = new BoundScope(parent);
+            _scope = new BoundScope(parentScope);
             _function = function;
+
+            if (usings != null)
+                foreach (var u in usings)
+                    _usings.Add(u.Key, u.Value);
 
             if (definedNamespaces != null)
                 _namespaces.AddRange(definedNamespaces);
@@ -37,35 +46,34 @@ namespace Blaze.Binding
 
         public static BoundGlobalScope BindGlobalScope(ImmutableArray<SyntaxTree> syntaxTrees)
         {
-            //1. Create a root scope that contains all the built-in functions 
-            var parentScope = CreateRootScope();
-            var binder = new Binder(parentScope, null, null);
-            
+            //1. Create a root scope that contains all the built-in functions
+            var parentScope = new BoundScope(null);
+            foreach (var builtInFunction in BuiltInFunction.GetAll())
+                parentScope.TryDeclareFunction(builtInFunction);
+
+            var binder = new Binder(parentScope, null, null, null);
+
             //2. Bind all namespace declarations
-            var namespaceDeclarations = syntaxTrees.SelectMany(st => st.Root.Namespaces)
+            var compilationUnits = syntaxTrees.Select(st => st.Root);
+            var namespaceDeclarations = compilationUnits.SelectMany(st => st.Namespaces)
                 .OrderBy(s => s.IdentifierPath.Count);
 
             foreach (var ns in namespaceDeclarations)
                 binder.BindNamespaceDeclaration(ns);
 
-            //3. Create the global scope
+            //3. Bind usings
+            foreach (var compilationUnit in compilationUnits)
+                binder.BindUsings(compilationUnit);
+
+            //4. Create the global scope
             var diagnostics = ImmutableArray.CreateBuilder<Diagnostic>();
             diagnostics.AddRange(syntaxTrees.SelectMany(d => d.Diagnostics));
             diagnostics.AddRange(binder.Diagnostics);
             
             var namespaces = binder._namespaces.ToImmutableArray();
+            var usings = binder._usings.ToImmutableDictionary();
 
-            return new BoundGlobalScope(diagnostics.ToImmutable(), namespaces);
-        }
-
-        private static BoundScope CreateRootScope()
-        {
-            var result = new BoundScope(null);
-
-            foreach (var builtInFunction in BuiltInFunction.GetAll())
-                result.TryDeclareFunction(builtInFunction);
-
-            return result;
+            return new BoundGlobalScope(diagnostics.ToImmutable(), namespaces, usings);
         }
 
         public static BoundProgram BindProgram(BoundGlobalScope globalScope)
@@ -74,18 +82,16 @@ namespace Blaze.Binding
             var diagnostics = ImmutableArray.CreateBuilder<Diagnostic>();
             diagnostics.AddRange(globalScope.Diagnostics);
 
-            //2. Bind every namespace
-
             foreach (var ns in globalScope.Namespaces)
             {
-                var boundNamespace = BindNamespace(ns, ref diagnostics, globalScope.Namespaces);
+                var boundNamespace = BindNamespace(ns, ref diagnostics, globalScope);
                 boundNamespaces.Add(ns, boundNamespace);
             }
 
             return new BoundProgram(diagnostics.ToImmutable(), boundNamespaces.ToImmutable());
         }
 
-        private static BoundNamespace BindNamespace(NamespaceSymbol ns, ref ImmutableArray<Diagnostic>.Builder diagnostics, ImmutableArray<NamespaceSymbol> definedNamespaces)
+        private static BoundNamespace BindNamespace(NamespaceSymbol ns, ref ImmutableArray<Diagnostic>.Builder diagnostics, BoundGlobalScope globalScope)
         {
             var functionBodies = ImmutableDictionary.CreateBuilder<FunctionSymbol, BoundStatement>();
             var childrenBuilder = ImmutableDictionary.CreateBuilder<NamespaceSymbol, BoundNamespace>();
@@ -94,7 +100,7 @@ namespace Blaze.Binding
             {
                 if (function.Declaration != null)
                 {
-                    var binder = new Binder(ns.Scope, function, definedNamespaces);
+                    var binder = new Binder(ns.Scope, function, globalScope.Namespaces, globalScope.Usings);
 
                     var body = binder.BindStatement(function.Declaration.Body);
                     var loweredBody = Lowerer.Lower(body);
@@ -112,12 +118,60 @@ namespace Blaze.Binding
 
             foreach (var child in ns.Children)
             {
-                var childBoundNamespace = BindNamespace(child, ref diagnostics, definedNamespaces);
+                var childBoundNamespace = BindNamespace(child, ref diagnostics, globalScope);
                 childrenBuilder.Add(child, childBoundNamespace);
             }
 
             var boundNamespace = new BoundNamespace(ns, childrenBuilder.ToImmutable(), functionBodies.ToImmutable());
             return boundNamespace;
+        }
+
+        private void BindUsings(CompilationUnitSyntax compilationUnit)
+        {
+            //1. Find all symbols declared in the compilation unit
+            //2. Search for the namespace in question
+            //3. Add the namespace to dictionary for every declared namespace in the compilationUnit
+
+            var namespaces = new List<NamespaceSymbol>();
+
+            foreach (var namespaceDeclaration in compilationUnit.Namespaces)
+            {
+                if (TryLookupNamespace(namespaceDeclaration.IdentifierPath, out var ns))
+                {
+                    Debug.Assert(ns != null);
+                    namespaces.Add(ns);
+                }
+                else return;
+            }
+
+            var seenUsings = new HashSet<NamespaceSymbol>();
+
+            foreach (var usingSyntax in compilationUnit.Usings)
+            {
+                if (TryLookupNamespace(usingSyntax.IdentifierPath, out var namespaceToUse))
+                {   
+                    Debug.Assert(namespaceToUse != null);
+                    if (seenUsings.Contains(namespaceToUse))
+                    {
+                        //TODO: Add warning diagnostics
+                        continue;
+                    }
+                    seenUsings.Add(namespaceToUse);
+                    
+                    foreach (var ns in namespaces)
+                    {
+                        if (ns == namespaceToUse)
+                            continue;
+
+                        if (_usings.ContainsKey(ns))
+                            _usings[ns].Add(namespaceToUse);
+                        else
+                            _usings.Add(ns, new List<NamespaceSymbol>() { namespaceToUse });
+                    }
+                } 
+                else
+                    _diagnostics.ReportUndefinedNamespace(usingSyntax.Location, usingSyntax.IdentifierPath.Last() .Text);
+            }
         }
 
         private void BindNamespaceDeclaration(NamespaceDeclarationSyntax ns)
@@ -160,11 +214,9 @@ namespace Blaze.Binding
                     currentNamespace = newNamespace;
                 }
             }
-
             Debug.Assert(currentNamespace != null);
 
             var functionDeclarations = ns.Members.OfType<FunctionDeclarationSyntax>();
-
             foreach (var function in functionDeclarations)
                 BindFunctionDeclaration(function, currentNamespace);
 
@@ -513,9 +565,24 @@ namespace Blaze.Binding
             var function = scope.TryLookupFunction(expression.Identifier.Text);
             if (function == null)
             {
-                _diagnostics.ReportUndefinedFunction(expression.Identifier.Location, name);
-                return new BoundErrorExpression();
+                if (_function == null)
+                    throw new Exception("Call expression outside of function");
+
+                var usedNamespaces = _usings[_function.ParentNamespace];
+                foreach (var usedNamespace in usedNamespaces)
+                {
+                    function = usedNamespace.Scope.TryLookupFunction(expression.Identifier.Text);
+                    if (function != null)
+                        break;
+                }
+
+                if (function == null)
+                {
+                    _diagnostics.ReportUndefinedFunction(expression.Identifier.Location, name);
+                    return new BoundErrorExpression();
+                } 
             }
+
             if (function.Parameters.Length != expression.Arguments.Count)
             {
                 _diagnostics.ReportWrongArgumentCount(expression.Location, function.Name, function.Parameters.Length, expression.Arguments.Count);
@@ -656,6 +723,20 @@ namespace Blaze.Binding
                 ns = previous.TryLookupChild(name);
 
             return ns != null;
+        }
+
+        private bool TryLookupNamespace(SeparatedSyntaxList<SyntaxToken> qualifiedName, out NamespaceSymbol? ns)
+        {
+            ns = null;
+
+            for (int i = 0; i < qualifiedName.Count; i++)
+            {
+                var previous = ns;
+                var name = qualifiedName[i].Text;
+                if (!TryLookupNamespace(name, out ns, previous))
+                    return false;
+            }
+            return true;
         }
     }
 }

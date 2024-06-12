@@ -98,22 +98,28 @@ namespace Blaze
             return new CompilationUnitSyntax(_syntaxTree, usings, namespaces, endOfFileToken);
         }
         
-        private ImmutableArray<UsingNamespaceSyntax> ParseUsings()
+        private ImmutableArray<UsingDirectiveSyntax> ParseUsings()
         {
-            var usings = ImmutableArray.CreateBuilder<UsingNamespaceSyntax>();
+            var usings = ImmutableArray.CreateBuilder<UsingDirectiveSyntax>();
 
-            /*
-            while (Current.Kind != SyntaxKind.EndOfFileToken)
+            while (Current.Kind != SyntaxKind.NamespaceKeyword && Current.Kind != SyntaxKind.EndOfFileToken)
             {
                 var startToken = Current;
-                members.Add(ParseNamespace());
+                usings.Add(ParseUsing());
 
                 if (Current == startToken)
                     Consume();
             }
-            */
 
             return usings.ToImmutable();
+        }
+
+        private UsingDirectiveSyntax ParseUsing()
+        {
+            var usingKeyword = TryConsume(SyntaxKind.UsingKeyword);
+            var qualifiedName = ParseNamespaceQualifiedName();
+            var semicolon = TryConsume(SyntaxKind.SemicolonToken);
+            return new UsingDirectiveSyntax(_syntaxTree, usingKeyword, qualifiedName, semicolon);
         }
 
         private ImmutableArray<NamespaceDeclarationSyntax> ParseNamespaces()
@@ -125,6 +131,9 @@ namespace Blaze
                 var startToken = Current;
                 members.Add(ParseNamespace());
 
+                if (Current.Kind == SyntaxKind.UsingKeyword)
+                    _diagnostics.ReportUsingNotInTheBeginningOfTheFile(Current.Location);
+
                 if (Current == startToken)
                     Consume();
             }
@@ -135,10 +144,22 @@ namespace Blaze
         private NamespaceDeclarationSyntax ParseNamespace()
         {
             var namespaceKeyword = TryConsume(SyntaxKind.NamespaceKeyword);
+            var identifierPath = ParseNamespaceQualifiedName();
+
+            var openBraceToken = TryConsume(SyntaxKind.OpenBraceToken);
+            var members = ParseMembers();
+            var closeBraceToken = TryConsume(SyntaxKind.CloseBraceToken);
+
+            return new NamespaceDeclarationSyntax(_syntaxTree, namespaceKeyword, identifierPath, openBraceToken, members, closeBraceToken);
+        }
+
+        private SeparatedSyntaxList<SyntaxToken> ParseNamespaceQualifiedName()
+        {
             var nodesAndSeparators = ImmutableArray.CreateBuilder<SyntaxNode>();
             var done = false;
 
-            while (!done && Current.Kind != SyntaxKind.OpenBraceToken && Current.Kind != SyntaxKind.EndOfFileToken)
+            while (!done && Current.Kind != SyntaxKind.OpenBraceToken && Current.Kind != SyntaxKind.EndOfFileToken
+                && Current.Kind != SyntaxKind.SemicolonToken)
             {
                 var identifier = TryConsume(SyntaxKind.IdentifierToken);
                 nodesAndSeparators.Add(identifier);
@@ -151,13 +172,8 @@ namespace Blaze
                 else
                     done = true;
             }
-            var identifierPath = new SeparatedSyntaxList<SyntaxToken>(nodesAndSeparators.ToImmutable());
-
-            var openBraceToken = TryConsume(SyntaxKind.OpenBraceToken);
-            var members = ParseMembers();
-            var closeBraceToken = TryConsume(SyntaxKind.CloseBraceToken);
-
-            return new NamespaceDeclarationSyntax(_syntaxTree, namespaceKeyword, identifierPath, openBraceToken, members, closeBraceToken);
+            var qualifiedName = new SeparatedSyntaxList<SyntaxToken>(nodesAndSeparators.ToImmutable());
+            return qualifiedName;
         }
 
         private ImmutableArray<MemberSyntax> ParseMembers()
