@@ -57,6 +57,7 @@
         TickKeyword,
         ReturnKeyword,
         NamespaceKeyword,
+        UsingKeyword,
 
         //Nodes
         CompilationUnit,
@@ -66,6 +67,7 @@
         GlobalStatement,
         FunctionDeclaration,
         NamespaceDeclaration,
+        UsingNamespace,
         Parameter,
 
         //Expressions
@@ -77,6 +79,7 @@
         AssignmentExpression,
         IncrementExpression,
         CallExpression,
+        MemberAccessExpression,
 
         //Statements
         BlockStatement,

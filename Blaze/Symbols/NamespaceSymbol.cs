@@ -21,6 +21,11 @@ namespace Blaze.Symbols
             Children = new List<NamespaceSymbol>();
         }    
 
+        public NamespaceSymbol? TryLookupChild(string name)
+        {
+            return Children.FirstOrDefault(n => n.Name == name);
+        }
+
         public string GetFullName()
         {
             var nameBuilder = new StringBuilder();

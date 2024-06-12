@@ -2,6 +2,7 @@
 using Blaze.Symbols;
 using Blaze.Syntax_Nodes;
 using Blaze.Text;
+using static System.Net.Mime.MediaTypeNames;
 
 namespace Blaze.Diagnostics
 {
@@ -209,6 +210,18 @@ namespace Blaze.Diagnostics
         public void ReportUpperCaseInNamespaceName(TextLocation location, string name)
         {
             string message = $"Namespace name \"{name}\" contains upper case letters, which are illegal in namespace names";
+            Report(location, message);
+        }
+
+        public void ReportInvalidMemberAccessExpressionKind(TextLocation location)
+        {
+            string message = "Invalid member access expression, only function calls or other member access expressions are allowed";
+            Report(location, message);
+        }
+
+        public void ReportUndefinedNamespace(TextLocation location, string name)
+        {
+            string message = $"Namespace \"{name}\" doesn't exist";
             Report(location, message);
         }
     }

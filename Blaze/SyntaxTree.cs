@@ -60,7 +60,7 @@ namespace Blaze
 
                     if (token.Kind == SyntaxKind.EndOfFileToken)
                     {
-                        root = new CompilationUnitSyntax(syntaxTree, ImmutableArray<NamespaceDeclarationSyntax>.Empty, token);
+                        root = new CompilationUnitSyntax(syntaxTree, ImmutableArray<UsingNamespaceSyntax>.Empty, ImmutableArray<NamespaceDeclarationSyntax>.Empty, token);
                         break;
                     }
                         

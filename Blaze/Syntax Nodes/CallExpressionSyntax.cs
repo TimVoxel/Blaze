@@ -4,10 +4,10 @@ namespace Blaze.Syntax_Nodes
 {
     public sealed class CallExpressionSyntax : ExpressionSyntax
     {
-        public SyntaxToken Identifier { get; private set; }
-        public SyntaxToken OpenParen { get; private set; }
-        public SeparatedSyntaxList<ExpressionSyntax> Arguments { get; private set; }
-        public SyntaxToken CloseParen { get; private set; }
+        public SyntaxToken Identifier { get; }
+        public SyntaxToken OpenParen { get; }
+        public SeparatedSyntaxList<ExpressionSyntax> Arguments { get; }
+        public SyntaxToken CloseParen { get; }
 
         public override SyntaxKind Kind => SyntaxKind.CallExpression;
 

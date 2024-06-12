@@ -2,6 +2,7 @@
 using Blaze.Syntax_Nodes;
 using Blaze.SyntaxTokens;
 using Blaze.Text;
+using Mono.Cecil.Cil;
 using System.Collections.Immutable;
 
 namespace Blaze
@@ -91,18 +92,37 @@ namespace Blaze
 
         public CompilationUnitSyntax ParseCompilationUnit()
         {
-            ImmutableArray<NamespaceDeclarationSyntax> namespaces = ParseNamespaces();
-            SyntaxToken endOfFileToken = TryConsume(SyntaxKind.EndOfFileToken);
-            return new CompilationUnitSyntax(_syntaxTree, namespaces, endOfFileToken);
+            var usings = ParseUsings();
+            var namespaces = ParseNamespaces();
+            var endOfFileToken = TryConsume(SyntaxKind.EndOfFileToken);
+            return new CompilationUnitSyntax(_syntaxTree, usings, namespaces, endOfFileToken);
         }
         
+        private ImmutableArray<UsingNamespaceSyntax> ParseUsings()
+        {
+            var usings = ImmutableArray.CreateBuilder<UsingNamespaceSyntax>();
+
+            /*
+            while (Current.Kind != SyntaxKind.EndOfFileToken)
+            {
+                var startToken = Current;
+                members.Add(ParseNamespace());
+
+                if (Current == startToken)
+                    Consume();
+            }
+            */
+
+            return usings.ToImmutable();
+        }
+
         private ImmutableArray<NamespaceDeclarationSyntax> ParseNamespaces()
         {
-            ImmutableArray<NamespaceDeclarationSyntax>.Builder members = ImmutableArray.CreateBuilder<NamespaceDeclarationSyntax>();
+            var members = ImmutableArray.CreateBuilder<NamespaceDeclarationSyntax>();
 
             while (Current.Kind != SyntaxKind.EndOfFileToken)
             {
-                SyntaxToken startToken = Current;
+                var startToken = Current;
                 members.Add(ParseNamespace());
 
                 if (Current == startToken)
@@ -142,11 +162,11 @@ namespace Blaze
 
         private ImmutableArray<MemberSyntax> ParseMembers()
         {
-            ImmutableArray<MemberSyntax>.Builder members = ImmutableArray.CreateBuilder<MemberSyntax>();
+            var members = ImmutableArray.CreateBuilder<MemberSyntax>();
 
             while (Current.Kind != SyntaxKind.CloseBraceToken && Current.Kind != SyntaxKind.EndOfFileToken)
             {
-                SyntaxToken startToken = Current;
+                var startToken = Current;
                 members.Add(ParseMember());
 
                 if (Current == startToken)
@@ -240,26 +260,26 @@ namespace Blaze
 
         private StatementSyntax ParseReturnStatement()
         {
-            SyntaxToken returnKeyword = TryConsume(SyntaxKind.ReturnKeyword);
+            var returnKeyword = TryConsume(SyntaxKind.ReturnKeyword);
             ExpressionSyntax? expression = null;
             if (Current.Kind != SyntaxKind.SemicolonToken)
                 expression = ParseExpression();
 
-            SyntaxToken semicolon = TryConsume(SyntaxKind.SemicolonToken);
+            var semicolon = TryConsume(SyntaxKind.SemicolonToken);
             return new ReturnStatementSyntax(_syntaxTree, returnKeyword, expression, semicolon);
         }
 
         private StatementSyntax ParseIfStatement()
         {
-            SyntaxToken keyword = TryConsume(SyntaxKind.IfKeyword);
-            SyntaxToken openParen = TryConsume(SyntaxKind.OpenParenToken);
-            ExpressionSyntax expression = ParseExpression();
-            SyntaxToken closeParen = TryConsume(SyntaxKind.CloseParenToken);
-            StatementSyntax body = ParseStatement();
+            var keyword = TryConsume(SyntaxKind.IfKeyword);
+            var openParen = TryConsume(SyntaxKind.OpenParenToken);
+            var expression = ParseExpression();
+            var closeParen = TryConsume(SyntaxKind.CloseParenToken);
+            var body = ParseStatement();
 
             if (Current.Kind == SyntaxKind.ElseKeyword)
             {
-                ElseClauseSyntax elseClause = ParseElseClause();
+                var elseClause = ParseElseClause();
                 return new IfStatementSyntax(_syntaxTree, keyword, openParen, expression, closeParen, body, elseClause);
             }
             return new IfStatementSyntax(_syntaxTree, keyword, openParen, expression, closeParen, body);
@@ -267,66 +287,64 @@ namespace Blaze
 
         private ElseClauseSyntax ParseElseClause()
         {
-            SyntaxToken keyword = TryConsume(SyntaxKind.ElseKeyword);
-            StatementSyntax statement = ParseStatement();
+            var keyword = TryConsume(SyntaxKind.ElseKeyword);
+            var statement = ParseStatement();
             return new ElseClauseSyntax(_syntaxTree, keyword, statement);
         }
 
         private WhileStatementSyntax ParseWhileStatement()
         {
-            SyntaxToken keyword = TryConsume(SyntaxKind.WhileKeyword);
-            SyntaxToken openParen = TryConsume(SyntaxKind.OpenParenToken);
-            ExpressionSyntax condition = ParseExpression();
-            SyntaxToken closeParen = TryConsume(SyntaxKind.CloseParenToken);
-            StatementSyntax body = ParseStatement();
+            var keyword = TryConsume(SyntaxKind.WhileKeyword);
+            var openParen = TryConsume(SyntaxKind.OpenParenToken);
+            var condition = ParseExpression();
+            var closeParen = TryConsume(SyntaxKind.CloseParenToken);
+            var body = ParseStatement();
             return new WhileStatementSyntax(_syntaxTree,  keyword, openParen, condition, closeParen, body);
         }
 
         private DoWhileStatementSyntax ParseDoWhileStatement()
         {
-            SyntaxToken doKeyword = TryConsume(SyntaxKind.DoKeyword);
-            StatementSyntax body = ParseStatement();
-            SyntaxToken whileKeyword = TryConsume(SyntaxKind.WhileKeyword);
-            SyntaxToken openParen = TryConsume(SyntaxKind.OpenParenToken);
-            ExpressionSyntax condition = ParseExpression();
-            SyntaxToken closeParen = TryConsume(SyntaxKind.CloseParenToken);
-            SyntaxToken semicolon = TryConsume(SyntaxKind.SemicolonToken);
+            var doKeyword = TryConsume(SyntaxKind.DoKeyword);
+            var body = ParseStatement();
+            var whileKeyword = TryConsume(SyntaxKind.WhileKeyword);
+            var openParen = TryConsume(SyntaxKind.OpenParenToken);
+            var condition = ParseExpression();
+            var closeParen = TryConsume(SyntaxKind.CloseParenToken);
+            var semicolon = TryConsume(SyntaxKind.SemicolonToken);
             return new DoWhileStatementSyntax(_syntaxTree, doKeyword, body, whileKeyword, openParen, condition, closeParen, semicolon);
         }
 
         private StatementSyntax ParseForStatement()
         {
             //For now only supports range for loops
-            SyntaxToken keyword = TryConsume(SyntaxKind.ForKeyword);
-            SyntaxToken openParen = TryConsume(SyntaxKind.OpenParenToken);
-            SyntaxToken identifier = TryConsume(SyntaxKind.IdentifierToken);
-            SyntaxToken equalsSign = TryConsume(SyntaxKind.EqualsToken);
-            ExpressionSyntax lowerBound = ParseExpression();
-            SyntaxToken doubleDot = TryConsume(SyntaxKind.DoubleDotToken);
-            ExpressionSyntax upperBound = ParseExpression();
-            SyntaxToken closeParen = TryConsume(SyntaxKind.CloseParenToken);
-
-            StatementSyntax body = ParseStatement();
+            var keyword = TryConsume(SyntaxKind.ForKeyword);
+            var openParen = TryConsume(SyntaxKind.OpenParenToken);
+            var identifier = TryConsume(SyntaxKind.IdentifierToken);
+            var equalsSign = TryConsume(SyntaxKind.EqualsToken);
+            var lowerBound = ParseExpression();
+            var doubleDot = TryConsume(SyntaxKind.DoubleDotToken);
+            var upperBound = ParseExpression();
+            var closeParen = TryConsume(SyntaxKind.CloseParenToken);
+            var body = ParseStatement();
 
             return new ForStatementSyntax(_syntaxTree, keyword, openParen, identifier, equalsSign, lowerBound, doubleDot, upperBound, closeParen, body);
         }
 
         private BlockStatementSyntax ParseBlockStatement()
         {
-            ImmutableArray<StatementSyntax>.Builder statements = ImmutableArray.CreateBuilder<StatementSyntax>();
-
-            SyntaxToken openBraceToken = TryConsume(SyntaxKind.OpenBraceToken);
+            var statements = ImmutableArray.CreateBuilder<StatementSyntax>();
+            var openBraceToken = TryConsume(SyntaxKind.OpenBraceToken);
 
             while (Current.Kind != SyntaxKind.EndOfFileToken && Current.Kind != SyntaxKind.CloseBraceToken)
             {
-                SyntaxToken startToken = Current;
+                var startToken = Current;
                 statements.Add(ParseStatement());
 
                 if (Current == startToken)
-                    Consume();
+                   Consume();
             }
 
-            SyntaxToken closeBraceToken = TryConsume(SyntaxKind.CloseBraceToken);
+            var closeBraceToken = TryConsume(SyntaxKind.CloseBraceToken);
             return new BlockStatementSyntax(_syntaxTree, openBraceToken, statements.ToImmutable(), closeBraceToken);
         }
         
@@ -338,44 +356,44 @@ namespace Blaze
             else
                 declarationNode = TryConsume(SyntaxKind.LetKeyword);
 
-            SyntaxToken identifierToken = TryConsume(SyntaxKind.IdentifierToken);
-            SyntaxToken equalsToken = TryConsume(SyntaxKind.EqualsToken);
-            ExpressionSyntax initializer = ParseExpression();
-            SyntaxToken semicolon = TryConsume(SyntaxKind.SemicolonToken);
+            var identifierToken = TryConsume(SyntaxKind.IdentifierToken);
+            var equalsToken = TryConsume(SyntaxKind.EqualsToken);
+            var initializer = ParseExpression();
+            var semicolon = TryConsume(SyntaxKind.SemicolonToken);
             return new VariableDeclarationStatementSyntax(_syntaxTree, declarationNode, identifierToken, equalsToken, initializer, semicolon);
         }
 
         private BreakStatementSyntax ParseBreakStatement()
         {
-            SyntaxToken keyword = TryConsume(SyntaxKind.BreakKeyword);
-            SyntaxToken semicolon = TryConsume(SyntaxKind.SemicolonToken);
+            var keyword = TryConsume(SyntaxKind.BreakKeyword);
+            var semicolon = TryConsume(SyntaxKind.SemicolonToken);
             return new BreakStatementSyntax(_syntaxTree, keyword, semicolon);
         }
 
         private ContinueStatementSyntax ParseContinueStatement()
         {
-            SyntaxToken keyword = TryConsume(SyntaxKind.ContinueKeyword);
-            SyntaxToken semicolon = TryConsume(SyntaxKind.SemicolonToken);
+            var keyword = TryConsume(SyntaxKind.ContinueKeyword);
+            var semicolon = TryConsume(SyntaxKind.SemicolonToken);
             return new ContinueStatementSyntax(_syntaxTree, keyword, semicolon);
         }
 
         private TypeClauseSyntax ParseTypeClause()
         {
-            SyntaxToken identifier = TryConsume(SyntaxKind.IdentifierToken);
+            var identifier = TryConsume(SyntaxKind.IdentifierToken);
             return new TypeClauseSyntax(_syntaxTree, identifier);
         }
 
         private ReturnTypeClauseSyntax ParseReturnTypeClause()
         {
-            SyntaxToken colon = TryConsume(SyntaxKind.ColonToken);
-            SyntaxToken identifier = TryConsume(SyntaxKind.IdentifierToken);
+            var colon = TryConsume(SyntaxKind.ColonToken);
+            var identifier = TryConsume(SyntaxKind.IdentifierToken);
             return new ReturnTypeClauseSyntax(_syntaxTree, colon, identifier);
         }
 
         private ExpressionStatementSyntax ParseExpressionStatement()
         {
-            ExpressionSyntax expression = ParseExpression();
-            SyntaxToken semicolon = TryConsume(SyntaxKind.SemicolonToken);
+            var expression = ParseExpression();
+            var semicolon = TryConsume(SyntaxKind.SemicolonToken);
             return new ExpressionStatementSyntax(_syntaxTree, expression, semicolon);
         }
 
@@ -404,7 +422,7 @@ namespace Blaze
         private ExpressionSyntax ParseBinaryExpression(int parentPrecedence = 0)
         {
             ExpressionSyntax left;
-            int unaryOperatorPrecedence = Current.Kind.GetUnaryOperatorPrecedence();
+            var unaryOperatorPrecedence = Current.Kind.GetUnaryOperatorPrecedence();
             if (unaryOperatorPrecedence != 0 && unaryOperatorPrecedence >= parentPrecedence)
             {
                 var operatorToken = Consume();
@@ -416,7 +434,7 @@ namespace Blaze
             
             while (true)
             {
-                int precedence = Current.Kind.GetBinaryOperatorPrecedence();
+                var precedence = Current.Kind.GetBinaryOperatorPrecedence();
                 if (precedence == 0 || precedence <= parentPrecedence)
                     break;
 
@@ -442,8 +460,19 @@ namespace Blaze
                 case SyntaxKind.StringLiteralToken:
                     return ParseStringLiteral();
                 default:
-                    return ParseIdentifierOrCallExpression();
+                    if (Next.Kind == SyntaxKind.DotToken)
+                        return ParseMemberAccessExpression();
+                    else 
+                        return ParseIdentifierOrCallExpression();
             }
+        }
+
+        private ExpressionSyntax ParseMemberAccessExpression()
+        {
+            var identifier = TryConsume(SyntaxKind.IdentifierToken);
+            var dotToken = TryConsume(SyntaxKind.DotToken);
+            var memberExpression = ParseExpression();
+            return new MemberAccessExpressionSyntax(_syntaxTree, identifier, dotToken, memberExpression);
         }
 
         private ExpressionSyntax ParseIntegerLiteral()

@@ -122,6 +122,7 @@ namespace Blaze
                 "load"      => SyntaxKind.LoadKeyword,
                 "tick"      => SyntaxKind.TickKeyword,
                 "namespace" => SyntaxKind.NamespaceKeyword,
+                "using"     => SyntaxKind.UsingKeyword,
                 _           => SyntaxKind.IdentifierToken,
             };;
         }
@@ -173,6 +174,7 @@ namespace Blaze
                 SyntaxKind.LoadKeyword => "load",
                 SyntaxKind.TickKeyword => "tick",
                 SyntaxKind.NamespaceKeyword => "namespace",
+                SyntaxKind.UsingKeyword => "using",
                 SyntaxKind.SemicolonToken => ";",
                 SyntaxKind.ColonToken => ":",
                 SyntaxKind.CommaToken => ",",
