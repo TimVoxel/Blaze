@@ -4,20 +4,20 @@ namespace Blaze.Syntax_Nodes
 {
     public sealed class IncrementExpressionSyntax : ExpressionSyntax
     {
-        public SyntaxToken IdentifierToken { get; private set; }
+        public ExpressionSyntax Expression { get; private set; }
         public SyntaxToken AssignmentToken { get; private set; }
 
         public override SyntaxKind Kind => SyntaxKind.IncrementExpression;
 
-        internal IncrementExpressionSyntax(SyntaxTree tree, SyntaxToken identifierToken, SyntaxToken assignmentToken) : base(tree)
+        internal IncrementExpressionSyntax(SyntaxTree tree, ExpressionSyntax operand, SyntaxToken assignmentToken) : base(tree)
         {
-            IdentifierToken = identifierToken;
+            Expression = operand;
             AssignmentToken = assignmentToken;
         }
 
         public override IEnumerable<SyntaxNode> GetChildren()
         {
-            yield return IdentifierToken;
+            yield return Expression;
             yield return AssignmentToken;
         }
     }

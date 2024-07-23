@@ -1,6 +1,7 @@
 ﻿using Blaze.IO;
 using Blaze.Symbols;
 using System.CodeDom.Compiler;
+using System.Collections.Immutable;
 
 namespace Blaze.Binding
 {
@@ -41,6 +42,18 @@ namespace Blaze.Binding
                     break;
                 case BoundNodeKind.ConversionExpression:
                     WriteConversionExpression((BoundConversionExpression)node, writer);
+                    break;
+                case BoundNodeKind.ObjectCreationExpression:
+                    WriteObjectCreationExpression((BoundObjectCreationExpression)node,writer);
+                    break;
+                case BoundNodeKind.FieldAccessExpression:
+                    WriteFieldAccessExpression((BoundFieldAccessExpression)node, writer);
+                    break;
+                case BoundNodeKind.FunctionExpression:
+                    WriteFunctionExpression((BoundFunctionExpression)node, writer);
+                    break;
+                case BoundNodeKind.MethodAccessExpression:
+                    WriteMethodAccessExpression((BoundMethodAccessExpression)node, writer);
                     break;
                 case BoundNodeKind.NopStatement:
                     WriteNopStatement((BoundNopStatement)node, writer);
@@ -306,11 +319,39 @@ namespace Blaze.Binding
             writer.WriteIdentifier(node.Variable.Name);
         }
 
+        private static void WriteObjectCreationExpression(BoundObjectCreationExpression node, IndentedTextWriter writer)
+        {
+            writer.WriteKeyword("new ");
+            writer.WriteIdentifier(node.NamedType.GetFullName());
+            writer.WritePunctuation("(");
+            WriteArguments(node.Arguments, writer);
+            writer.WritePunctuation(")");
+        }
+
+        private static void WriteFunctionExpression(BoundFunctionExpression node, IndentedTextWriter writer)
+        {
+            writer.WriteIdentifier(node.Function.Name);
+        }
+
+        private static void WriteMethodAccessExpression(BoundMethodAccessExpression node, IndentedTextWriter writer)
+        {
+            node.Instance.WriteTo(writer);
+            writer.WritePunctuation(".");
+            writer.WriteIdentifier(node.Method.Name);
+        }
+
+        private static void WriteFieldAccessExpression(BoundFieldAccessExpression node, IndentedTextWriter writer)
+        {
+            node.Instance.WriteTo(writer);
+            writer.WritePunctuation(".");
+            writer.WriteIdentifier(node.Field.Name);
+        }
+
         private static void WriteAssignmentExpression(BoundAssignmentExpression node, IndentedTextWriter writer)
         {
-            writer.WriteIdentifier(node.Variable.Name);
+            node.Left.WriteTo(writer);
             writer.WritePunctuation(" = ");
-            node.Expression.WriteTo(writer);
+            node.Right.WriteTo(writer);
         }
 
         private static void WriteUnaryExpression(BoundUnaryExpression node, IndentedTextWriter writer)
@@ -339,11 +380,16 @@ namespace Blaze.Binding
 
         private static void WriteCallExpression(BoundCallExpression node, IndentedTextWriter writer)
         {
-            writer.WriteIdentifier(node.Function.Name);
+            node.Identifier.WriteTo(writer);
             writer.WritePunctuation("(");
+            WriteArguments(node.Arguments, writer);
+            writer.WritePunctuation(")");
+        }
 
+        private static void WriteArguments(ImmutableArray<BoundExpression> arguments, IndentedTextWriter writer)
+        {
             var isFirst = true;
-            foreach (var argument in node.Arguments)
+            foreach (var argument in arguments)
             {
                 if (isFirst)
                     isFirst = false;
@@ -352,8 +398,6 @@ namespace Blaze.Binding
 
                 argument.WriteTo(writer);
             }
-
-            writer.WritePunctuation(")");
         }
 
         private static void WriteConversionExpression(BoundConversionExpression node, IndentedTextWriter writer)

@@ -1,6 +1,6 @@
 ﻿namespace Blaze.Binding
 {
-    internal sealed class BoundConstant
+    public sealed class BoundConstant
     {
         public object Value { get; private set; }
 

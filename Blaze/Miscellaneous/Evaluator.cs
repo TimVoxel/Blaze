@@ -226,8 +226,8 @@ namespace Blaze.Miscellaneuos
 
         private object? EvaluateAssignmentExpression(BoundAssignmentExpression assignment)
         {
-            var value = EvaluateExpression(assignment.Expression);
-            Assign(assignment.Variable, value);
+            var value = EvaluateExpression(assignment.Right);
+            //Assign(assignment.Variable, value);
             return value;
         }
 

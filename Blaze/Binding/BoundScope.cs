@@ -6,7 +6,6 @@ namespace Blaze.Binding
     public sealed class BoundScope
     {
         private Dictionary<string, VariableSymbol>? _variables;
-        private Dictionary<string, FunctionSymbol>? _functions;
 
         public BoundScope? Parent { get; private set; }
 
@@ -38,39 +37,10 @@ namespace Blaze.Binding
             return variable;
         }
 
-        public bool TryDeclareFunction(FunctionSymbol function)
-        {
-            if (_functions == null)
-                _functions = new Dictionary<string, FunctionSymbol>();
-
-            if (_functions.ContainsKey(function.Name.ToLower())) return false;
-            _functions.Add(function.Name.ToLower(), function);
-            return true;
-        }
-
-        public FunctionSymbol? TryLookupFunction(string name)
-        {
-            FunctionSymbol? function = null;
-
-            if (_functions != null && _functions.TryGetValue(name.ToLower(), out function))
-                return function;
-
-            if (Parent != null)
-                return Parent.TryLookupFunction(name.ToLower());
-
-            return function;
-        }
-
         public ImmutableArray<VariableSymbol> GetDeclaredVariables()
         {
             if (_variables == null) return ImmutableArray<VariableSymbol>.Empty;
             return _variables.Values.ToImmutableArray();
-        }
-
-        public ImmutableArray<FunctionSymbol> GetDeclaredFunctions()
-        {
-            if (_functions == null) return ImmutableArray<FunctionSymbol>.Empty;
-            return _functions.Values.ToImmutableArray();
         }
     }
 }

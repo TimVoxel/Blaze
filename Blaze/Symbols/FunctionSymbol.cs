@@ -4,16 +4,15 @@ using System.Text;
 
 namespace Blaze.Symbols
 {
-    public sealed class FunctionSymbol : Symbol
+    public class FunctionSymbol : Symbol, IMemberSymbol
     {
         private string? _addressName;
-
-        public NamespaceSymbol ParentNamespace { get; }
         public ImmutableArray<ParameterSymbol> Parameters { get; }
         public TypeSymbol ReturnType { get; }
         public FunctionDeclarationSyntax? Declaration { get; }
+        public IMemberSymbol? Parent { get; }
 
-        public string AddressName
+        public virtual string AddressName
         {
             get
             {
@@ -24,10 +23,10 @@ namespace Blaze.Symbols
                     return _addressName;
 
                 var builder = new StringBuilder();
-                var stack = new Stack<Symbol>();
+                var stack = new Stack<IMemberSymbol>();
                 stack.Push(this);
 
-                var previous = ParentNamespace;
+                var previous = Parent;
                 while (previous != null)
                 {
                     stack.Push(previous);
@@ -47,12 +46,33 @@ namespace Blaze.Symbols
 
         public override SymbolKind Kind => SymbolKind.Function;
 
-        public FunctionSymbol(string name, NamespaceSymbol parentNamespace, ImmutableArray<ParameterSymbol> parameters, TypeSymbol returnType, FunctionDeclarationSyntax? declaration = null) : base(name)
+        public FunctionSymbol(string name, IMemberSymbol? parent, ImmutableArray<ParameterSymbol> parameters, TypeSymbol returnType, FunctionDeclarationSyntax? declaration = null) : base(name)
         {
-            ParentNamespace = parentNamespace;
+            Parent = parent;
             Parameters = parameters;
             ReturnType = returnType;
             Declaration = declaration;
+        }
+
+        public string GetFullName()
+        {
+            var nameBuilder = new StringBuilder();
+            var nameStack = new Stack<string>();
+            IMemberSymbol? previous = this;
+
+            while (previous != null)
+            {
+                nameStack.Push(previous.Name);
+                previous = previous.Parent;
+            }
+
+            while (nameStack.Any())
+            {
+                nameBuilder.Append(nameStack.Pop());
+                if (nameStack.Count >= 1)
+                    nameBuilder.Append(".");
+            }
+            return nameBuilder.ToString();
         }
     }
 }

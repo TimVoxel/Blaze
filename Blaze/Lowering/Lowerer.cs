@@ -91,7 +91,7 @@ namespace Blaze.Lowering
 
             var condition = new BoundBinaryExpression(variableExpression, op, upperBoundExpression);
             //var continueLabelStatement = new BoundLabelStatement(node.ContinueLabel);
-            var increment = new BoundExpressionStatement(new BoundAssignmentExpression(node.Variable, new BoundBinaryExpression(variableExpression, plusOp, new BoundLiteralExpression(1))));
+            var increment = new BoundExpressionStatement(new BoundAssignmentExpression(variableExpression, new BoundBinaryExpression(variableExpression, plusOp, new BoundLiteralExpression(1))));
 
             var whileBlock = new BoundBlockStatement(ImmutableArray.Create(node.Body, increment));
             var whileStatement = new BoundWhileStatement(condition, whileBlock, node.BreakLabel, GenerateLabel());
@@ -109,9 +109,8 @@ namespace Blaze.Lowering
             // >
             // a = a + b;
 
-            var variable = new BoundVariableExpression(node.Variable);
-            var binary = new BoundBinaryExpression(variable, node.Operator, node.Expression);
-            var assignment = new BoundAssignmentExpression(node.Variable, binary);
+            var binary = new BoundBinaryExpression(node.Left, node.Operator, node.Right);
+            var assignment = new BoundAssignmentExpression(node.Left, binary);
             return assignment;
         }
 
@@ -121,30 +120,10 @@ namespace Blaze.Lowering
             // >
             // a = a + 1;
 
-            var variable = new BoundVariableExpression(node.Variable);
             var oneLiteral = new BoundLiteralExpression(1);
-            var binary = new BoundBinaryExpression(variable, node.IncrementOperator, oneLiteral);
-            var assignment = new BoundAssignmentExpression(node.Variable, binary);
+            var binary = new BoundBinaryExpression(node.Operand, node.IncrementOperator, oneLiteral);
+            var assignment = new BoundAssignmentExpression(node.Operand, binary);
             return assignment;
         }
-
-        //This stuff doesn't seem to work correctly without constant variables duh
-        /*
-        protected override BoundStatement RewriteConditionalGotoStatement(BoundConditionalGotoStatement node)
-        {
-
-            if (node.Condition.ConstantValue != null)
-            {
-                var condition = (bool) node.Condition.ConstantValue.Value;
-                condition = node.JumpIfFalse ? !condition : condition;
-
-                if (condition)
-                    return RewriteGotoStatement(new BoundGotoStatement(node.Label));
-                else
-                    return RewriteNopStatement(new BoundNopStatement());
-            }
-            return base.RewriteConditionalGotoStatement(node);
-        }
-        */
     }
 }

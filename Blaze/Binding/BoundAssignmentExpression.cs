@@ -4,16 +4,16 @@ namespace Blaze.Binding
 {
     internal sealed class BoundAssignmentExpression : BoundExpression
     {
-        public VariableSymbol Variable { get; private set; }
-        public BoundExpression Expression { get; private set; }
+        public BoundExpression Left { get; }
+        public BoundExpression Right { get; }
 
-        public override TypeSymbol Type => Expression.Type;
+        public override TypeSymbol Type => Right.Type;
         public override BoundNodeKind Kind => BoundNodeKind.AssignmentExpression;
 
-        internal BoundAssignmentExpression(VariableSymbol variable, BoundExpression expression)
+        internal BoundAssignmentExpression(BoundExpression left, BoundExpression right)
         {
-            Variable = variable;
-            Expression = expression;
+            Left = left;
+            Right = right;
         }
     }
 }

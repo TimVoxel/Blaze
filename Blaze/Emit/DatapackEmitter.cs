@@ -5,8 +5,10 @@ using System.Collections.Immutable;
 
 namespace Blaze.Emit
 {
-    internal class DatapackEmitter
+    internal partial class DatapackEmitter
     {
+        public partial class BuiltInFunctionEmitter { } 
+
         private const string TEMP = ".temp";
         private const string RETURN_TEMP_NAME = "return.value";
 
@@ -25,13 +27,13 @@ namespace Blaze.Emit
         {
             if (program.Diagnostics.Any() || configuration == null)
                 return program.Diagnostics;
-
+            /*
             var emitter = new DatapackEmitter(program, configuration);
             emitter.BuildPacks();
-
+            */
             return program.Diagnostics;
         }
-
+        /*
         private void BuildPacks()
         {
             var functionNamespaceEmittionBuilder = ImmutableArray.CreateBuilder<FunctionNamespaceEmittion>();
@@ -49,6 +51,7 @@ namespace Blaze.Emit
             datapack.Build();
         }
 
+        
         private string GetCallLink(FunctionEmittion emittion)
         {
             return $"{RootNamespace}:{emittion.CallName}";
@@ -58,7 +61,7 @@ namespace Blaze.Emit
         {
             return $"{RootNamespace}:{symbol.AddressName}";
         }
-
+        
         private FunctionNamespaceEmittion EmitFunctionNamespace(NamespaceSymbol symbol, BoundNamespace boundNamespace)
         {
             var functionsBuilder = ImmutableArray.CreateBuilder<FunctionEmittion>();
@@ -99,7 +102,7 @@ namespace Blaze.Emit
                     EvaluateBlockStatement((BoundBlockStatement)node, emittion);
                     break;
                 case BoundNodeKind.ExpressionStatement:
-                    EvaluateExpressionStatement((BoundExpressionStatement)node, emittion);
+                    EmitExpressionStatement((BoundExpressionStatement)node, emittion);
                     break;
                 case BoundNodeKind.VariableDeclarationStatement:
                     EmitVariableDeclarationStatement((BoundVariableDeclarationStatement)node, emittion);
@@ -260,7 +263,7 @@ namespace Blaze.Emit
             }
         }
 
-        private void EvaluateExpressionStatement(BoundExpressionStatement node, FunctionEmittion emittion)
+        private void EmitExpressionStatement(BoundExpressionStatement node, FunctionEmittion emittion)
         {
             //Can be either call or assignment
             var expression = node.Expression;
@@ -288,7 +291,7 @@ namespace Blaze.Emit
             //function <function>
             //Reset every parameter
 
-            var isBuiltIt = BuiltInFunctionEmitter.TryEmitBuiltInFunction(call, emittion);
+            var isBuiltIt = TryEmitBuiltInFunction(call, emittion);
             if (!isBuiltIt)
             {
                 var setNames = EmitFunctionParametersAssignment(call, emittion);
@@ -305,7 +308,7 @@ namespace Blaze.Emit
         }
 
         private string EmitAssignmentExpression(BoundAssignmentExpression assignment, FunctionEmittion emittion, int current) 
-            => EmitAssignmentExpression(assignment.Variable, assignment.Expression, emittion, current);
+            => EmitAssignmentExpression(assignment.Variable, assignment.Right, emittion, current);
 
         private string EmitAssignmentExpression(VariableSymbol variable, BoundExpression expression, FunctionEmittion emittion, int current)
         {
@@ -773,5 +776,6 @@ namespace Blaze.Emit
         }
 
         private string EmitAssignmentToTemp(BoundExpression expression, FunctionEmittion emittion, int index) => EmitAssignmentToTemp("temp", expression, emittion, index);
+        */
     }
 }

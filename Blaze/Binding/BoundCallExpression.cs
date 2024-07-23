@@ -5,16 +5,18 @@ namespace Blaze.Binding
 {
     internal sealed class BoundCallExpression : BoundExpression
     {
-        public FunctionSymbol Function { get; private set; }
-        public ImmutableArray<BoundExpression> Arguments { get; private set; }
+        public BoundExpression Identifier { get; private set; }
+        public FunctionSymbol Function { get; }
+        public ImmutableArray<BoundExpression> Arguments { get; }
 
         public override BoundNodeKind Kind => BoundNodeKind.CallExpression;
         public override TypeSymbol Type => Function.ReturnType;
 
-        public BoundCallExpression(FunctionSymbol function, ImmutableArray<BoundExpression> arguments)
+        public BoundCallExpression(BoundExpression identifier, FunctionSymbol function, ImmutableArray<BoundExpression> arguments)
         {
+            Identifier = identifier;
             Function = function;
             Arguments = arguments;
         }
-    }
+    } 
 }

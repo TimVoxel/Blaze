@@ -1,5 +1,6 @@
 ﻿using Blaze.Binding;
 using System.Collections.Immutable;
+using System.Runtime.InteropServices;
 
 namespace Blaze.Lowering
 {
@@ -183,9 +184,35 @@ namespace Blaze.Lowering
                     return RewriteConversionExpression((BoundConversionExpression)node);
                 case BoundNodeKind.IncrementExpression:
                     return RewriteIncrementExpression((BoundIncrementExpression)node);
+                case BoundNodeKind.ObjectCreationExpression:
+                    return RewriteNewExpression((BoundObjectCreationExpression)node);
+                case BoundNodeKind.FieldAccessExpression:
+                    return RewriteFieldAccessExpression((BoundFieldAccessExpression)node);
+                case BoundNodeKind.FunctionExpression:
+                    return RewriteFunctionExpression((BoundFunctionExpression)node);
+                case BoundNodeKind.MethodAccessExpression:
+                    return RewriteMethodAccessExpression((BoundMethodAccessExpression)node);
                 default:
                     throw new Exception($"Unexpected node {node.Kind}");
             }
+        }
+
+        protected virtual BoundExpression RewriteFieldAccessExpression(BoundFieldAccessExpression node)
+        {
+            var rewrittenInstanceExpression = RewriteExpression(node.Instance);
+            if (rewrittenInstanceExpression == node.Instance)
+                return node;
+            return new BoundFieldAccessExpression(rewrittenInstanceExpression, node.Field);
+        }
+       
+        protected virtual BoundExpression RewriteFunctionExpression(BoundFunctionExpression node) => node;
+
+        protected virtual BoundExpression RewriteMethodAccessExpression(BoundMethodAccessExpression node)
+        {
+            var rewrittenAccessed = node.Instance;
+            if (rewrittenAccessed == node.Instance)
+                return node;
+            return new BoundMethodAccessExpression(rewrittenAccessed, node.Method);
         }
 
         protected virtual BoundExpression RewriteIncrementExpression(BoundIncrementExpression node)
@@ -199,6 +226,14 @@ namespace Blaze.Lowering
             if (expression == node.Expression)
                 return node;
             return new BoundConversionExpression(node.Type, expression);
+        }
+
+        protected virtual BoundExpression RewriteNewExpression(BoundObjectCreationExpression node)
+        {
+            var builder = RewriteArguments(node.Arguments);
+            if (builder == null)
+                return node;
+            return new BoundObjectCreationExpression(node.NamedType, builder.MoveToImmutable());
         }
 
         protected virtual BoundExpression RewriteErrorExpression(BoundErrorExpression node) => node;
@@ -229,46 +264,56 @@ namespace Blaze.Lowering
 
         protected virtual BoundExpression RewriteAssignmentExpression(BoundAssignmentExpression node)
         {
-            var expression = RewriteExpression(node.Expression);
-            if (expression == node.Expression)
+            var left = RewriteExpression(node.Left);
+            var right = RewriteExpression(node.Right);
+
+            if (right == node.Right && left == node.Left)
                 return node;
 
-            return new BoundAssignmentExpression(node.Variable, expression);
+            return new BoundAssignmentExpression(left, right);
         }
 
         protected virtual BoundExpression RewriteCompoundAssignmentExpression(BoundCompoundAssignmentExpression node)
         {
-            var expression = RewriteExpression(node.Expression);
-            if (expression == node.Expression)
+            var left = RewriteExpression(node.Left);
+            var right = RewriteExpression(node.Right);
+
+            if (right == node.Right && left == node.Left)
                 return node;
 
-            return new BoundCompoundAssignmentExpression(node.Variable, node.Operator, expression);
+            return new BoundCompoundAssignmentExpression(left, node.Operator, right);
         }
 
         protected virtual BoundExpression RewriteCallExpression(BoundCallExpression node)
         {
+            var identifier = RewriteExpression(node.Identifier);
+            var builder = RewriteArguments(node.Arguments);
+            if (builder == null)
+                return node;
+            return new BoundCallExpression(identifier, node.Function, builder.MoveToImmutable());
+        }
+
+        private ImmutableArray<BoundExpression>.Builder? RewriteArguments(ImmutableArray<BoundExpression> arguments)
+        {
             ImmutableArray<BoundExpression>.Builder? builder = null;
 
-            for (int i = 0; i < node.Arguments.Length; i++)
+            for (int i = 0; i < arguments.Length; i++)
             {
-                var oldArgument = node.Arguments[i];
+                var oldArgument = arguments[i];
                 var rewritenArgument = RewriteExpression(oldArgument);
                 if (rewritenArgument != oldArgument)
                 {
                     if (builder == null)
                     {
-                        builder = ImmutableArray.CreateBuilder<BoundExpression>(node.Arguments.Length);
+                        builder = ImmutableArray.CreateBuilder<BoundExpression>(arguments.Length);
                         for (int j = 0; j < i; j++)
-                            builder.Add(node.Arguments[j]);
+                            builder.Add(arguments[j]);
                     }
                 }
                 if (builder != null)
                     builder.Add(rewritenArgument);
             }
-            if (builder == null)
-                return node;
-
-            return new BoundCallExpression(node.Function, builder.MoveToImmutable());
+            return builder;
         }
     }
 }

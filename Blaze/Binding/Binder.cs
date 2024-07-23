@@ -1,12 +1,16 @@
 ﻿using Blaze.Diagnostics;
+using Blaze.IO;
 using Blaze.Lowering;
 using Blaze.Symbols;
 using Blaze.Syntax_Nodes;
 using Blaze.SyntaxTokens;
 using Blaze.Text;
 using System.Collections.Immutable;
+using System.ComponentModel.DataAnnotations;
 using System.Diagnostics;
-using System.Linq;
+using System.Linq.Expressions;
+using System.Runtime.CompilerServices;
+using System.Xml.Linq;
 
 namespace Blaze.Binding
 {
@@ -18,26 +22,18 @@ namespace Blaze.Binding
         private Stack<(BoundLabel breakLabel, BoundLabel continueLabel)> _loopStack = new Stack<(BoundLabel breakLabel, BoundLabel continueLabel)>();
         private int _labelCounter = 0;
 
-        private List<NamespaceSymbol> _namespaces = new List<NamespaceSymbol>();
+        private NamespaceSymbol _globalNamespace;
+        private NamespaceSymbol _namespace;
 
-        //The key is the namespace, the values are all the namespaces the symbol uses
-        private Dictionary<NamespaceSymbol, List<NamespaceSymbol>> _usings = new Dictionary<NamespaceSymbol, List<NamespaceSymbol>>();
         private BoundScope _scope;
-
         public DiagnosticBag Diagnostics => _diagnostics;
 
-        public Binder(BoundScope? parentScope, FunctionSymbol? function, ImmutableArray<NamespaceSymbol>? definedNamespaces,
-            ImmutableDictionary<NamespaceSymbol, List<NamespaceSymbol>>? usings)
+        public Binder(BoundScope? parentScope, FunctionSymbol? function, NamespaceSymbol globalNamespace, NamespaceSymbol thisNamespace)
         {
             _scope = new BoundScope(parentScope);
             _function = function;
-
-            if (usings != null)
-                foreach (var u in usings)
-                    _usings.Add(u.Key, u.Value);
-
-            if (definedNamespaces != null)
-                _namespaces.AddRange(definedNamespaces);
+            _namespace = thisNamespace;
+            _globalNamespace = globalNamespace;
 
             if (_function != null)
                 foreach (var parameter in _function.Parameters)
@@ -46,34 +42,32 @@ namespace Blaze.Binding
 
         public static BoundGlobalScope BindGlobalScope(ImmutableArray<SyntaxTree> syntaxTrees)
         {
-            //1. Create a root scope that contains all the built-in functions
+            //1. Create a global namespace that contains all the built-in namespaces
             var parentScope = new BoundScope(null);
-            foreach (var builtInFunction in BuiltInFunction.GetAll())
-                parentScope.TryDeclareFunction(builtInFunction);
+            var globalNamespace = NamespaceSymbol.CreateGlobal("$global");
+            
+            foreach (var ns in BuiltInNamespace.GetAll())
+                globalNamespace.Members.Add(ns);
 
-            var binder = new Binder(parentScope, null, null, null);
+            var globalBinder = new Binder(parentScope, null, globalNamespace, globalNamespace);
 
             //2. Bind all namespace declarations
             var compilationUnits = syntaxTrees.Select(st => st.Root);
-            var namespaceDeclarations = compilationUnits.SelectMany(st => st.Namespaces)
-                .OrderBy(s => s.IdentifierPath.Count);
+            var namespaceDeclarations = compilationUnits.SelectMany(st => st.Namespaces).OrderBy(s => s.IdentifierPath.Count);
 
             foreach (var ns in namespaceDeclarations)
-                binder.BindNamespaceDeclaration(ns);
+                globalBinder.BindNamespaceDeclaration(ns);
 
             //3. Bind usings
             foreach (var compilationUnit in compilationUnits)
-                binder.BindUsings(compilationUnit);
+                globalBinder.BindUsings(compilationUnit);
 
             //4. Create the global scope
             var diagnostics = ImmutableArray.CreateBuilder<Diagnostic>();
             diagnostics.AddRange(syntaxTrees.SelectMany(d => d.Diagnostics));
-            diagnostics.AddRange(binder.Diagnostics);
+            diagnostics.AddRange(globalBinder.Diagnostics);
             
-            var namespaces = binder._namespaces.ToImmutableArray();
-            var usings = binder._usings.ToImmutableDictionary();
-
-            return new BoundGlobalScope(diagnostics.ToImmutable(), namespaces, usings);
+            return new BoundGlobalScope(diagnostics.ToImmutable(), globalNamespace);
         }
 
         public static BoundProgram BindProgram(BoundGlobalScope globalScope)
@@ -82,10 +76,13 @@ namespace Blaze.Binding
             var diagnostics = ImmutableArray.CreateBuilder<Diagnostic>();
             diagnostics.AddRange(globalScope.Diagnostics);
 
-            foreach (var ns in globalScope.Namespaces)
+            foreach (var ns in globalScope.GlobalNamespace.AllNestedNamespaces)
             {
-                var boundNamespace = BindNamespace(ns, ref diagnostics, globalScope);
-                boundNamespaces.Add(ns, boundNamespace);
+                if (!ns.IsBuiltIn)
+                {
+                    var boundNamespace = BindNamespace(ns, ref diagnostics, globalScope);
+                    boundNamespaces.Add(ns, boundNamespace);
+                }
             }
 
             return new BoundProgram(diagnostics.ToImmutable(), boundNamespaces.ToImmutable());
@@ -95,12 +92,13 @@ namespace Blaze.Binding
         {
             var functionBodies = ImmutableDictionary.CreateBuilder<FunctionSymbol, BoundStatement>();
             var childrenBuilder = ImmutableDictionary.CreateBuilder<NamespaceSymbol, BoundNamespace>();
+            var parentScope = new BoundScope(null);
 
-            foreach (var function in ns.Scope.GetDeclaredFunctions())
+            foreach (var function in ns.AllFunctions)
             {
                 if (function.Declaration != null)
                 {
-                    var binder = new Binder(ns.Scope, function, globalScope.Namespaces, globalScope.Usings);
+                    var binder = new Binder(parentScope, function, globalScope.GlobalNamespace, ns);
 
                     var body = binder.BindStatement(function.Declaration.Body);
                     var loweredBody = Lowerer.Lower(body);
@@ -116,7 +114,7 @@ namespace Blaze.Binding
                 }
             }
 
-            foreach (var child in ns.Children)
+            foreach (var child in ns.AllNestedNamespaces)
             {
                 var childBoundNamespace = BindNamespace(child, ref diagnostics, globalScope);
                 childrenBuilder.Add(child, childBoundNamespace);
@@ -163,10 +161,7 @@ namespace Blaze.Binding
                         if (ns == namespaceToUse)
                             continue;
 
-                        if (_usings.ContainsKey(ns))
-                            _usings[ns].Add(namespaceToUse);
-                        else
-                            _usings.Add(ns, new List<NamespaceSymbol>() { namespaceToUse });
+                        ns.Usings.Add(namespaceToUse);
                     }
                 } 
                 else
@@ -178,49 +173,35 @@ namespace Blaze.Binding
         {
             var identifierPath = ns.IdentifierPath;
             var name = identifierPath.First().Text;
-            NamespaceSymbol? currentNamespace = null;
-
-            var previousScope = _scope;
+            var currentNamespace = _globalNamespace;
 
             for (int i = 0; i < identifierPath.Count; i++)
             {
-                var previous = currentNamespace;
                 name = identifierPath[i].Text;
 
-                if (name.ToLower() != name)
+                if (name.HasUpperCase())
                     _diagnostics.ReportUpperCaseInNamespaceName(identifierPath[i].Location, name);
 
-                if (TryLookupNamespace(name, out currentNamespace, previous))
+                var newNamespace = new NamespaceSymbol(name, currentNamespace, ns);
+                if (TryLookupNamespace(name, out var found, currentNamespace))
                 {
-                    Debug.Assert(currentNamespace != null);
-
-                    if (identifierPath.Count == i + 1)
+                    if (i + 1 == identifierPath.Count)
                     {
                         _diagnostics.ReportNamespaceAlreadyDeclared(identifierPath.Last().Location, currentNamespace.GetFullName());
                         break;
                     }
-                    else
-                        _scope = currentNamespace.Scope;
                 }
                 else
                 {
-                    _scope = new BoundScope(_scope);
-                    var newNamespace = new NamespaceSymbol(name, _scope, previous, ns);
-                    if (previous != null)
-                        previous.Children.Add(newNamespace);
-                    else
-                        _namespaces.Add(newNamespace);
-
+                    currentNamespace.TryDeclareNested(newNamespace);
                     currentNamespace = newNamespace;
                 }
             }
-            Debug.Assert(currentNamespace != null);
 
             var functionDeclarations = ns.Members.OfType<FunctionDeclarationSyntax>();
             foreach (var function in functionDeclarations)
                 BindFunctionDeclaration(function, currentNamespace);
 
-            _scope = previousScope;
             /*
             var globalStatements = ns.Members.OfType<GlobalStatementSyntax>();
             var statements = ImmutableArray.CreateBuilder<BoundStatement>();
@@ -246,7 +227,7 @@ namespace Blaze.Binding
             foreach (var parameterSyntax in declaration.Parameters)
             {
                 var name = parameterSyntax.Identifier.Text;
-                var type = BindTypeClause(parameterSyntax.Type);
+                var type = BindType(parameterSyntax.Type.Identifier.Text, parameterSyntax.Type.Location);
 
                 if (type == null)
                     continue;
@@ -257,13 +238,13 @@ namespace Blaze.Binding
                     parameters.Add(new ParameterSymbol(name, type));
             }
 
-            var returnType = (declaration.ReturnTypeClause == null) ? TypeSymbol.Void : BindReturnTypeClause(declaration.ReturnTypeClause);
+            var returnType = (declaration.ReturnTypeClause == null) ? TypeSymbol.Void : BindType(declaration.ReturnTypeClause.Identifier.Text, declaration.ReturnTypeClause.Identifier.Location);
             if (returnType == null)
                 returnType = TypeSymbol.Void;
 
             var function = new FunctionSymbol(identifierText, ns, parameters.ToImmutable(), returnType, declaration);
 
-            if (!ns.Scope.TryDeclareFunction(function))
+            if (!ns.TryDeclareFunction(function))
                 _diagnostics.ReportFunctionAlreadyDeclared(declaration.Identifier.Location, function.Name);
         }
 
@@ -271,6 +252,7 @@ namespace Blaze.Binding
 
         private BoundStatement BindStatement(StatementSyntax syntax, bool isGlobal = false)
         {
+
             var result = BindStatementInternal(syntax);
 
             if (isGlobal)
@@ -313,7 +295,7 @@ namespace Blaze.Binding
             var initializer = BindExpression(syntax.Initializer);
             TypeSymbol? type = null;
             if (syntax.DeclarationNode is TypeClauseSyntax typeClause)
-                type = BindTypeClause(typeClause);
+                type = BindType(typeClause.Identifier.Text, typeClause.Identifier.Location);
 
             var variableType = type ?? initializer.Type;
             var variable = BindVariable(syntax.Identifier, variableType, initializer.ConstantValue);
@@ -438,9 +420,9 @@ namespace Blaze.Binding
 
         private BoundStatement BindErrorStatement() => new BoundExpressionStatement(new BoundErrorExpression());
 
-        private BoundExpression BindExpression(ExpressionSyntax expression, bool canBeVoid = false, NamespaceSymbol? namespaceSymbol = null)
+        private BoundExpression BindExpression(ExpressionSyntax expression, bool canBeVoid = false)
         {
-            var result = BindExpressionInternal(expression, namespaceSymbol);
+            var result = BindExpressionInternal(expression);
             if (!canBeVoid && result.Type == TypeSymbol.Void)
             {
                 _diagnostics.ReportExpressionMustHaveValue(expression.Location);
@@ -449,7 +431,7 @@ namespace Blaze.Binding
             return result;
         }
 
-        private BoundExpression BindExpressionInternal(ExpressionSyntax expression, NamespaceSymbol? namespaceSymbol)
+        private BoundExpression BindExpressionInternal(ExpressionSyntax expression)
         {
             return expression.Kind switch
             {
@@ -457,14 +439,16 @@ namespace Blaze.Binding
                 SyntaxKind.BinaryExpression => BindBinaryExpression((BinaryExpressionSyntax)expression),
                 SyntaxKind.UnaryExpression => BindUnaryExpression((UnaryExpressionSyntax)expression),
                 SyntaxKind.ParenthesizedExpression => BindExpression(((ParenthesizedExpressionSyntax)expression).Expression),
-                SyntaxKind.IdentifierExpression => BindIdentifierExpression((IdentifierExpressionSyntax)expression),
                 SyntaxKind.AssignmentExpression => BindAssignmentExpression((AssignmentExpressionSyntax)expression),
                 SyntaxKind.IncrementExpression => BindIncrementExpression((IncrementExpressionSyntax)expression),
+                SyntaxKind.ObjectCreationExpression => BindObjectCreationExpression((ObjectCreationExpressionSyntax)expression),
 
-                SyntaxKind.CallExpression => BindCallExpression((CallExpressionSyntax)expression, namespaceSymbol),
-                SyntaxKind.MemberAccessExpression => BindMemberAccessExpression((MemberAccessExpressionSyntax)expression, namespaceSymbol),
+                SyntaxKind.SimpleNameExpression => BindSimpleNameExpression((SimpleNameExpressionSyntax)expression),
+                SyntaxKind.CallExpression => BindCallExpression((CallExpressionSyntax)expression),
+                SyntaxKind.MemberAccessExpression => BindMemberAccessExpression((MemberAccessExpressionSyntax)expression),
+    
                 _ => throw new Exception($"Unexpected syntax {expression.Kind}"),
-            };
+            } ;
         }
 
         private BoundExpression BindExpression(ExpressionSyntax expression, TypeSymbol desiredType) => BindConversion(expression, desiredType);
@@ -509,79 +493,110 @@ namespace Blaze.Binding
             return new BoundUnaryExpression(op, operand);
         }
 
-        private BoundExpression BindIdentifierExpression(IdentifierExpressionSyntax expression)
+        private BoundExpression BindSimpleNameExpression(SimpleNameExpressionSyntax expression, NamespaceSymbol? contextNamespace = null)
         {
             var name = expression.IdentifierToken.Text;
             if (expression.IdentifierToken.IsMissingText)
                 return new BoundErrorExpression();
 
-            var variable = _scope.TryLookupVariable(name);
-            if (variable == null)
+            var symbol = LookupSymbol(name, expression.IdentifierToken.Location, contextNamespace);
+
+            if (symbol == null)
             {
                 _diagnostics.ReportUndefinedName(expression.IdentifierToken.Location, name);
                 return new BoundErrorExpression();
             }
-            return new BoundVariableExpression(variable);
+
+            if (symbol is VariableSymbol variable)
+                return new BoundVariableExpression(variable);
+
+            if (symbol is NamedTypeSymbol type)
+                return new BoundTypeExpression(type);
+
+            if (symbol is NamespaceSymbol ns)
+                return new BoundNamespaceExpression(ns);
+
+            if (symbol is FunctionSymbol function)
+                return new BoundFunctionExpression(function);
+
+            return new BoundErrorExpression();
         }
 
         private BoundExpression BindMemberAccessExpression(MemberAccessExpressionSyntax expression, NamespaceSymbol? previous = null)
         {
-            var name = expression.Identifier.Text;
-            if (expression.Identifier.IsMissingText)
-                return new BoundErrorExpression();
-
-            if (expression.Member.Kind != SyntaxKind.CallExpression && expression.Member.Kind != SyntaxKind.MemberAccessExpression)
+            if (!expression.AccessedExpression.CanBeAccessed())
             {
-                _diagnostics.ReportInvalidMemberAccessExpressionKind(expression.Member.Location);
+                _diagnostics.ReportInvalidMemberAccessLeftKind(expression.AccessedExpression.Location, expression.AccessedExpression.Kind);
                 return new BoundErrorExpression();
             }
 
-            if (TryLookupNamespace(name, out var parentSymbol, previous))
+            var boundAccessed = BindExpression(expression.AccessedExpression);
+            var memberName = expression.MemberIdentifier.Text;
+
+            if (boundAccessed.Type.IsError)
+                return boundAccessed;
+
+            if (boundAccessed.Type is NamedTypeSymbol namedType)
             {
-                Debug.Assert(parentSymbol != null);
-                var boundExpression = BindExpression(expression.Member, true, parentSymbol);
-                return boundExpression;  
+                //If the expression is of a named type (in other words is an instance of a class)
+                //Then check through all the fields. If not found, look through all the methods. If not found,
+                //return an error
+
+                Symbol? foundMember = namedType.TryLookup<FieldSymbol>(memberName);
+                if (foundMember == null)
+                {
+                    foundMember = namedType.TryLookup<FunctionSymbol>(memberName);
+
+                    if (foundMember == null)
+                    {
+                        _diagnostics.ReportUndefinedMemberOfType(expression.MemberIdentifier.Location, namedType.Name, memberName);
+                        return new BoundErrorExpression();
+                    }
+                    else
+                        return new BoundMethodAccessExpression(boundAccessed, (FunctionSymbol)foundMember);
+                }
+                return new BoundFieldAccessExpression(boundAccessed, (FieldSymbol) foundMember);
+            }
+            else if (boundAccessed is BoundNamespaceExpression namespaceExpression)
+            {
+                //If the expression is a namespace expression
+                //Then check for all nested namespaces and all the functions.
+                //Return the according struct (either a BoundNamespaceExpression or a BoundFunctionExpression)
+
+                var foundNested = namespaceExpression.Namespace.TryLookupDirectChild(memberName);
+                if (foundNested != null)
+                    return new BoundNamespaceExpression(foundNested);
+
+                var foundFunction = namespaceExpression.Namespace.TryLookup<FunctionSymbol>(memberName);
+                if (foundFunction != null)
+                    return new BoundFunctionExpression(foundFunction);
+
+                _diagnostics.ReportUndefinedMemberOfNamespace(expression.MemberIdentifier.Location, namespaceExpression.Namespace.Name, memberName);
+                return new BoundErrorExpression();
             }
             else
             {
-                _diagnostics.ReportUndefinedNamespace(expression.Identifier.Location, name);
+                _diagnostics.ReportInvalidMemberAccess(expression.AccessedExpression.Location, boundAccessed.Type.Name);
                 return new BoundErrorExpression();
             }
         }
 
-        private BoundExpression BindCallExpression(CallExpressionSyntax expression, NamespaceSymbol? parentSymbol = null)
+        private BoundExpression BindCallExpression(CallExpressionSyntax expression)
         {
-            var scope = parentSymbol == null ? _scope : parentSymbol.Scope;
-            var name = expression.Identifier.Text;
+            var boundIdentifier = BindExpression(expression.IdentifierExpression);
+            FunctionSymbol function;
 
-            if (expression.Arguments.Count == 1 && TypeSymbol.Lookup(name) is TypeSymbol type)
-                return BindConversion(expression.Arguments[0], type, true);
-            
-            var boundArguments = ImmutableArray.CreateBuilder<BoundExpression>();
-
-            foreach (ExpressionSyntax argument in expression.Arguments)
-                boundArguments.Add(BindExpression(argument));
-
-            var function = scope.TryLookupFunction(expression.Identifier.Text);
-            if (function == null)
+            if (boundIdentifier is BoundTypeExpression t)
+                return BindConversion(expression.Arguments[0], t.Type, true);            
+            else if (boundIdentifier is BoundFunctionExpression functionExpression)
+                function = functionExpression.Function;
+            else if (boundIdentifier is BoundMethodAccessExpression methodAccessExpression)            
+                function = methodAccessExpression.Method;
+            else
             {
-                if (_function == null)
-                    throw new Exception("Call expression outside of function");
-
-                var usedNamespaces = _usings[_function.ParentNamespace];
-                foreach (var usedNamespace in usedNamespaces)
-                {
-                    function = usedNamespace.Scope.TryLookupFunction(expression.Identifier.Text);
-                    if (function != null)
-                        break;
-                }
-
-                if (function == null)
-                {
-                    _diagnostics.ReportUndefinedFunction(expression.Identifier.Location, name);
-                    return new BoundErrorExpression();
-                } 
-            }
+                _diagnostics.ReportInvalidCallIdentifier(expression.IdentifierExpression.Location, boundIdentifier.Kind);
+                return new BoundErrorExpression();
+            }    
 
             if (function.Parameters.Length != expression.Arguments.Count)
             {
@@ -589,71 +604,103 @@ namespace Blaze.Binding
                 return new BoundErrorExpression();
             }
 
-            for (int i = 0; i < expression.Arguments.Count; i++)
+            var arguments = BindArguments(expression.Arguments, function.Parameters);
+            return new BoundCallExpression(boundIdentifier, function, arguments);
+        }
+        
+        private BoundExpression BindObjectCreationExpression(ObjectCreationExpressionSyntax syntax)
+        {
+            var name = syntax.Identifier.Text;
+            var classSymbol = _namespace.TryLookup<NamedTypeSymbol>(name);
+
+            if (classSymbol == null)
             {
-                var argumentLocation = expression.Arguments[i].Location;
-                var parameter = function.Parameters[i];
+                _diagnostics.ReportUndefinedClass(syntax.Identifier.Location, name);
+                return new BoundErrorExpression();
+            }
+
+            if (classSymbol.Constructor.Parameters.Length != syntax.Arguments.Count)
+            {
+                _diagnostics.ReportWrongConstructorArgumentCount(syntax.Location, classSymbol.Name, classSymbol.Constructor.Parameters.Length, syntax.Arguments.Count);
+                return new BoundErrorExpression();
+            }
+
+            var arguments = BindArguments(syntax.Arguments, classSymbol.Constructor.Parameters);
+            return new BoundObjectCreationExpression(classSymbol, arguments);
+        }
+
+        private ImmutableArray<BoundExpression> BindArguments(SeparatedSyntaxList<ExpressionSyntax> arguments, ImmutableArray<ParameterSymbol> parameters)
+        {
+            var boundArguments = ImmutableArray.CreateBuilder<BoundExpression>();
+
+            foreach (var argument in arguments)
+                boundArguments.Add(BindExpression(argument));
+
+            for (int i = 0; i < arguments.Count; i++)
+            {
+                var argumentLocation = arguments[i].Location;
+                var parameter = parameters[i];
                 var boundArgument = boundArguments[i];
                 boundArguments[i] = BindConversion(boundArgument, parameter.Type, argumentLocation);
             }
-            
-            return new BoundCallExpression(function, boundArguments.ToImmutable());
-        }
-        
+
+            return boundArguments.ToImmutable();
+        } 
+
         private BoundExpression BindAssignmentExpression(AssignmentExpressionSyntax expression)
         {
-            var boundExpression = BindExpression(expression.Expression);
-            var name = expression.IdentifierToken.Text;
-
-            var variable = _scope.TryLookupVariable(name);
-            if (variable == null)
+            var boundLeft = BindExpression(expression.Left);
+            var boundRight = BindExpression(expression.Right);
+            
+            if (boundLeft.Kind != BoundNodeKind.VariableExpression &&
+                boundLeft.Kind != BoundNodeKind.FieldAccessExpression)
             {
-                _diagnostics.ReportUndefinedName(expression.IdentifierToken.Location, name);
+                _diagnostics.ReportInvalidLeftHandAssignmentExpression(expression.Left.Location, expression.Left.Kind);
                 return new BoundErrorExpression();
             }
 
             if (expression.AssignmentToken.Kind != SyntaxKind.EqualsToken)
             {
                 var correspondingBinaryOperatorKind = SyntaxFacts.GetCorrespondingBinaryOperatorKind(expression.AssignmentToken.Kind);
-                var boundOperator = BoundBinaryOperator.Bind(correspondingBinaryOperatorKind, variable.Type, boundExpression.Type);
+                var boundOperator = BoundBinaryOperator.Bind(correspondingBinaryOperatorKind, boundLeft.Type, boundRight.Type);
 
                 if (boundOperator == null)
                 {
-                    _diagnostics.ReportUndefinedBinaryOperator(expression.AssignmentToken.Location, expression.AssignmentToken.Text, variable.Type, boundExpression.Type);
+                    _diagnostics.ReportUndefinedBinaryOperator(expression.AssignmentToken.Location, expression.AssignmentToken.Text, boundLeft.Type, boundRight.Type);
                     return new BoundErrorExpression();
                 }
 
-                var convertedExpression = BindConversion(boundExpression, variable.Type, expression.Expression.Location);
-                return new BoundCompoundAssignmentExpression(variable, boundOperator, convertedExpression);
+                var convertedExpression = BindConversion(boundRight, boundLeft.Type, expression.Right.Location);
+                return new BoundCompoundAssignmentExpression(boundLeft, boundOperator, convertedExpression);
             }
             else
             {
-                var convertedExpression = BindConversion(boundExpression, variable.Type, expression.Expression.Location);
-                return new BoundAssignmentExpression(variable, convertedExpression);
+                var convertedExpression = BindConversion(boundRight, boundLeft.Type, expression.Right.Location);
+                return new BoundAssignmentExpression(boundLeft, convertedExpression);
             }
         }
 
         private BoundExpression BindIncrementExpression(IncrementExpressionSyntax expression)
         {
-            var name = expression.IdentifierToken.Text;
-
-            var variable = _scope.TryLookupVariable(name);
-            if (variable == null)
+            var boundLeft = BindExpression(expression.Expression);
+            
+            if (boundLeft.Kind != BoundNodeKind.VariableExpression &&
+                boundLeft.Kind != BoundNodeKind.FieldAccessExpression)
             {
-                _diagnostics.ReportUndefinedName(expression.IdentifierToken.Location, name);
+                _diagnostics.ReportInvalidIncrementExpression(expression.Expression.Location, expression.Expression.Kind);
                 return new BoundErrorExpression();
             }
 
             var correspondingBinaryOperatorKind = SyntaxFacts.GetCorrespondingBinaryOperatorKind(expression.AssignmentToken.Kind);
-            var boundOperator = BoundBinaryOperator.Bind(correspondingBinaryOperatorKind, variable.Type, TypeSymbol.Int);
+            var boundOperator = BoundBinaryOperator.Bind(correspondingBinaryOperatorKind, boundLeft.Type, TypeSymbol.Int);
 
             if (boundOperator == null)
             {
-                _diagnostics.ReportUndefinedIncrementOperator(expression.AssignmentToken.Location, expression.AssignmentToken.Text, variable.Type);
+                _diagnostics.ReportUndefinedIncrementOperator(expression.AssignmentToken.Location, expression.AssignmentToken.Text, boundLeft.Type);
                 return new BoundErrorExpression();
             }
 
-            return new BoundIncrementExpression(variable, boundOperator);
+            return new BoundIncrementExpression(boundLeft, boundOperator);
         }
 
         private BoundExpression BindConversion(ExpressionSyntax syntax, TypeSymbol type, bool allowExplicit = false)
@@ -695,32 +742,55 @@ namespace Blaze.Binding
             return variable;
         }
 
-        private TypeSymbol? BindTypeClause(TypeClauseSyntax syntax)
+        private TypeSymbol? BindType(string name, TextLocation location)
         {
-            var type = TypeSymbol.Lookup(syntax.Identifier.Text);
+            var type = LookupType(name);
+
             if (type == null)
-                _diagnostics.ReportUndefinedType(syntax.Identifier.Location, syntax.Identifier.Text);
+                _diagnostics.ReportUndefinedType(location, name);
+
             return type;
         }
 
-        private TypeSymbol? BindReturnTypeClause(ReturnTypeClauseSyntax syntax)
+        private TypeSymbol? LookupType(string name)
         {
-            var type = TypeSymbol.Lookup(syntax.Identifier.Text);
+            TypeSymbol? type = TypeSymbol.Lookup(name);
             if (type == null)
-                _diagnostics.ReportUndefinedType(syntax.Identifier.Location, syntax.Identifier.Text);
+                type = _namespace.TryLookup<NamedTypeSymbol>(name);
+
             return type;
+        }
+
+        private Symbol? LookupSymbol(string name, TextLocation identifierLocation, NamespaceSymbol? contextNamespace = null)
+        {
+            //1. Try lookup a local variable in the current scope
+            //2. If not found, try to find a type with the name {name}
+            //3. If not found, try to find a namespace with the name {name}
+            //4. If not found, try to find a function with the name {name}
+
+            var variable = _scope.TryLookupVariable(name);
+            if (variable != null)
+                return variable;
+            
+            var lookupDomain = contextNamespace ?? _namespace;
+            var nestedNamespace = lookupDomain.TryLookupDirectChild(name);
+
+            if (nestedNamespace != null)
+                return nestedNamespace;
+
+            var namedType = lookupDomain.TryLookup<NamedTypeSymbol>(name);
+            if (namedType != null)
+                return namedType;
+
+            return lookupDomain.TryLookup<FunctionSymbol>(name);
         }
 
         private bool TryLookupNamespace(string name, out NamespaceSymbol? ns, NamespaceSymbol? previous = null)
         {
-            Console.WriteLine("Searching for " + name + " in " + previous);
-            foreach (var nsa in _namespaces)
-                Console.WriteLine(nsa);
-
             if (previous == null)
-                ns = _namespaces.FirstOrDefault(n => n.Name == name);
+                ns = _globalNamespace.TryLookupDirectChild(name);
             else
-                ns = previous.TryLookupChild(name);
+                ns = previous.TryLookupDirectChild(name);
 
             return ns != null;
         }

@@ -58,6 +58,7 @@
         ReturnKeyword,
         NamespaceKeyword,
         UsingKeyword,
+        NewKeyword,
 
         //Nodes
         CompilationUnit,
@@ -72,7 +73,7 @@
 
         //Expressions
         LiteralExpression,
-        IdentifierExpression,
+        SimpleNameExpression,
         BinaryExpression,
         ParenthesizedExpression,
         UnaryExpression,
@@ -80,6 +81,7 @@
         IncrementExpression,
         CallExpression,
         MemberAccessExpression,
+        ObjectCreationExpression,
 
         //Statements
         BlockStatement,

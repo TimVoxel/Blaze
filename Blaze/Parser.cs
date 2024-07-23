@@ -2,7 +2,6 @@
 using Blaze.Syntax_Nodes;
 using Blaze.SyntaxTokens;
 using Blaze.Text;
-using Mono.Cecil.Cil;
 using System.Collections.Immutable;
 
 namespace Blaze
@@ -87,6 +86,8 @@ namespace Blaze
             int index = _position + offset;
             if (index >= _tokens.Length)
                 return _tokens[_tokens.Length - 1];
+            if (index < 0)
+                return _tokens[0];
             return _tokens[index];
         }
 
@@ -413,49 +414,65 @@ namespace Blaze
             return new ExpressionStatementSyntax(_syntaxTree, expression, semicolon);
         }
 
-        private ExpressionSyntax ParseExpression() => ParseAssignmentExpression();
-
-        private ExpressionSyntax ParseAssignmentExpression()
+        private ExpressionSyntax ParseExpression()
         {
-            if (Current.Kind == SyntaxKind.IdentifierToken && Next.Kind == SyntaxKind.DoubleMinusToken
-                || Next.Kind == SyntaxKind.DoublePlusToken)
-            {
-                var identifierToken = Consume();
-                var assignmentToken = Consume();
-                return new IncrementExpressionSyntax(_syntaxTree, identifierToken, assignmentToken);
-            }
+            //This can be used outside of an expression statement context
+            //So have to add an extra check
 
-            if (Current.Kind == SyntaxKind.IdentifierToken && Next.Kind.GetAssignmentOperatorPrecedence() != 0)
-            {
-                var identifierToken = Consume();
-                var equalsToken = Consume();
-                var expression = ParseBinaryExpression();
-                return new AssignmentExpressionSyntax(_syntaxTree, identifierToken, equalsToken, expression);
-            }
-            return ParseBinaryExpression();
+            if (Current.Kind.GetUnaryOperatorPrecedence() != 0)
+                return ParseBinaryOrUnaryExpression();
+
+            //Statement context
+            var left = ParsePrimaryExpression();
+
+            if (Current.Kind == SyntaxKind.DoubleMinusToken || Current.Kind == SyntaxKind.DoublePlusToken)
+                return ParseIncrementOrDecrement(left);
+            else if (Current.Kind.GetAssignmentOperatorPrecedence() != 0)
+                return ParseAssignmentExpression(left);
+            else
+                return ParseBinaryOrUnaryExpression(0, left);
         }
 
-        private ExpressionSyntax ParseBinaryExpression(int parentPrecedence = 0)
+        private ExpressionSyntax ParseAssignmentExpression(ExpressionSyntax left)
         {
-            ExpressionSyntax left;
-            var unaryOperatorPrecedence = Current.Kind.GetUnaryOperatorPrecedence();
-            if (unaryOperatorPrecedence != 0 && unaryOperatorPrecedence >= parentPrecedence)
+            var assignmentOperator = Consume();
+            var right = ParseExpression();
+            return new AssignmentExpressionSyntax(_syntaxTree, left, assignmentOperator, right);
+        }
+
+        private ExpressionSyntax ParseIncrementOrDecrement(ExpressionSyntax operand)
+        {
+            var op = Consume();
+            return new IncrementExpressionSyntax(_syntaxTree, operand, op);
+        }
+
+        private ExpressionSyntax ParseBinaryOrUnaryExpression(int parentPrecedence = 0, ExpressionSyntax? left = null)
+        {
+            //Left is only not null when we are passing it after parsing it in ParseExpression
+            //In this case unary expression cannot occur
+
+            if (left == null)
             {
-                var operatorToken = Consume();
-                var operand = ParseBinaryExpression(unaryOperatorPrecedence);
-                left = new UnaryExpressionSyntax(_syntaxTree, operatorToken, operand);
+                var unaryOperatorPrecedence = Current.Kind.GetUnaryOperatorPrecedence();
+
+                if (unaryOperatorPrecedence != 0 && unaryOperatorPrecedence >= parentPrecedence)
+                {
+                    var operatorToken = Consume();
+                    var operand = ParseBinaryOrUnaryExpression(unaryOperatorPrecedence);
+                    left = new UnaryExpressionSyntax(_syntaxTree, operatorToken, operand);
+                }
+                else
+                    left = ParsePrimaryExpression();
             }
-            else
-                left = ParsePrimaryExpression();
-            
+
             while (true)
             {
-                var precedence = Current.Kind.GetBinaryOperatorPrecedence();
-                if (precedence == 0 || precedence <= parentPrecedence)
+                var binaryPrecedence = Current.Kind.GetBinaryOperatorPrecedence();
+                if (binaryPrecedence == 0 || binaryPrecedence <= parentPrecedence)
                     break;
 
                 var operatorToken = Consume();
-                var right = ParseBinaryExpression(precedence);
+                var right = ParseBinaryOrUnaryExpression(binaryPrecedence);
                 left = new BinaryExpressionSyntax(_syntaxTree, left, operatorToken, right);
             }
 
@@ -464,31 +481,82 @@ namespace Blaze
 
         private ExpressionSyntax ParsePrimaryExpression()
         {
+            //TODO: add separate more intuitive diagnostics for invalid member access
+        
+            ExpressionSyntax expression;
+
             switch (Current.Kind)
             {
-                case SyntaxKind.OpenParenToken:
-                    return ParseParenthesizedExpression();
                 case SyntaxKind.TrueKeyword:
                 case SyntaxKind.FalseKeyword:
-                    return ParseBooleanLiteral();
+                    expression = ParseBooleanLiteral();
+                    break;
                 case SyntaxKind.IntegerLiteralToken:
-                    return ParseIntegerLiteral();
+                    expression = ParseIntegerLiteral();
+                    break;
                 case SyntaxKind.StringLiteralToken:
-                    return ParseStringLiteral();
+                    expression = ParseStringLiteral();
+                    break;
+                case SyntaxKind.NewKeyword:
+                    expression = ParseObjectCreationExpression();
+                    break;
                 default:
-                    if (Next.Kind == SyntaxKind.DotToken)
-                        return ParseMemberAccessExpression();
+                    ExpressionSyntax previous;
+                    if (Current.Kind == SyntaxKind.OpenParenToken)
+                        previous = ParseParenthesizedExpression();
                     else 
-                        return ParseIdentifierOrCallExpression();
+                        previous = ParseSimpleNameExpression();
+
+                    while (true)
+                    {
+                        if (Current.Kind == SyntaxKind.OpenParenToken)
+                            previous = ParseCallExpression(previous);
+                        else if (Current.Kind == SyntaxKind.DotToken)
+                            previous = ParseMemberAccessExpression(previous);
+                        else if (previous.Kind == SyntaxKind.MemberAccessExpression &&
+                            Current.Kind == SyntaxKind.IdentifierToken)
+                        {
+                            previous = ParseSimpleNameExpression();
+                            break;
+                        }
+                        else
+                            break;
+                    }
+                    expression = previous;
+                    break;
             }
+            return expression;
         }
 
-        private ExpressionSyntax ParseMemberAccessExpression()
+        private ExpressionSyntax ParseSimpleNameExpression()
         {
             var identifier = TryConsume(SyntaxKind.IdentifierToken);
+            return new SimpleNameExpressionSyntax(_syntaxTree, identifier);
+        }
+
+        private ExpressionSyntax ParseCallExpression(ExpressionSyntax identifier)
+        {
+            var openParen = TryConsume(SyntaxKind.OpenParenToken);
+            var arguments = ParseArguments();
+            var closeParen = TryConsume(SyntaxKind.CloseParenToken);
+            return new CallExpressionSyntax(_syntaxTree, identifier, openParen, arguments, closeParen);
+        }
+        
+        private ExpressionSyntax ParseMemberAccessExpression(ExpressionSyntax right)
+        {   
             var dotToken = TryConsume(SyntaxKind.DotToken);
-            var memberExpression = ParseExpression();
-            return new MemberAccessExpressionSyntax(_syntaxTree, identifier, dotToken, memberExpression);
+            var memberIdentifier = TryConsume(SyntaxKind.IdentifierToken);
+            return new MemberAccessExpressionSyntax(_syntaxTree, right, dotToken, memberIdentifier);
+        }
+
+        private ExpressionSyntax ParseObjectCreationExpression()
+        {
+            var keyword = TryConsume(SyntaxKind.NewKeyword);
+            var identifier = TryConsume(SyntaxKind.IdentifierToken);
+            var openParen = TryConsume(SyntaxKind.OpenParenToken);
+            var arguments = ParseArguments();
+            var closeParen = TryConsume(SyntaxKind.CloseParenToken);
+            return new ObjectCreationExpressionSyntax(_syntaxTree, keyword, identifier, openParen, arguments, closeParen);
         }
 
         private ExpressionSyntax ParseIntegerLiteral()
@@ -510,33 +578,17 @@ namespace Blaze
             return new LiteralExpressionSyntax(_syntaxTree, stringToken);
         }
 
-        private ExpressionSyntax ParseIdentifierOrCallExpression()
-        {
-            if (Current.Kind == SyntaxKind.IdentifierToken && Next.Kind == SyntaxKind.OpenParenToken)
-                return ParseCallExpression();
-            else
-                return ParseIdentifierExpression();
-        }
-
-        private ExpressionSyntax ParseIdentifierExpression()
-        {
-            var identifier = TryConsume(SyntaxKind.IdentifierToken);
-            return new IdentifierExpressionSyntax(_syntaxTree, identifier);
-        }
-
-        private ExpressionSyntax ParseCallExpression()
-        {
-            var identifier = TryConsume(SyntaxKind.IdentifierToken);
-            var openParen = TryConsume(SyntaxKind.OpenParenToken);
-            var arguments = ParseArguments();
-            var closeParen = TryConsume(SyntaxKind.CloseParenToken);
-            return new CallExpressionSyntax(_syntaxTree, identifier, openParen, arguments, closeParen);
-        }
-
         private SeparatedSyntaxList<ExpressionSyntax> ParseArguments()
+        {
+            var nodesAndSeparators = ParseArgumentsAsImmutableArray();
+            return new SeparatedSyntaxList<ExpressionSyntax>(nodesAndSeparators);
+        }
+
+        private ImmutableArray<SyntaxNode> ParseArgumentsAsImmutableArray()
         {
             var nodesAndSeparators = ImmutableArray.CreateBuilder<SyntaxNode>();
             var done = false;
+
             while (!done && Current.Kind != SyntaxKind.CloseParenToken && Current.Kind != SyntaxKind.EndOfFileToken)
             {
                 nodesAndSeparators.Add(ParseExpression());
@@ -549,7 +601,7 @@ namespace Blaze
                 else
                     done = true;
             }
-            return new SeparatedSyntaxList<ExpressionSyntax>(nodesAndSeparators.ToImmutable());
+            return nodesAndSeparators.ToImmutable();
         }
 
         private SeparatedSyntaxList<ParameterSyntax> ParseParameters()
@@ -575,10 +627,11 @@ namespace Blaze
 
         private ParenthesizedExpressionSyntax ParseParenthesizedExpression()
         {
-            var left = TryConsume(SyntaxKind.OpenParenToken);
+            var openParen = TryConsume(SyntaxKind.OpenParenToken);
             var expression = ParseExpression();
-            var right = TryConsume(SyntaxKind.CloseParenToken);
-            return new ParenthesizedExpressionSyntax(_syntaxTree, left, expression, right);
+            var closeParen = TryConsume(SyntaxKind.CloseParenToken);
+            
+            return new ParenthesizedExpressionSyntax(_syntaxTree, openParen, expression, closeParen);
         }
     }
 }

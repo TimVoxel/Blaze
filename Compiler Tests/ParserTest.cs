@@ -24,13 +24,13 @@ namespace Blaze.Tests
                 {
                     enumerator.AssertNode(SyntaxKind.BinaryExpression);
                     enumerator.AssertNode(SyntaxKind.BinaryExpression);
-                    enumerator.AssertNode(SyntaxKind.IdentifierExpression);
+                    enumerator.AssertNode(SyntaxKind.SimpleNameExpression);
                     enumerator.AssertToken(SyntaxKind.IdentifierToken, "a");
                     enumerator.AssertToken(operator1, operator1Text);
-                    enumerator.AssertNode(SyntaxKind.IdentifierExpression);
+                    enumerator.AssertNode(SyntaxKind.SimpleNameExpression);
                     enumerator.AssertToken(SyntaxKind.IdentifierToken, "b");
                     enumerator.AssertToken(operator2, operator2Text);
-                    enumerator.AssertNode(SyntaxKind.IdentifierExpression);
+                    enumerator.AssertNode(SyntaxKind.SimpleNameExpression);
                     enumerator.AssertToken(SyntaxKind.IdentifierToken, "c");
                 }
             }
@@ -39,14 +39,14 @@ namespace Blaze.Tests
                 using (AssertingEnumerator enumerator = new AssertingEnumerator(expression))
                 {
                     enumerator.AssertNode(SyntaxKind.BinaryExpression);
-                    enumerator.AssertNode(SyntaxKind.IdentifierExpression);
+                    enumerator.AssertNode(SyntaxKind.SimpleNameExpression);
                     enumerator.AssertToken(SyntaxKind.IdentifierToken, "a");
                     enumerator.AssertToken(operator1, operator1Text);
                     enumerator.AssertNode(SyntaxKind.BinaryExpression);
-                    enumerator.AssertNode(SyntaxKind.IdentifierExpression);
+                    enumerator.AssertNode(SyntaxKind.SimpleNameExpression);
                     enumerator.AssertToken(SyntaxKind.IdentifierToken, "b");
                     enumerator.AssertToken(operator2, operator2Text);
-                    enumerator.AssertNode(SyntaxKind.IdentifierExpression);
+                    enumerator.AssertNode(SyntaxKind.SimpleNameExpression);
                     enumerator.AssertToken(SyntaxKind.IdentifierToken, "c");
                 }
             }

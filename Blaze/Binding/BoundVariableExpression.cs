@@ -4,7 +4,7 @@ namespace Blaze.Binding
 {
     internal sealed class BoundVariableExpression : BoundExpression
     {
-        public VariableSymbol Variable { get; private set; }
+        public VariableSymbol Variable { get; }
 
         public override BoundNodeKind Kind => BoundNodeKind.VariableExpression;
         public override TypeSymbol Type => Variable.Type;

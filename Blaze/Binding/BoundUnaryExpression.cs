@@ -4,8 +4,8 @@ namespace Blaze.Binding
 {
     internal sealed class BoundUnaryExpression : BoundExpression 
     {
-        public BoundUnaryOperator Operator { get; private set; }
-        public BoundExpression Operand { get; private set; }
+        public BoundUnaryOperator Operator { get; }
+        public BoundExpression Operand { get; }
 
         public override BoundConstant? ConstantValue { get; }
         public override BoundNodeKind Kind => BoundNodeKind.UnaryExpression;

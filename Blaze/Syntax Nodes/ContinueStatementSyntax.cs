@@ -4,8 +4,8 @@ namespace Blaze.Syntax_Nodes
 {
     public sealed class ContinueStatementSyntax : StatementSyntax
     {
-        public SyntaxToken Keyword { get; private set; }
-        public SyntaxToken Semicolon { get; private set; }
+        public SyntaxToken Keyword { get; }
+        public SyntaxToken Semicolon { get; }
 
         public override SyntaxKind Kind => SyntaxKind.ContinueStatement;
 

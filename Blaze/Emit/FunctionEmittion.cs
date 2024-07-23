@@ -30,9 +30,9 @@ namespace Blaze.Emit
                     return _callName;
 
                 var builder = new StringBuilder();
-                var stack = new Stack<Symbol>();
+                var stack = new Stack<IMemberSymbol>();
 
-                var previous = Symbol.ParentNamespace;
+                var previous = Symbol.Parent;
                 while (previous != null)
                 {
                     stack.Push(previous);

@@ -1,8 +1,8 @@
 ﻿using System.Collections;
+using System.Security.Cryptography.X509Certificates;
+using Blaze.Binding;
 using Blaze.Symbols;
-using Blaze.Syntax_Nodes;
 using Blaze.Text;
-using static System.Net.Mime.MediaTypeNames;
 
 namespace Blaze.Diagnostics
 {
@@ -77,7 +77,7 @@ namespace Blaze.Diagnostics
 
         public void ReportUndefinedName(TextLocation location, string name)
         {
-            string message = $"Variable \"{name}\" doesn't exist";
+            string message = $"The name \"{name}\" does not refer to a defined entity";
             Report(location, message);
         }
 
@@ -111,9 +111,21 @@ namespace Blaze.Diagnostics
             Report(location, message);
         }
 
+        public void ReportUndefinedClass(TextLocation location, string text)
+        {
+            string message = $"Class {text} doesn't exist";
+            Report(location, message);
+        }
+
         public void ReportWrongArgumentCount(TextLocation location, string name, int expectedCount, int actualCount)
         {
             string message = $"Function {name} requires {expectedCount} arguments, but {actualCount} were given";
+            Report(location, message);
+        }
+
+        public void ReportWrongConstructorArgumentCount(TextLocation location, string name, int expectedCount, int actualCount)
+        {
+            string message = $"Constructor of class {name} requires {expectedCount} arguments, but {actualCount} were given";
             Report(location, message);
         }
 
@@ -228,6 +240,48 @@ namespace Blaze.Diagnostics
         public void ReportUsingNotInTheBeginningOfTheFile(TextLocation location)
         {
             string message = $"Usings must precede namespace declarations";
+            Report(location, message);
+        }
+
+        public void ReportInvalidLeftHandAssignmentExpression(TextLocation location, SyntaxKind actualKind)
+        {
+            string message = $"Expression of kind {actualKind} cannot be assigned to";
+            Report(location, message);
+        }
+
+        public void ReportInvalidIncrementExpression(TextLocation location, SyntaxKind actualKind)
+        {
+            string message = $"Expression of kind {actualKind} cannot be incremented/decremented";
+            Report(location, message);
+        }
+
+        public void ReportInvalidMemberAccessLeftKind(TextLocation location, SyntaxKind actualKind)
+        {
+            string message = $"Expression of kind {actualKind} does not have any members, and thus cannot be accessed";
+            Report(location, message);
+        }
+
+        public void ReportInvalidMemberAccess(TextLocation location, string name)
+        {
+            string message = $"Expression of type {name} cannot be accessed";
+            Report(location, message);
+        }
+
+        public void ReportUndefinedMemberOfType(TextLocation location, string typeName, string memberName)
+        {
+            string message = $"Named type {typeName} has no member named {memberName}";
+            Report(location, message);
+        }
+
+        public void ReportUndefinedMemberOfNamespace(TextLocation location, string namespaceName, string memberName)
+        {
+            string message = $"Namespace {namespaceName} has no member named {memberName}";
+            Report(location, message);
+        }
+
+        public void ReportInvalidCallIdentifier(TextLocation location, BoundNodeKind kind)
+        {
+            string message = $"Expression of kind {kind} cannot be used as an identifier for a call";
             Report(location, message);
         }
     }

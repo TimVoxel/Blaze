@@ -15,8 +15,15 @@
         UnaryExpression,
         BinaryExpression,
         CallExpression,
+        MethodCallExpression,
         ConversionExpression,
-       
+        ObjectCreationExpression,
+        TypeExpression,
+        NamespaceExpression,
+        FunctionExpression,
+        FieldAccessExpression,
+        MethodAccessExpression,
+
         //Statements
         NopStatement,
         ExpressionStatement,

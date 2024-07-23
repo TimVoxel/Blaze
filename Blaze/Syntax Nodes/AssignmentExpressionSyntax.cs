@@ -4,24 +4,24 @@ namespace Blaze.Syntax_Nodes
 {
     public sealed class AssignmentExpressionSyntax : ExpressionSyntax
     {
-        public SyntaxToken IdentifierToken { get; private set; }
-        public SyntaxToken AssignmentToken { get; private set; }
-        public ExpressionSyntax Expression { get; private set; }
+        public ExpressionSyntax Left { get; }
+        public SyntaxToken AssignmentToken { get; }
+        public ExpressionSyntax Right { get; }
 
         public override SyntaxKind Kind => SyntaxKind.AssignmentExpression;
 
-        internal AssignmentExpressionSyntax(SyntaxTree tree, SyntaxToken identifierToken, SyntaxToken assignmentToken, ExpressionSyntax expression) : base(tree)
+        internal AssignmentExpressionSyntax(SyntaxTree tree, ExpressionSyntax targetExpression, SyntaxToken assignmentToken, ExpressionSyntax expression) : base(tree)
         {
-            IdentifierToken = identifierToken;
+            Left = targetExpression;
             AssignmentToken = assignmentToken;
-            Expression = expression;
+            Right = expression;
         }
 
         public override IEnumerable<SyntaxNode> GetChildren()
         {
-            yield return IdentifierToken;
+            yield return Left;
             yield return AssignmentToken;
-            yield return Expression;
+            yield return Right;
         }
     }
 }

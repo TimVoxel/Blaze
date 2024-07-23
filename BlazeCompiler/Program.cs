@@ -28,6 +28,7 @@ namespace Blaze
 
             if (string.IsNullOrEmpty(projectPath))
             {
+                Console.ForegroundColor = ConsoleColor.Red;
                 Console.Error.WriteLine("error: project file not provided");
                 Console.ReadKey();
                 return 1;
@@ -35,6 +36,7 @@ namespace Blaze
 
             if (!File.Exists(projectPath))
             {
+                Console.ForegroundColor = ConsoleColor.Red;
                 Console.WriteLine($"error: file {projectPath} does not exist");
                 Console.ReadKey();
                 return 1;
@@ -45,12 +47,14 @@ namespace Blaze
                 var configuration = CompilationConfiguration.FromJson(projectPath);
                 if (configuration == null)
                 {
+                    Console.ForegroundColor = ConsoleColor.Red;
                     Console.WriteLine($"error: couldn't parse {projectPath}");
                     Console.ReadKey();
                     return 1;
                 }
                 if (!configuration.OutputFolders.Any()) 
                 {
+                    Console.ForegroundColor = ConsoleColor.Red;
                     Console.WriteLine($"error: specify at least one output folder");
                     Console.ReadKey();
                     return 1;
@@ -60,6 +64,7 @@ namespace Blaze
 
                 if (projectDirectory == null)
                 {
+                    Console.ForegroundColor = ConsoleColor.Red;
                     Console.WriteLine("error: project is not in a directory");
                     Console.ReadKey();
                     return 1;
@@ -85,14 +90,24 @@ namespace Blaze
                 }
 
                 foreach (string path in configuration.OutputFolders)
-                    Console.WriteLine($"Successfully emmitted {configuration.Name} to {path}");
-
+                {
+                    Console.ForegroundColor = ConsoleColor.White;
+                    Console.Write("Successfully emmitted ");
+                    Console.ForegroundColor = ConsoleColor.Cyan;
+                    Console.Write(configuration.Name);
+                    Console.ForegroundColor = ConsoleColor.White;
+                    Console.Write(" to ");
+                    Console.ForegroundColor = ConsoleColor.Yellow;
+                    Console.WriteLine(path);
+                }
                 Console.ReadKey();
                 return 0;
             }
             catch (JsonException exception)
             {
+                Console.ForegroundColor = ConsoleColor.Red;
                 Console.WriteLine($"error: There appears to be a problem in the project file:");
+                Console.ForegroundColor = ConsoleColor.Gray;
                 Console.WriteLine(exception.Message);
                 Console.ReadKey();
                 return 1;

@@ -86,12 +86,16 @@ namespace Blaze.Syntax_Nodes
 
             writer.Write(node.Kind);
 
-            if (token != null && token.Value != null)
+            if (token != null)
             {
+                Console.ForegroundColor = ConsoleColor.DarkYellow;
                 writer.Write(" ");
-                writer.Write(token.Value);
-            }
 
+                if (token.Value != null)    
+                    writer.Write(token.Value);
+                if (token.Kind == SyntaxKind.IdentifierToken && !token.IsMissingText)
+                    writer.Write(token.Text);
+            }
             if (isToConsole)
                 Console.ResetColor();
 

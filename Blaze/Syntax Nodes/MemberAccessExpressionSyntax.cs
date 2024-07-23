@@ -4,24 +4,24 @@ namespace Blaze.Syntax_Nodes
 {
     public sealed class MemberAccessExpressionSyntax : ExpressionSyntax
     {
-        public SyntaxToken Identifier { get; }
+        public ExpressionSyntax AccessedExpression { get; }
         public SyntaxToken DotToken { get; }
-        public ExpressionSyntax Member { get; }
+        public SyntaxToken MemberIdentifier { get; }
 
         public override SyntaxKind Kind => SyntaxKind.MemberAccessExpression;
 
-        public MemberAccessExpressionSyntax(SyntaxTree tree, SyntaxToken identifier, SyntaxToken dot, ExpressionSyntax memberIdentifier) : base(tree)
+        public MemberAccessExpressionSyntax(SyntaxTree tree, ExpressionSyntax identifier, SyntaxToken dot, SyntaxToken memberIdentifier) : base(tree)
         {
-            Identifier = identifier;
+            AccessedExpression = identifier;
             DotToken = dot;
-            Member = memberIdentifier;
+            MemberIdentifier = memberIdentifier;
         }
 
         public override IEnumerable<SyntaxNode> GetChildren()
         {
-            yield return Identifier;
+            yield return AccessedExpression;
             yield return DotToken;
-            yield return Member;
+            yield return MemberIdentifier;
         }
     }
 }

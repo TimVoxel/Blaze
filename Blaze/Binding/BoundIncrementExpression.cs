@@ -4,15 +4,15 @@ namespace Blaze.Binding
 {
     internal sealed class BoundIncrementExpression : BoundExpression
     {
-        public VariableSymbol Variable { get; private set; }
+        public BoundExpression Operand { get; private set; }
         public BoundBinaryOperator IncrementOperator { get; }
 
-        public override TypeSymbol Type => Variable.Type;
+        public override TypeSymbol Type => Operand.Type;
         public override BoundNodeKind Kind => BoundNodeKind.IncrementExpression;
 
-        internal BoundIncrementExpression(VariableSymbol variable, BoundBinaryOperator op)
+        internal BoundIncrementExpression(BoundExpression operand, BoundBinaryOperator op)
         {
-            Variable = variable;
+            Operand = operand;
             IncrementOperator = op;
         }
     }

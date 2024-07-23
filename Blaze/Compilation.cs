@@ -4,7 +4,9 @@ using Blaze.Emit;
 using Blaze.Lowering;
 using Blaze.Miscellaneuos;
 using Blaze.Symbols;
+using Blaze.Text;
 using System.Collections.Immutable;
+using System.ComponentModel.DataAnnotations;
 
 namespace Blaze
 {
@@ -36,31 +38,34 @@ namespace Blaze
         public static Compilation Create(CompilationConfiguration configuration, params SyntaxTree[] syntaxTrees) => new Compilation(configuration, syntaxTrees);
         public static Compilation CreateScript(params SyntaxTree[] syntaxTrees) => new Compilation(null, syntaxTrees);
 
-        public IEnumerable<Symbol> GetSymbols()
-        {
-            foreach (var ns in GlobalScope.Namespaces)
-                foreach (var symbol in GetSymbolsInNamespace(ns))
-                    yield return symbol;
-        }
+        public IEnumerable<Symbol> GetSymbols() => GetSymbolsInNamespace(GlobalScope.GlobalNamespace);
 
         private IEnumerable<Symbol> GetSymbolsInNamespace(NamespaceSymbol ns)
         {
-            yield return ns;
+            if (ns.IsBuiltIn)
+                yield break;
 
-            if (ns.Scope != null)
+            if (!ns.IsGlobal)
+                yield return ns;
+
+            foreach (var child in ns.Members)
             {
-                foreach (var function in ns.Scope.GetDeclaredFunctions())
-                    yield return function;
-
-                foreach (var variable in ns.Scope.GetDeclaredVariables())
-                    yield return variable;
+                if (child is Symbol symbol)
+                {
+                    switch (symbol.Kind)
+                    {
+                        case SymbolKind.Namespace:
+                            var memberNamespace = (NamespaceSymbol)child;
+                            foreach (var childSymbol in GetSymbolsInNamespace(memberNamespace))
+                                yield return childSymbol;
+                            break;
+                        default:
+                            yield return symbol;
+                            break;
+                    }
+                }
             }
-
-            foreach (var child in ns.Children)
-                foreach (var symbol in GetSymbolsInNamespace(child))
-                    yield return symbol;
         }
-
 
         private BoundProgram GetProgram() => Binder.BindProgram(GlobalScope);
  

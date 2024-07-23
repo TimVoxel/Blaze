@@ -1,4 +1,4 @@
-﻿using Blaze.SyntaxTokens;
+﻿using Blaze.Syntax_Nodes;
 
 namespace Blaze
 {
@@ -67,6 +67,47 @@ namespace Blaze
             }
         }
 
+        public static bool IsAllowedInAssignmentLeftHand(this ExpressionSyntax syntax)
+        {
+            switch (syntax.Kind)
+            {
+                case SyntaxKind.SimpleNameExpression:
+                case SyntaxKind.MemberAccessExpression:
+                case SyntaxKind.ParenthesizedExpression:
+                    return true;
+                default:
+                    return false;
+            }
+        }
+
+        public static bool CanBeAccessed(this ExpressionSyntax syntax)
+        {
+            //All the primary ones except literals
+
+            switch (syntax.Kind)
+            {
+                case SyntaxKind.SimpleNameExpression:
+                case SyntaxKind.MemberAccessExpression:
+                case SyntaxKind.ParenthesizedExpression:
+                case SyntaxKind.CallExpression:
+                    return true;
+                default:
+                    return false;
+            }
+        }
+
+        public static bool CanBeCallIdentifier(this ExpressionSyntax syntax)
+        {
+            switch (syntax.Kind)
+            {
+                case SyntaxKind.SimpleNameExpression:
+                case SyntaxKind.MemberAccessExpression:
+                    return true;
+                default:
+                    return false;
+            }
+        }
+
         public static bool IsKeyword(SyntaxKind token)
         {
             return token.ToString().EndsWith("Keyword");
@@ -123,6 +164,7 @@ namespace Blaze
                 "tick"      => SyntaxKind.TickKeyword,
                 "namespace" => SyntaxKind.NamespaceKeyword,
                 "using"     => SyntaxKind.UsingKeyword,
+                "new"       => SyntaxKind.NewKeyword,
                 _           => SyntaxKind.IdentifierToken,
             };;
         }
@@ -175,6 +217,7 @@ namespace Blaze
                 SyntaxKind.TickKeyword => "tick",
                 SyntaxKind.NamespaceKeyword => "namespace",
                 SyntaxKind.UsingKeyword => "using",
+                SyntaxKind.NewKeyword => "new",
                 SyntaxKind.SemicolonToken => ";",
                 SyntaxKind.ColonToken => ":",
                 SyntaxKind.CommaToken => ",",

@@ -7,6 +7,9 @@
         Type,
         Function,
         Parameter,
-        Namespace
+        Namespace,
+        NamedType,
+        Constructor,
+        Field
     }
 }
