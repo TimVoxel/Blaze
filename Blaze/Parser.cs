@@ -248,7 +248,7 @@ namespace Blaze
             {
                 case SyntaxKind.OpenBraceToken:
                     return ParseBlockStatement();
-                case SyntaxKind.LetKeyword:
+                case SyntaxKind.VarKeyword:
                     return ParseVariableDeclarationStatement();
                 case SyntaxKind.IfKeyword:
                     return ParseIfStatement();
@@ -371,7 +371,7 @@ namespace Blaze
             if (Current.Kind == SyntaxKind.IdentifierToken)
                 declarationNode = ParseTypeClause();
             else
-                declarationNode = TryConsume(SyntaxKind.LetKeyword);
+                declarationNode = TryConsume(SyntaxKind.VarKeyword);
 
             var identifierToken = TryConsume(SyntaxKind.IdentifierToken);
             var equalsToken = TryConsume(SyntaxKind.EqualsToken);

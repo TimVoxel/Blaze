@@ -44,7 +44,7 @@
         //Keywords
         FalseKeyword,
         TrueKeyword,
-        LetKeyword,
+        VarKeyword,
         IfKeyword,
         ElseKeyword,
         WhileKeyword,
