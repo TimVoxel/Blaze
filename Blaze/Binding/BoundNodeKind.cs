@@ -23,6 +23,7 @@
         FunctionExpression,
         FieldAccessExpression,
         MethodAccessExpression,
+        ThisExpression,
 
         //Statements
         NopStatement,

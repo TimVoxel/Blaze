@@ -31,6 +31,8 @@ namespace Blaze.Symbols
 
             while (previous != null)
             {
+                if (previous is NamespaceSymbol ns && ns.IsGlobal)
+                    break;
                 nameStack.Push(previous.Name);
                 previous = previous.Parent;
             }

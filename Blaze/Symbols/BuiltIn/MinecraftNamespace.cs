@@ -1,8 +1,4 @@
-﻿using Blaze.Binding;
-using Blaze.Syntax_Nodes;
-using System.Collections.Immutable;
-
-namespace Blaze.Symbols.BuiltIn
+﻿namespace Blaze.Symbols.BuiltIn
 {
     internal sealed class MinecraftNamespace : BuiltInNamespace
     {
@@ -38,18 +34,12 @@ namespace Blaze.Symbols.BuiltIn
                 var y = Parameter("y", TypeSymbol.Int);
                 var z = Parameter("z", TypeSymbol.Int);
 
-                var temp = Class("Temp", Constructor());
-                var a = Parameter("a", temp);
-                Pos = Class("Pos", Constructor(x, y, z, a));
-                
+                Pos = Class("Pos", Constructor(x, y, z));
                 var xField = Field(Pos, "x", TypeSymbol.Int);
                 var yField = Field(Pos, "y", TypeSymbol.Int);
                 var zField = Field(Pos, "z", TypeSymbol.Int);
-                
-                var tempField = Field(Pos, "temp", temp);
-                var tempField1 = Field(temp, "a", TypeSymbol.Int);
 
-                var posConstructorBlock = AssignFieldsBlock(Pos.Fields, x, y, z, a);
+                var posConstructorBlock = AssignFieldsBlock(Pos, x, y, z);
                 Pos.Constructor.FunctionBody = posConstructorBlock;
             }
 

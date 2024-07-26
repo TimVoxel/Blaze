@@ -6,9 +6,9 @@ namespace Blaze.Emit
     public class FunctionEmittion : Emittion
     {
         private string? _callName;
-        private int _loopCount;
-        private int _ifCount;
-        private int _elseCount;
+        private int _loopCount = 0;
+        private int _ifCount = 0;
+        private int _elseCount = 0;
         
         public FunctionSymbol Symbol { get; }
         public string Body { get; private set; }
@@ -35,6 +35,8 @@ namespace Blaze.Emit
                 var previous = Symbol.Parent;
                 while (previous != null)
                 {
+                    if (previous.IsRoot)
+                        break;
                     stack.Push(previous);
                     previous = previous.Parent;
                 }
@@ -58,14 +60,26 @@ namespace Blaze.Emit
             Body = string.Empty;
             CleanUp = string.Empty;
             Children = new List<FunctionEmittion>();
-            _loopCount = 0;
-            _ifCount = 0;
-            _elseCount = 0;
+        }
+
+        private FunctionEmittion(string fullName, ConstructorSymbol symbol, bool isSub = false) : base(symbol.Name)
+        {
+            _callName = fullName;
+            IsSub = isSub;
+            Symbol = symbol;
+            Body = string.Empty;
+            CleanUp = string.Empty;
+            Children = new List<FunctionEmittion>();
         }
 
         public static FunctionEmittion FromSymbol(FunctionSymbol symbol)
         {
             return new FunctionEmittion(symbol.Name, symbol);
+        }
+
+        public static FunctionEmittion FromConstructor(ConstructorSymbol constructorSymbol, string fullName)
+        {
+            return new FunctionEmittion(fullName, constructorSymbol, false);
         }
 
         public static FunctionEmittion CreateSub(FunctionEmittion parent, SubFunctionKind kind)

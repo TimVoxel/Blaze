@@ -1,4 +1,5 @@
-﻿using Blaze.Diagnostics;
+﻿using Blaze.Binding.Lookup;
+using Blaze.Diagnostics;
 using Blaze.IO;
 using Blaze.Lowering;
 using Blaze.Symbols;
@@ -6,11 +7,7 @@ using Blaze.Syntax_Nodes;
 using Blaze.SyntaxTokens;
 using Blaze.Text;
 using System.Collections.Immutable;
-using System.ComponentModel.DataAnnotations;
 using System.Diagnostics;
-using System.Linq.Expressions;
-using System.Runtime.CompilerServices;
-using System.Xml.Linq;
 
 namespace Blaze.Binding
 {
@@ -47,23 +44,33 @@ namespace Blaze.Binding
             var globalNamespace = NamespaceSymbol.CreateGlobal("$global");
             
             foreach (var ns in BuiltInNamespace.GetAll())
-                globalNamespace.Members.Add(ns);
+                globalNamespace.TryDeclareNested(ns);
 
             var globalBinder = new Binder(parentScope, null, globalNamespace, globalNamespace);
 
             //2. Bind all namespace declarations
             var compilationUnits = syntaxTrees.Select(st => st.Root);
             var namespaceDeclarations = compilationUnits.SelectMany(st => st.Namespaces).OrderBy(s => s.IdentifierPath.Count);
+            var directlyDeclaredNamespaces = new List<(NamespaceSymbol, NamespaceDeclarationSyntax)>();
 
             foreach (var ns in namespaceDeclarations)
-                globalBinder.BindNamespaceDeclaration(ns);
+                directlyDeclaredNamespaces.Add(globalBinder.BindNamespaceDeclaration(ns));
 
             //3. Bind usings
             foreach (var compilationUnit in compilationUnits)
                 globalBinder.BindUsings(compilationUnit);
 
-            //4. Create the global scope
             var diagnostics = ImmutableArray.CreateBuilder<Diagnostic>();
+
+            //4. Bind all the declarations in every directly declared namespace
+            foreach (var ns in directlyDeclaredNamespaces)
+            {
+                var binder = new Binder(parentScope, null, globalNamespace, ns.Item1);
+                binder.BindDeclarationsInNamespace(ns.Item2);
+                diagnostics.AddRange(binder.Diagnostics);
+            }
+                
+            //5. Create the global scope
             diagnostics.AddRange(syntaxTrees.SelectMany(d => d.Diagnostics));
             diagnostics.AddRange(globalBinder.Diagnostics);
             
@@ -76,7 +83,7 @@ namespace Blaze.Binding
             var diagnostics = ImmutableArray.CreateBuilder<Diagnostic>();
             diagnostics.AddRange(globalScope.Diagnostics);
 
-            foreach (var ns in globalScope.GlobalNamespace.AllNestedNamespaces)
+            foreach (var ns in globalScope.GlobalNamespace.NestedNamespaces)
             {
                 if (!ns.IsBuiltIn)
                 {
@@ -94,7 +101,7 @@ namespace Blaze.Binding
             var childrenBuilder = ImmutableDictionary.CreateBuilder<NamespaceSymbol, BoundNamespace>();
             var parentScope = new BoundScope(null);
 
-            foreach (var function in ns.AllFunctions)
+            foreach (var function in ns.Functions)
             {
                 if (function.Declaration != null)
                 {
@@ -114,7 +121,7 @@ namespace Blaze.Binding
                 }
             }
 
-            foreach (var child in ns.AllNestedNamespaces)
+            foreach (var child in ns.NestedNamespaces)
             {
                 var childBoundNamespace = BindNamespace(child, ref diagnostics, globalScope);
                 childrenBuilder.Add(child, childBoundNamespace);
@@ -169,7 +176,7 @@ namespace Blaze.Binding
             }
         }
 
-        private void BindNamespaceDeclaration(NamespaceDeclarationSyntax ns)
+        private (NamespaceSymbol, NamespaceDeclarationSyntax) BindNamespaceDeclaration(NamespaceDeclarationSyntax ns)
         {
             var identifierPath = ns.IdentifierPath;
             var name = identifierPath.First().Text;
@@ -185,10 +192,16 @@ namespace Blaze.Binding
                 var newNamespace = new NamespaceSymbol(name, currentNamespace, ns);
                 if (TryLookupNamespace(name, out var found, currentNamespace))
                 {
+                    Debug.Assert(found != null);
+
                     if (i + 1 == identifierPath.Count)
                     {
-                        _diagnostics.ReportNamespaceAlreadyDeclared(identifierPath.Last().Location, currentNamespace.GetFullName());
+                        _diagnostics.ReportNamespaceAlreadyDeclared(identifierPath.Last().Location, found.GetFullName());
                         break;
+                    }
+                    else
+                    {   
+                        currentNamespace = found;
                     }
                 }
                 else
@@ -198,9 +211,7 @@ namespace Blaze.Binding
                 }
             }
 
-            var functionDeclarations = ns.Members.OfType<FunctionDeclarationSyntax>();
-            foreach (var function in functionDeclarations)
-                BindFunctionDeclaration(function, currentNamespace);
+            return (currentNamespace, ns);
 
             /*
             var globalStatements = ns.Members.OfType<GlobalStatementSyntax>();
@@ -214,7 +225,14 @@ namespace Blaze.Binding
             */
         }
 
-        private void BindFunctionDeclaration(FunctionDeclarationSyntax declaration, NamespaceSymbol ns)
+        private void BindDeclarationsInNamespace(NamespaceDeclarationSyntax declarationSyntax)
+        {
+            var functionDeclarations = declarationSyntax.Members.OfType<FunctionDeclarationSyntax>();
+            foreach (var function in functionDeclarations)
+                BindFunctionDeclaration(function);
+        }
+             
+        private void BindFunctionDeclaration(FunctionDeclarationSyntax declaration)
         {
             var identifierText = declaration.Identifier.Text;
 
@@ -238,13 +256,20 @@ namespace Blaze.Binding
                     parameters.Add(new ParameterSymbol(name, type));
             }
 
-            var returnType = (declaration.ReturnTypeClause == null) ? TypeSymbol.Void : BindType(declaration.ReturnTypeClause.Identifier.Text, declaration.ReturnTypeClause.Identifier.Location);
+            var returnType = (declaration.ReturnTypeClause == null) ? TypeSymbol.Void
+                : BindType(declaration.ReturnTypeClause.Identifier.Text, declaration.ReturnTypeClause.Identifier.Location);
             if (returnType == null)
                 returnType = TypeSymbol.Void;
 
-            var function = new FunctionSymbol(identifierText, ns, parameters.ToImmutable(), returnType, declaration);
+            if (returnType is NamedTypeSymbol)
+            {
+                Debug.Assert(declaration.ReturnTypeClause != null);
+                _diagnostics.ReportReturningNamedType(declaration.ReturnTypeClause.Location);
+            }
 
-            if (!ns.TryDeclareFunction(function))
+            var function = new FunctionSymbol(identifierText, _namespace, parameters.ToImmutable(), returnType, declaration);
+
+            if (!_namespace.TryDeclareFunction(function))
                 _diagnostics.ReportFunctionAlreadyDeclared(declaration.Identifier.Location, function.Name);
         }
 
@@ -420,9 +445,9 @@ namespace Blaze.Binding
 
         private BoundStatement BindErrorStatement() => new BoundExpressionStatement(new BoundErrorExpression());
 
-        private BoundExpression BindExpression(ExpressionSyntax expression, bool canBeVoid = false)
+        private BoundExpression BindExpression(ExpressionSyntax expression, bool canBeVoid = false, LookupOptions lookupOptions = LookupOptions.PrioritizeVariables)
         {
-            var result = BindExpressionInternal(expression);
+            var result = BindExpressionInternal(expression, lookupOptions);
             if (!canBeVoid && result.Type == TypeSymbol.Void)
             {
                 _diagnostics.ReportExpressionMustHaveValue(expression.Location);
@@ -431,7 +456,7 @@ namespace Blaze.Binding
             return result;
         }
 
-        private BoundExpression BindExpressionInternal(ExpressionSyntax expression)
+        private BoundExpression BindExpressionInternal(ExpressionSyntax expression, LookupOptions options)
         {
             return expression.Kind switch
             {
@@ -443,9 +468,9 @@ namespace Blaze.Binding
                 SyntaxKind.IncrementExpression => BindIncrementExpression((IncrementExpressionSyntax)expression),
                 SyntaxKind.ObjectCreationExpression => BindObjectCreationExpression((ObjectCreationExpressionSyntax)expression),
 
-                SyntaxKind.SimpleNameExpression => BindSimpleNameExpression((SimpleNameExpressionSyntax)expression),
+                SyntaxKind.SimpleNameExpression => BindSimpleNameExpression((SimpleNameExpressionSyntax)expression, options),
                 SyntaxKind.CallExpression => BindCallExpression((CallExpressionSyntax)expression),
-                SyntaxKind.MemberAccessExpression => BindMemberAccessExpression((MemberAccessExpressionSyntax)expression),
+                SyntaxKind.MemberAccessExpression => BindMemberAccessExpression((MemberAccessExpressionSyntax)expression, options),
     
                 _ => throw new Exception($"Unexpected syntax {expression.Kind}"),
             } ;
@@ -493,36 +518,23 @@ namespace Blaze.Binding
             return new BoundUnaryExpression(op, operand);
         }
 
-        private BoundExpression BindSimpleNameExpression(SimpleNameExpressionSyntax expression, NamespaceSymbol? contextNamespace = null)
+        private BoundExpression BindSimpleNameExpression(SimpleNameExpressionSyntax expression, LookupOptions options)
         {
             var name = expression.IdentifierToken.Text;
             if (expression.IdentifierToken.IsMissingText)
                 return new BoundErrorExpression();
 
-            var symbol = LookupSymbol(name, expression.IdentifierToken.Location, contextNamespace);
-
-            if (symbol == null)
+            var boundExpression = BindSymbolExpression(name, _namespace, options);
+            
+            if (boundExpression == null)
             {
                 _diagnostics.ReportUndefinedName(expression.IdentifierToken.Location, name);
                 return new BoundErrorExpression();
             }
-
-            if (symbol is VariableSymbol variable)
-                return new BoundVariableExpression(variable);
-
-            if (symbol is NamedTypeSymbol type)
-                return new BoundTypeExpression(type);
-
-            if (symbol is NamespaceSymbol ns)
-                return new BoundNamespaceExpression(ns);
-
-            if (symbol is FunctionSymbol function)
-                return new BoundFunctionExpression(function);
-
-            return new BoundErrorExpression();
+            return boundExpression;
         }
 
-        private BoundExpression BindMemberAccessExpression(MemberAccessExpressionSyntax expression, NamespaceSymbol? previous = null)
+        private BoundExpression BindMemberAccessExpression(MemberAccessExpressionSyntax expression, LookupOptions lookupOptions)
         {
             if (!expression.AccessedExpression.CanBeAccessed())
             {
@@ -530,7 +542,7 @@ namespace Blaze.Binding
                 return new BoundErrorExpression();
             }
 
-            var boundAccessed = BindExpression(expression.AccessedExpression);
+            var boundAccessed = BindExpression(expression.AccessedExpression, true);
             var memberName = expression.MemberIdentifier.Text;
 
             if (boundAccessed.Type.IsError)
@@ -538,41 +550,46 @@ namespace Blaze.Binding
 
             if (boundAccessed.Type is NamedTypeSymbol namedType)
             {
-                //If the expression is of a named type (in other words is an instance of a class)
-                //Then check through all the fields. If not found, look through all the methods. If not found,
-                //return an error
+                //Named type members -> Fields, Functions
+                Symbol? foundMember;
 
-                Symbol? foundMember = namedType.TryLookup<FieldSymbol>(memberName);
-                if (foundMember == null)
+                if (lookupOptions == LookupOptions.PrioritizeFunctions)
                 {
                     foundMember = namedType.TryLookup<FunctionSymbol>(memberName);
+                    if (foundMember != null)
+                        return new BoundMethodAccessExpression(boundAccessed, (FunctionSymbol)foundMember);
 
-                    if (foundMember == null)
-                    {
-                        _diagnostics.ReportUndefinedMemberOfType(expression.MemberIdentifier.Location, namedType.Name, memberName);
-                        return new BoundErrorExpression();
-                    }
-                    else
+                    foundMember = namedType.TryLookup<FieldSymbol>(memberName);
+                    if (foundMember != null)
+                        return new BoundFieldAccessExpression(boundAccessed, (FieldSymbol)foundMember);
+                }
+                else
+                {
+                    foundMember = namedType.TryLookup<FieldSymbol>(memberName);
+                    if (foundMember != null)
+                        return new BoundFieldAccessExpression(boundAccessed, (FieldSymbol)foundMember);
+
+                    foundMember = namedType.TryLookup<FunctionSymbol>(memberName);
+                    if (foundMember != null)
                         return new BoundMethodAccessExpression(boundAccessed, (FunctionSymbol)foundMember);
                 }
-                return new BoundFieldAccessExpression(boundAccessed, (FieldSymbol) foundMember);
+
+                _diagnostics.ReportUndefinedMemberOfType(expression.MemberIdentifier.Location, namedType.Name, memberName);
+                return new BoundErrorExpression();                
             }
             else if (boundAccessed is BoundNamespaceExpression namespaceExpression)
             {
-                //If the expression is a namespace expression
-                //Then check for all nested namespaces and all the functions.
-                //Return the according struct (either a BoundNamespaceExpression or a BoundFunctionExpression)
+                //Use standard namespace symbol binding for this one,
+                //With the context namespace being the one in the expression
 
-                var foundNested = namespaceExpression.Namespace.TryLookupDirectChild(memberName);
-                if (foundNested != null)
-                    return new BoundNamespaceExpression(foundNested);
+                var boundSymbolExression = BindSymbolExpression(memberName, namespaceExpression.Namespace, lookupOptions);
 
-                var foundFunction = namespaceExpression.Namespace.TryLookup<FunctionSymbol>(memberName);
-                if (foundFunction != null)
-                    return new BoundFunctionExpression(foundFunction);
-
-                _diagnostics.ReportUndefinedMemberOfNamespace(expression.MemberIdentifier.Location, namespaceExpression.Namespace.Name, memberName);
-                return new BoundErrorExpression();
+                if (boundSymbolExression == null)
+                {
+                    _diagnostics.ReportUndefinedMemberOfNamespace(expression.MemberIdentifier.Location, namespaceExpression.Namespace.Name, memberName);
+                    return new BoundErrorExpression();
+                }
+                return boundSymbolExression;
             }
             else
             {
@@ -583,8 +600,11 @@ namespace Blaze.Binding
 
         private BoundExpression BindCallExpression(CallExpressionSyntax expression)
         {
-            var boundIdentifier = BindExpression(expression.IdentifierExpression);
+            var boundIdentifier = BindExpression(expression.IdentifierExpression, true, LookupOptions.PrioritizeFunctions);
             FunctionSymbol function;
+
+            if (boundIdentifier is BoundErrorExpression errorExpression)
+                return errorExpression;
 
             if (boundIdentifier is BoundTypeExpression t)
                 return BindConversion(expression.Arguments[0], t.Type, true);            
@@ -610,23 +630,26 @@ namespace Blaze.Binding
         
         private BoundExpression BindObjectCreationExpression(ObjectCreationExpressionSyntax syntax)
         {
-            var name = syntax.Identifier.Text;
-            var classSymbol = _namespace.TryLookup<NamedTypeSymbol>(name);
-
-            if (classSymbol == null)
+            var boundIdentifier = BindExpression(syntax.Identifier, false, LookupOptions.PrioritizeNamedTypes);
+            
+            if (!(boundIdentifier is BoundTypeExpression typeExpression))
             {
-                _diagnostics.ReportUndefinedClass(syntax.Identifier.Location, name);
+                _diagnostics.ReportInvalidObjectCreationIdentifier(syntax.Identifier.Location, boundIdentifier.Kind);
                 return new BoundErrorExpression();
             }
 
-            if (classSymbol.Constructor.Parameters.Length != syntax.Arguments.Count)
+            if (typeExpression.Type is NamedTypeSymbol namedTypeSymbol)
             {
-                _diagnostics.ReportWrongConstructorArgumentCount(syntax.Location, classSymbol.Name, classSymbol.Constructor.Parameters.Length, syntax.Arguments.Count);
-                return new BoundErrorExpression();
-            }
+                if (namedTypeSymbol.Constructor.Parameters.Length != syntax.Arguments.Count)
+                {
+                    _diagnostics.ReportWrongConstructorArgumentCount(syntax.Location, namedTypeSymbol.Name, namedTypeSymbol.Constructor.Parameters.Length, syntax.Arguments.Count);
+                    return new BoundErrorExpression();
+                }
 
-            var arguments = BindArguments(syntax.Arguments, classSymbol.Constructor.Parameters);
-            return new BoundObjectCreationExpression(classSymbol, arguments);
+                var arguments = BindArguments(syntax.Arguments, namedTypeSymbol.Constructor.Parameters);
+                return new BoundObjectCreationExpression(namedTypeSymbol, arguments);
+            }
+            else throw new Exception("Value type in object creation expression");
         }
 
         private ImmutableArray<BoundExpression> BindArguments(SeparatedSyntaxList<ExpressionSyntax> arguments, ImmutableArray<ParameterSymbol> parameters)
@@ -649,7 +672,7 @@ namespace Blaze.Binding
 
         private BoundExpression BindAssignmentExpression(AssignmentExpressionSyntax expression)
         {
-            var boundLeft = BindExpression(expression.Left);
+            var boundLeft = BindExpression(expression.Left, false, LookupOptions.PrioritizeVariables);
             var boundRight = BindExpression(expression.Right);
             
             if (boundLeft.Kind != BoundNodeKind.VariableExpression &&
@@ -682,7 +705,7 @@ namespace Blaze.Binding
 
         private BoundExpression BindIncrementExpression(IncrementExpressionSyntax expression)
         {
-            var boundLeft = BindExpression(expression.Expression);
+            var boundLeft = BindExpression(expression.Expression, false, LookupOptions.PrioritizeVariables);
             
             if (boundLeft.Kind != BoundNodeKind.VariableExpression &&
                 boundLeft.Kind != BoundNodeKind.FieldAccessExpression)
@@ -761,28 +784,130 @@ namespace Blaze.Binding
             return type;
         }
 
-        private Symbol? LookupSymbol(string name, TextLocation identifierLocation, NamespaceSymbol? contextNamespace = null)
+        private BoundExpression? BindSymbolExpression(string name, NamespaceSymbol context, LookupOptions options)
         {
-            //1. Try lookup a local variable in the current scope
-            //2. If not found, try to find a type with the name {name}
-            //3. If not found, try to find a namespace with the name {name}
-            //4. If not found, try to find a function with the name {name}
+            var symbol = LookupSymbol(name, context, options);
 
-            var variable = _scope.TryLookupVariable(name);
-            if (variable != null)
-                return variable;
-            
-            var lookupDomain = contextNamespace ?? _namespace;
-            var nestedNamespace = lookupDomain.TryLookupDirectChild(name);
+            if (symbol == null)
+                return null;
 
-            if (nestedNamespace != null)
-                return nestedNamespace;
+            if (symbol is VariableSymbol variable)
+                return new BoundVariableExpression(variable);
 
-            var namedType = lookupDomain.TryLookup<NamedTypeSymbol>(name);
-            if (namedType != null)
-                return namedType;
+            if (symbol is NamedTypeSymbol type)
+                return new BoundTypeExpression(type);
 
-            return lookupDomain.TryLookup<FunctionSymbol>(name);
+            if (symbol is NamespaceSymbol ns)
+                return new BoundNamespaceExpression(ns);
+
+            if (symbol is FunctionSymbol function)
+                return new BoundFunctionExpression(function);
+
+            return null;
+        }
+
+        private Symbol? LookupSymbol(string name, NamespaceSymbol context, LookupOptions options)
+        {
+            //Options simply specify the order in which the members are lookup up
+            //This is quite dirty but I can't think of another way to do this
+
+            switch (options)
+            {
+                case LookupOptions.PrioritizeFunctions:
+                    {
+                        var function = context.TryLookup<FunctionSymbol>(name);
+                        if (function != null)
+                            return function;
+
+                        var variable = _scope.TryLookupVariable(name);
+                        if (variable != null)
+                            return variable;
+
+                        var namedType = context.TryLookup<NamedTypeSymbol>(name);
+                        if (namedType != null)
+                            return namedType;
+
+                        var nestedNamespace = context.TryLookupDirectChild(name);
+                        if (nestedNamespace != null)
+                            return nestedNamespace;
+
+                        nestedNamespace = _globalNamespace.TryLookupDirectChild(name);
+                        if (nestedNamespace != null)
+                            return nestedNamespace;
+                        
+                    }
+                    break;
+                case LookupOptions.PrioritizeNamedTypes:
+                    {
+                        var namedType = context.TryLookup<NamedTypeSymbol>(name);
+                        if (namedType != null)
+                            return namedType;
+
+                        var function = context.TryLookup<FunctionSymbol>(name);
+                        if (function != null)
+                            return function;
+
+                        var variable = _scope.TryLookupVariable(name);
+                        if (variable != null)
+                            return variable;
+
+                        var nestedNamespace = context.TryLookupDirectChild(name);
+                        if (nestedNamespace != null)
+                            return nestedNamespace;
+
+                        nestedNamespace = _globalNamespace.TryLookupDirectChild(name);
+                        if (nestedNamespace != null)
+                            return nestedNamespace;
+                    }
+                    break;
+                case LookupOptions.PrioritizeVariables:
+                    {
+                        var variable = _scope.TryLookupVariable(name);
+                        if (variable != null)
+                            return variable;
+
+                        var namedType = context.TryLookup<NamedTypeSymbol>(name);
+                        if (namedType != null)
+                            return namedType;
+
+                        var function = context.TryLookup<FunctionSymbol>(name);
+                        if (function != null)
+                            return function;
+
+                        var nestedNamespace = context.TryLookupDirectChild(name);
+                        if (nestedNamespace != null)
+                            return nestedNamespace;
+
+                        nestedNamespace = _globalNamespace.TryLookupDirectChild(name);
+                        if (nestedNamespace != null)
+                            return nestedNamespace;
+                    }
+                    break;
+                default:
+                    {
+                        var nestedNamespace = context.TryLookupDirectChild(name);
+                        if (nestedNamespace != null)
+                            return nestedNamespace;
+
+                        nestedNamespace = _globalNamespace.TryLookupDirectChild(name);
+                        if (nestedNamespace != null)
+                            return nestedNamespace;
+
+                        var variable = _scope.TryLookupVariable(name);
+                        if (variable != null)
+                            return variable;
+
+                        var namedType = context.TryLookup<NamedTypeSymbol>(name);
+                        if (namedType != null)
+                            return namedType;
+
+                        var function = context.TryLookup<FunctionSymbol>(name);
+                        if (function != null)
+                            return function;
+                    }
+                    break;
+            }
+            return null;
         }
 
         private bool TryLookupNamespace(string name, out NamespaceSymbol? ns, NamespaceSymbol? previous = null)

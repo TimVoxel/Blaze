@@ -1,6 +1,6 @@
 ﻿using Blaze.Binding;
+using Blaze.Diagnostics;
 using System.Collections.Immutable;
-using System.Runtime.InteropServices;
 
 namespace Blaze.Lowering
 {

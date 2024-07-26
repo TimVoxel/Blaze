@@ -109,7 +109,10 @@ namespace Blaze.Binding
             writer.Indent++;
 
             foreach (var child in node.Children)
-                WriteNamespace(child.Value, writer);
+            {
+                child.Key.WriteTo(writer);
+                writer.WriteLine();
+            }
 
             foreach (var function in node.Functions)
             {

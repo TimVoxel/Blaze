@@ -5,10 +5,9 @@ namespace Blaze.Emit
 {
     internal partial class DatapackEmitter
     {
-        /*
         public bool TryEmitBuiltInFunction(BoundCallExpression call, FunctionEmittion emittion)
         {
-            if (call.Function == BuiltInNamespace.Minecraft.Chat.Say || call.Function == BuiltInNamespace.Minecraft.Chat.Print)
+            if (call.Function == BuiltInNamespace.Minecraft.Chat.Say)
             {
                 EmitSay(call, emittion);
                 return true;
@@ -19,36 +18,10 @@ namespace Blaze.Emit
                 return true;
             }
             return false;
-            /*
-            if (call.Function == BuiltInFunction.RunCommand)
-            {
-                var costant = call.Arguments[0].ConstantValue;
-
-                if (costant == null)
-                {
-                    //HACK
-                    throw new Exception($"run_command only uses constant values");
-                }
-
-                var message = (string)costant.Value;
-                emittion.AppendLine(message);
-                return true;
-
-            }
-            if (call.Function == BuiltInFunction.Print)
-            {
-                var message = call.Arguments[0].ToString().Replace("\"", "\\\"");
-                var convertedMessage = "{\"text\":\"§e" + message + "\"}";
-                emittion.AppendLine($"tellraw @a {convertedMessage}");
-                return true;
-            }
-            return false;
-            
         }
 
         private void EmitSay(BoundCallExpression call, FunctionEmittion emittion) => EmitPrint(call, emittion);
 
-        /*
         private void EmitPrint(BoundCallExpression call, FunctionEmittion emittion)
         {
             var expression = call.Arguments[0];
@@ -60,7 +33,7 @@ namespace Blaze.Emit
             }
             else if (expression is BoundVariableExpression variable)
             {
-                var varName = $"*{variable.Variable.Name}";
+                var varName = _nameTranslator.GetVariableName(variable.Variable);
                 command = "tellraw @a {\"storage\":\"strings\",\"nbt\":\"" + varName + "\"}";
             }
             else
@@ -72,6 +45,5 @@ namespace Blaze.Emit
             
             emittion.AppendLine(command);
         }
-        */
     }
 }

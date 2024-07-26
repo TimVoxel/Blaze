@@ -62,8 +62,9 @@ namespace Blaze.Symbols
             return block;
         }
 
-        protected BoundBlockStatement AssignFieldsBlock(IEnumerable<FieldSymbol> fields, params ParameterSymbol[] parametersInOrder)
+        protected BoundBlockStatement AssignFieldsBlock(NamedTypeSymbol type, params ParameterSymbol[] parametersInOrder)
         {
+            var fields = type.Fields;
             var blockBuilder = ImmutableArray.CreateBuilder<BoundStatement>();
 
             if (fields.Count() != parametersInOrder.Length)
@@ -73,8 +74,8 @@ namespace Blaze.Symbols
             foreach (var field in fields)
             {
                 var param = parametersInOrder[i];
-                //TODO: change to Field access
-                var fieldExpression = new BoundVariableExpression(field);
+                var boundThisExpression = new BoundThisExpression(type);
+                var fieldExpression = new BoundFieldAccessExpression(boundThisExpression, field);
                 var paramExpression = new BoundVariableExpression(param);
                 var assignment = new BoundAssignmentExpression(fieldExpression, paramExpression);
                 var statement = new BoundExpressionStatement(assignment);

@@ -10,8 +10,7 @@ namespace Blaze.Miscellaneuos
         private readonly Dictionary<VariableSymbol, object?> _globals;
         private readonly Dictionary<FunctionSymbol, BoundStatement> _functions = new Dictionary<FunctionSymbol, BoundStatement>();
         private readonly Stack<Dictionary<VariableSymbol, object?>> _locals = new Stack<Dictionary<VariableSymbol, object?>>();
-        private Random? _random;
-
+        
         private object? _lastValue;
 
         internal Evaluator(BoundProgram program, Dictionary<VariableSymbol, object?> variables)

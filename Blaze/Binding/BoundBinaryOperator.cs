@@ -4,6 +4,9 @@ namespace Blaze.Binding
 {
     internal sealed class BoundBinaryOperator
     {
+        public readonly static BoundBinaryOperator NamedTypeDoubleEqualsOperator
+            = new BoundBinaryOperator(SyntaxKind.DoubleEqualsToken, BoundBinaryOperatorKind.Equals, TypeSymbol.Object, TypeSymbol.Bool);
+
         private static BoundBinaryOperator[] _operators =
         {
             new BoundBinaryOperator(SyntaxKind.PlusToken, BoundBinaryOperatorKind.Addition, TypeSymbol.Int),
@@ -50,6 +53,9 @@ namespace Blaze.Binding
 
         internal static BoundBinaryOperator? Bind(SyntaxKind kind, TypeSymbol leftType, TypeSymbol rightType)
         {
+            if (leftType is NamedTypeSymbol && rightType is NamedTypeSymbol && leftType == rightType)
+                return NamedTypeDoubleEqualsOperator;
+
             foreach (BoundBinaryOperator binary in _operators)
             {
                 if (binary.SyntaxKind == kind && binary.LeftType == leftType && binary.RightType == rightType)
@@ -60,6 +66,9 @@ namespace Blaze.Binding
 
         internal static BoundBinaryOperator SafeBind(BoundBinaryOperatorKind kind, TypeSymbol leftType, TypeSymbol rightType)
         {
+            if (leftType is NamedTypeSymbol && rightType is NamedTypeSymbol && leftType == rightType)
+                return NamedTypeDoubleEqualsOperator;
+
             foreach (BoundBinaryOperator binary in _operators)
             {
                 if (binary.OperatorKind == kind && binary.LeftType == leftType && binary.RightType == rightType)

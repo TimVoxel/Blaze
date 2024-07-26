@@ -542,17 +542,31 @@ namespace Blaze
             return new CallExpressionSyntax(_syntaxTree, identifier, openParen, arguments, closeParen);
         }
         
-        private ExpressionSyntax ParseMemberAccessExpression(ExpressionSyntax right)
+        private ExpressionSyntax ParseMemberAccessExpression(ExpressionSyntax left)
         {   
             var dotToken = TryConsume(SyntaxKind.DotToken);
             var memberIdentifier = TryConsume(SyntaxKind.IdentifierToken);
-            return new MemberAccessExpressionSyntax(_syntaxTree, right, dotToken, memberIdentifier);
+            return new MemberAccessExpressionSyntax(_syntaxTree, left, dotToken, memberIdentifier);
         }
 
         private ExpressionSyntax ParseObjectCreationExpression()
         {
             var keyword = TryConsume(SyntaxKind.NewKeyword);
-            var identifier = TryConsume(SyntaxKind.IdentifierToken);
+
+            ExpressionSyntax identifier = ParseSimpleNameExpression();
+
+            while (Current.Kind != SyntaxKind.EndOfFileToken)
+            {
+                if (Current.Kind == SyntaxKind.DotToken)
+                    identifier = ParseMemberAccessExpression(identifier);
+                else if (Current.Kind == SyntaxKind.IdentifierToken)
+                {
+                    identifier = ParseSimpleNameExpression();
+                    break;
+                }
+                else
+                    break;
+            }
             var openParen = TryConsume(SyntaxKind.OpenParenToken);
             var arguments = ParseArguments();
             var closeParen = TryConsume(SyntaxKind.CloseParenToken);

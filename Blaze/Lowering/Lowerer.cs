@@ -1,7 +1,6 @@
 ﻿using Blaze.Binding;
 using Blaze.Symbols;
 using System.Collections.Immutable;
-
 namespace Blaze.Lowering
 {
     internal class Lowerer : BoundTreeRewriter
@@ -101,6 +100,40 @@ namespace Blaze.Lowering
                 whileStatement
             ));
             return RewriteStatement(result);
+        }
+
+        protected override BoundExpression RewriteBinaryExpression(BoundBinaryExpression node)
+        {
+            //namedType1 == namedType2
+            //>
+            //namedType1.f == namedType2.f && namedType1.y == namedType2.y && ... 
+
+            if (node.Operator == BoundBinaryOperator.NamedTypeDoubleEqualsOperator)
+            {
+                NamedTypeSymbol type = (NamedTypeSymbol) node.Left.Type;
+
+                var equations = new Queue<BoundExpression>();
+
+                foreach (var field in type.Fields)
+                {
+                    var leftAccess = new BoundFieldAccessExpression(node.Left, field);
+                    var rightAccess = new BoundFieldAccessExpression(node.Right, field);
+                    var equalityOperator = BoundBinaryOperator.SafeBind(BoundBinaryOperatorKind.Equals, field.Type, field.Type);
+                    var fieldsEqual = RewriteBinaryExpression(new BoundBinaryExpression(leftAccess, equalityOperator, rightAccess));
+                    equations.Enqueue(fieldsEqual);
+                }
+
+                BoundExpression expression = equations.Dequeue();
+                var andOperator = BoundBinaryOperator.SafeBind(BoundBinaryOperatorKind.LogicalMultiplication, TypeSymbol.Bool, TypeSymbol.Bool);
+
+                while (equations.Any())
+                {
+                    var current = equations.Dequeue();
+                    expression = new BoundBinaryExpression(expression, andOperator, current);
+                }
+                return expression;
+            }
+            return node;
         }
 
         protected override BoundExpression RewriteCompoundAssignmentExpression(BoundCompoundAssignmentExpression node)

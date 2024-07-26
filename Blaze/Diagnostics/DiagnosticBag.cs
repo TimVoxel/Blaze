@@ -284,5 +284,17 @@ namespace Blaze.Diagnostics
             string message = $"Expression of kind {kind} cannot be used as an identifier for a call";
             Report(location, message);
         }
+
+        public void ReportInvalidObjectCreationIdentifier(TextLocation location, BoundNodeKind kind)
+        {
+            string message = $"Expression of kind {kind} cannot be used as an identifier for a type";
+            Report(location, message);
+        }
+
+        public void ReportReturningNamedType(TextLocation location)
+        {
+            string message = "Returning objects of named types is unsupported";
+            Report(location, message);
+        }
     }
 }
