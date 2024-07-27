@@ -55,6 +55,9 @@ namespace Blaze.Binding
                 case BoundNodeKind.MethodAccessExpression:
                     WriteMethodAccessExpression((BoundMethodAccessExpression)node, writer);
                     break;
+                case BoundNodeKind.NamespaceExpression:
+                    WriteNamespaceExpression((BoundNamespaceExpression)node, writer);
+                    break;
                 case BoundNodeKind.NopStatement:
                     WriteNopStatement((BoundNopStatement)node, writer);
                     break;
@@ -113,6 +116,19 @@ namespace Blaze.Binding
                 child.Key.WriteTo(writer);
                 writer.WriteLine();
             }
+            writer.WriteLine();
+
+            foreach (var field in node.Namespace.Fields)
+            {
+                field.WriteTo(writer);
+                if (field.Initializer != null)
+                {
+                    writer.WritePunctuation(" = ");
+                    field.Initializer.WriteTo(writer);   
+                }
+                writer.WriteLine();
+            }
+            writer.WriteLine();
 
             foreach (var function in node.Functions)
             {
@@ -329,6 +345,11 @@ namespace Blaze.Binding
             writer.WritePunctuation("(");
             WriteArguments(node.Arguments, writer);
             writer.WritePunctuation(")");
+        }
+
+        private static void WriteNamespaceExpression(BoundNamespaceExpression node, IndentedTextWriter writer)
+        {
+            writer.WriteIdentifier(node.Namespace.Name);
         }
 
         private static void WriteFunctionExpression(BoundFunctionExpression node, IndentedTextWriter writer)

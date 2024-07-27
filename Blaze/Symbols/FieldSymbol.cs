@@ -6,12 +6,14 @@ namespace Blaze.Symbols
     public sealed class FieldSymbol : VariableSymbol, IMemberSymbol
     {
         public IMemberSymbol Parent { get; }
+        internal BoundExpression? Initializer { get; }
 
         public override SymbolKind Kind => SymbolKind.Field;
-
-        public FieldSymbol(string name, IMemberSymbol parent, TypeSymbol type) : base(name, type, null)
+        
+        internal FieldSymbol(string name, IMemberSymbol parent, TypeSymbol type, BoundExpression? initializer = null) : base(name, type, null)
         {
             Parent = parent;
+            Initializer = initializer;
         }
 
         public string GetFullName()
@@ -22,6 +24,8 @@ namespace Blaze.Symbols
 
             while (previous != null)
             {
+                if (previous is NamespaceSymbol n && n.IsGlobal)
+                    break;
                 nameStack.Push(previous.Name);
                 previous = previous.Parent;
             }

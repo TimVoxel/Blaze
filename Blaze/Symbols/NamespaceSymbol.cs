@@ -15,6 +15,7 @@ namespace Blaze.Symbols
 
         public IEnumerable<NamespaceSymbol> NestedNamespaces => Members.OfType<NamespaceSymbol>();
         public IEnumerable<FunctionSymbol> Functions => Members.OfType<FunctionSymbol>();
+        public IEnumerable<FieldSymbol> Fields => Members.OfType<FieldSymbol>();
         public IEnumerable<NamedTypeSymbol> NamedTypes => Members.OfType<NamedTypeSymbol>();
 
         public IEnumerable<NamespaceSymbol> AllNestedNamespaces

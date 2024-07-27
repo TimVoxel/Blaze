@@ -99,6 +99,12 @@ namespace Blaze.Diagnostics
             Report(location, message);
         }
 
+        public void ReportVariableNameIsADeclaredField(TextLocation location, string name)
+        {
+            string message = $"Name \"{name}\" is already taken by a field in the namespace";
+            Report(location, message);
+        }
+
         public void ReportUndefinedFunction(TextLocation location, string text)
         {
             string message = $"Function \"{text}\" doesn't exist";
@@ -180,31 +186,6 @@ namespace Blaze.Diagnostics
         public void ReportInvalidExpressionStatement(TextLocation location)
         {
             string message = "Only assignment, increment, decrement and call expressions can be used as a statement";
-            Report(location, message);
-        }
-
-        public void ReportCannotMixMainAndGlobalStatements(TextLocation location)
-        {
-            string message = "Can not declare main function when global statements are used";
-            Report(location, message);
-        }
-
-        public void ReportMainFunctionMustHaveCorrectSignature(TextLocation location)
-        {
-            string message = "Main function must not return anything and must not have any parameters";
-            Report(location, message);
-        }
-
-        //OUTDATED
-        public void ReportOnlyOneFileCanHaveGlobalStatements(TextLocation location)
-        {
-            string message = "At most one file can have global statements";
-            Report(location, message);
-        }
-
-        public void ReportReturnWithExpressionInGlobalStatement(TextLocation location)
-        {
-            string message = "Return can not be followed by an expression in global statements";
             Report(location, message);
         }
 
@@ -294,6 +275,24 @@ namespace Blaze.Diagnostics
         public void ReportReturningNamedType(TextLocation location)
         {
             string message = "Returning objects of named types is unsupported";
+            Report(location, message);
+        }
+
+        public void ReportGlobalStatement(TextLocation location)
+        {
+            string message = "Statement outside of a function";
+            Report(location, message);
+        }
+
+        public void ReportFieldAlreadyDeclared(TextLocation location, string identifierText)
+        {
+            string message = $"Field {identifierText} is already declared";
+            Report(location, message);
+        }
+
+        public void ReportInvalidFieldIdentifier(TextLocation location, SyntaxKind kind)
+        {
+            string message = $"Expression of kind {kind} cannot be used as an identifier for a field";
             Report(location, message);
         }
     }

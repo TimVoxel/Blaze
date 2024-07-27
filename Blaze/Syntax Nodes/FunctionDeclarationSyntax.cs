@@ -3,7 +3,7 @@ using System.Collections.Immutable;
 
 namespace Blaze.Syntax_Nodes
 {
-    public sealed class FunctionDeclarationSyntax : MemberSyntax
+    public sealed class FunctionDeclarationSyntax : DeclarationSyntax
     {
         public ImmutableArray<SyntaxToken> Modifiers { get; }
         public SyntaxToken FunctionKeyword { get; }

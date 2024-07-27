@@ -3,7 +3,6 @@ using Blaze.Diagnostics;
 using Blaze.Emit.NameTranslation;
 using Blaze.Symbols;
 using System.Collections.Immutable;
-using System.ComponentModel.DataAnnotations;
 using System.Diagnostics;
 using System.Text;
 
@@ -380,7 +379,7 @@ namespace Blaze.Emit
                     leftAssociativeOrder.Push(previous);
 
                     if (previous is BoundFieldAccessExpression fieldAccess)
-                        previous = fa.Instance;
+                        previous = fieldAccess.Instance;
                     else if (previous is BoundCallExpression call)
                         previous = call.Identifier;
                     else if (previous is BoundMethodAccessExpression methodAccess)
@@ -409,9 +408,15 @@ namespace Blaze.Emit
                         else
                             nameBuilder.Append(variableExpression.Variable.Name);
                     }
-                    if (current is BoundThisExpression thisExpression)
+                    else if (current is BoundThisExpression thisExpression)
                     {
                         nameBuilder.Append(_contextName);
+                    }
+                    else if (current is BoundNamespaceExpression namespaceExpression)
+                    {
+                        //TODO: add Field initialization in init function
+
+                        nameBuilder.Append(_nameTranslator.GetNamespaceFieldPath(namespaceExpression.Namespace));
                     }
                     else if (current is BoundFieldAccessExpression fieldAccess)
                     {
@@ -419,6 +424,7 @@ namespace Blaze.Emit
                     }
                     else if (current is BoundCallExpression call)
                     {
+                        //Unused
                         var name = $"r{callIndex}";
 
                         //We do this so that the constructor block knows the "this" instance name

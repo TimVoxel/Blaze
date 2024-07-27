@@ -11,7 +11,9 @@ namespace Blaze.Binding
         
         public override BoundNodeKind Kind => BoundNodeKind.Namespace;
 
-        public BoundNamespace(NamespaceSymbol ns, ImmutableDictionary<NamespaceSymbol, BoundNamespace> children, ImmutableDictionary<FunctionSymbol, BoundStatement> functions)
+        public BoundNamespace(NamespaceSymbol ns, 
+            ImmutableDictionary<NamespaceSymbol, BoundNamespace> children, 
+            ImmutableDictionary<FunctionSymbol, BoundStatement> functions)
         {
             Children = children;
             Functions = functions;

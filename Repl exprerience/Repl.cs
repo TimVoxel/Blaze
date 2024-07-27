@@ -1,8 +1,7 @@
 ﻿using Blaze.IO;
-using System.Collections.ObjectModel;
-using System.Collections.Specialized;
 using System.Reflection;
 using System.Text;
+using TextCopy;
 
 namespace ReplExperience
 {
@@ -11,7 +10,11 @@ namespace ReplExperience
         private readonly List<MetaCommand> _metaCommands = new List<MetaCommand>();
         private readonly List<string> _submissionHistory = new List<string>();
         private int _submissionHistoryIndex;
-        private bool _done;
+        
+        private bool _done; 
+        private List<string> _document = new List<string>();
+
+        public event Action? ShouldRender;
 
         protected abstract bool IsCompleteSubmission(string text);
 
@@ -57,12 +60,14 @@ namespace ReplExperience
         private sealed class SubmissionView
         {
             private readonly LineRendererHandler _lineRenderer;
-            private readonly ObservableCollection<string> _submissionDocument;
+            private readonly Repl _repl;
+            private readonly List<string> _submissionDocument;
             
             private int _cursorTop;
             private int _renderedLineCount;
             private int _currentLine;
             private int _currentCharacter;
+            
 
             public delegate object? LineRendererHandler(IReadOnlyList<string> lines, int lineIndex, object? state);
 
@@ -93,16 +98,25 @@ namespace ReplExperience
                 }
             }
 
-            public SubmissionView(LineRendererHandler lineRenderer, ObservableCollection<string> submissionDocument)
+            public SubmissionView(LineRendererHandler lineRenderer, Repl repl, List<string> document)
             {
                 _lineRenderer = lineRenderer;
-                _submissionDocument = submissionDocument;
-                _submissionDocument.CollectionChanged += SubmissionDocumentChanged;
+                _repl = repl;
+                _submissionDocument = document;
+                StartRendering();
                 _cursorTop = Console.CursorTop;
                 Render();
             }
 
-            private void SubmissionDocumentChanged(object? sender, NotifyCollectionChangedEventArgs e) => Render();
+            public void StartRendering()
+            {
+                _repl.ShouldRender += Render;
+            }
+
+            public void StopRendering()
+            {
+                _repl.ShouldRender -= Render;
+            }
 
             private void Render()
             {
@@ -159,57 +173,67 @@ namespace ReplExperience
             }
         }
 
+        private void AddToDocument(string value)
+        {
+            _document.Add(value);
+            ShouldRender?.Invoke();
+        }
+
         private string? EditSubmission()
         {
             _done = false;
-            var document = new ObservableCollection<string>() { "" };
-            var view = new SubmissionView(RenderLine, document);
+            _document = new List<string>() { string.Empty };
+            var view = new SubmissionView(RenderLine, this, _document);
 
             while (!_done)
             {
                 var key = Console.ReadKey(true);
-                HandleKey(key, document, view);
+                HandleKey(key, view);
             }
 
-            view.CurrentLine = document.Count - 1;
-            view.CurrentCharacter = document[view.CurrentLine].Length;
+            view.CurrentLine = _document.Count - 1;
+            view.CurrentCharacter = _document[view.CurrentLine].Length;
+            view.StopRendering();
 
             Console.WriteLine();
-            return string.Join(Environment.NewLine, document);
+            return string.Join(Environment.NewLine, _document);
         }
 
-        private void HandleKey(ConsoleKeyInfo key, ObservableCollection<string> document, SubmissionView view)
+        private void HandleKey(ConsoleKeyInfo key, SubmissionView view)
         {
             if (key.Modifiers == default)
             {
                 switch (key.Key)
                 {
                     case ConsoleKey.Escape:
-                        HandleEscape(document, view);
+                        HandleEscape(view);
                         break;
                     case ConsoleKey.Enter:
-                        HandleEnter(document, view);
+                        HandleEnter(view);
                         break;
                     case ConsoleKey.LeftArrow:
-                        HandleLeftArrow(document, view);
+                        HandleLeftArrow(view);
                         break;
                     case ConsoleKey.RightArrow:
-                        HandleRightArrow(document, view);
+                        HandleRightArrow(view);
                         break;
                     case ConsoleKey.UpArrow:
-                        HandleUpArrow(document, view);
+                        HandleUpArrow(view);
                         break;
                     case ConsoleKey.DownArrow:
-                        HandleDownArrow(document, view);
+                        HandleDownArrow(view);
                         break;
                     case ConsoleKey.Backspace:
-                        HandleBackspace(document, view);
+                        HandleBackspace(view);
                         break;
                     case ConsoleKey.Delete:
-                        HandleDelete(document, view);
+                        HandleDelete(view);
                         break;
                     case ConsoleKey.Tab:
-                        HandleTab(document, view);
+                        HandleTab(view);
+                        break;
+                    case ConsoleKey.Oem3:
+                        HandlePaste(view);
                         break;
                 }
             }
@@ -218,168 +242,202 @@ namespace ReplExperience
                 switch (key.Key)
                 {
                     case ConsoleKey.Enter:
-                        HandleControlEnter(document, view);
+                        HandleControlEnter(view);
                         break;
                     case ConsoleKey.UpArrow:
-                        HandleHistoryScrollUp(document, view);
+                        HandleHistoryScrollUp(view);
                         break;
                     case ConsoleKey.DownArrow:
-                        HandleHistoryScrollDown(document, view);
+                        HandleHistoryScrollDown(view);
                         break;
+
                 }
             }
-            if (key.Key != ConsoleKey.Backspace && key.KeyChar >= ' ')
-                HandleTyping(document, view, key.KeyChar.ToString());
+            if (key.Key != ConsoleKey.Backspace && key.KeyChar >= ' ' && !(key.Modifiers == default && key.Key == ConsoleKey.Oem3))
+                HandleTyping(view, key.KeyChar.ToString());
         }
 
-        private void HandleHistoryScrollDown(ObservableCollection<string> document, SubmissionView view)
+        private void HandlePaste(SubmissionView view)
+        {
+            var text = ClipboardService.GetText();
+            
+            if (text != null)
+            {
+                var splitText = text.Split("\n");
+
+                for (int i = 0; i < splitText.Length; i++)
+                {
+                    if (splitText[i].Length == 0)
+                        continue;
+
+                    if (splitText[i].Last() == '\n' || splitText[i].Last() == '\r')
+                        splitText[i] = splitText[i].Substring(0, splitText[i].Length - 1);
+                }
+                _document.AddRange(splitText);
+
+                view.CurrentLine = _document.Count - 1;
+                view.CurrentCharacter = _document[view.CurrentLine].Length;
+            }
+            ShouldRender?.Invoke();
+        }
+
+        private void HandleHistoryScrollDown(SubmissionView view)
         {
             _submissionHistoryIndex++;
             if (_submissionHistoryIndex >= _submissionHistory.Count)
                 _submissionHistoryIndex = 0;
 
-            UpdateDocumentFromHistory(document, view);
+            UpdateDocumentFromHistory(view);
         }
 
-        private void HandleHistoryScrollUp(ObservableCollection<string> document, SubmissionView view)
+        private void HandleHistoryScrollUp(SubmissionView view)
         {
             _submissionHistoryIndex--;
             if (_submissionHistoryIndex < 0)
                 _submissionHistoryIndex = _submissionHistory.Count - 1;
             
-            UpdateDocumentFromHistory(document, view);
+            UpdateDocumentFromHistory(view);
         }
 
-        private void UpdateDocumentFromHistory(ObservableCollection<string> document, SubmissionView view)
+        private void UpdateDocumentFromHistory(SubmissionView view)
         {
             if (_submissionHistory.Count == 0)
                 return;
 
-            document.Clear();
+            _document.Clear();
 
             string historyItem = _submissionHistory[_submissionHistoryIndex];
             string[] lines = historyItem.Split(Environment.NewLine);
             foreach (string line in lines)
-                document.Add(line);
+                _document.Add(line);
 
-            view.CurrentLine = document.Count - 1;
-            view.CurrentCharacter = document[view.CurrentLine].Length;
+            ShouldRender?.Invoke();
+
+            view.CurrentLine = _document.Count - 1;
+            view.CurrentCharacter = _document[view.CurrentLine].Length;
         }
 
-        private void HandleEscape(ObservableCollection<string> document, SubmissionView view)
+        private void HandleEscape(SubmissionView view)
         {
-            document.Clear();
-            document.Add(string.Empty);
+            _document.Clear();
+            AddToDocument(string.Empty);
+
             view.CurrentLine = 0;
             view.CurrentCharacter = 0;
         }
 
-        private void HandleBackspace(ObservableCollection<string> document, SubmissionView view)
+        private void HandleBackspace(SubmissionView view)
         {
             int start = view.CurrentCharacter;
             if (start == 0)
             {
                 if (view.CurrentLine == 0) return;
 
-                string currentLine = document[view.CurrentLine];
-                string previous = document[view.CurrentLine - 1];
-                document.RemoveAt(view.CurrentLine);
+                string currentLine = _document[view.CurrentLine];
+                string previous = _document[view.CurrentLine - 1];
+                _document.RemoveAt(view.CurrentLine);
                 view.CurrentLine--;
-                document[view.CurrentLine] = previous + currentLine;
+                _document[view.CurrentLine] = previous + currentLine;
+                ShouldRender?.Invoke();
                 view.CurrentCharacter = previous.Length;
             }
             else
             {
                 int lineIndex = view.CurrentLine;
-                string line = document[lineIndex];
+                string line = _document[lineIndex];
                 string before = line.Substring(0, start - 1);
                 string after = line.Substring(start);
-                document[lineIndex] = before + after;
+                _document[lineIndex] = before + after;
+                ShouldRender?.Invoke();
                 view.CurrentCharacter--;
             }
         }
 
-        private void HandleDelete(ObservableCollection<string> document, SubmissionView view)
+        private void HandleDelete(SubmissionView view)
         {
             int lineIndex = view.CurrentLine;
-            string line = document[lineIndex];
+            string line = _document[lineIndex];
             int start = view.CurrentCharacter;
             if (start >= line.Length)
                 return;
 
             string before = line.Substring(0, start);
             string after = line.Substring(start + 1);
-            document[lineIndex] = before + after;
+            _document[lineIndex] = before + after;
+            ShouldRender?.Invoke();
             view.CurrentCharacter--;
         }
 
-        private void HandleEnter(ObservableCollection<string> document, SubmissionView view)
+        private void HandleEnter(SubmissionView view)
         {
-            string submissionText = string.Join(Environment.NewLine, document);
+            string submissionText = string.Join(Environment.NewLine, _document);
             if (submissionText.StartsWith("#"))
             {
                 _done = true;
                 return;
             }
-            InsertLine(document, view);
+            InsertLine(view);
         }
 
-        private static void InsertLine(ObservableCollection<string> document, SubmissionView view)
+        private void InsertLine(SubmissionView view)
         {
-            string remainer = document[view.CurrentLine].Substring(view.CurrentCharacter);
-            document[view.CurrentLine] = document[view.CurrentLine].Substring(0, view.CurrentCharacter);
+            string remainer = _document[view.CurrentLine].Substring(view.CurrentCharacter);
+            _document[view.CurrentLine] = _document[view.CurrentLine].Substring(0, view.CurrentCharacter);
 
             int lineIndex = view.CurrentLine + 1;
-            document.Insert(lineIndex, remainer);
+            _document.Insert(lineIndex, remainer);
+            ShouldRender?.Invoke();
             view.CurrentCharacter = 0;
             view.CurrentLine = lineIndex;
         }
 
-        private void HandleControlEnter(ObservableCollection<string> document, SubmissionView view)
+        private void HandleControlEnter(SubmissionView view)
         {
             _done = true;
         }
 
-        private void HandleLeftArrow(ObservableCollection<string> document, SubmissionView view)
+        private void HandleLeftArrow(SubmissionView view)
         {
             if (view.CurrentCharacter > 0)
                 view.CurrentCharacter--;
         }
 
-        private void HandleTab(ObservableCollection<string> document, SubmissionView view)
+        private void HandleTab(SubmissionView view)
         {
             const int TabWidth = 4;
             int start = view.CurrentCharacter;
             int remaining = TabWidth - start % TabWidth;
-            string line = document[view.CurrentLine];
-            document[view.CurrentLine] = line.Insert(start, new string(' ', remaining));
+            string line = _document[view.CurrentLine];
+            _document[view.CurrentLine] = line.Insert(start, new string(' ', remaining));
+            ShouldRender?.Invoke();
             view.CurrentCharacter += remaining;
         }
 
-        private void HandleRightArrow(ObservableCollection<string> document, SubmissionView view)
+        private void HandleRightArrow(SubmissionView view)
         {
-            string line = document[view.CurrentLine];
+            string line = _document[view.CurrentLine];
             if (view.CurrentCharacter < line.Length)
                 view.CurrentCharacter++;
         }
 
-        private void HandleUpArrow(ObservableCollection<string> document, SubmissionView view)
+        private void HandleUpArrow(SubmissionView view)
         {
             if (view.CurrentLine > 0)
                 view.CurrentLine--;
         }
 
-        private void HandleDownArrow(ObservableCollection<string> document, SubmissionView view)
+        private void HandleDownArrow(SubmissionView view)
         {
-            if (view.CurrentLine < document.Count - 1)
+            if (view.CurrentLine < _document.Count - 1)
                 view.CurrentLine++;
         }
 
-        private void HandleTyping(ObservableCollection<string> document, SubmissionView view, string text)
+        private void HandleTyping(SubmissionView view, string text)
         {
             int lineIndex = view.CurrentLine;
             int start = view.CurrentCharacter;
-            document[lineIndex] = document[lineIndex].Insert(start, text);
+            _document[lineIndex] = _document[lineIndex].Insert(start, text);
+            ShouldRender?.Invoke();
             view.CurrentCharacter += text.Length;
         }
 

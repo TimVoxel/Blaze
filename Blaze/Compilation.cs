@@ -4,9 +4,7 @@ using Blaze.Emit;
 using Blaze.Lowering;
 using Blaze.Miscellaneuos;
 using Blaze.Symbols;
-using Blaze.Text;
 using System.Collections.Immutable;
-using System.ComponentModel.DataAnnotations;
 
 namespace Blaze
 {

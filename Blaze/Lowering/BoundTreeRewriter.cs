@@ -192,9 +192,16 @@ namespace Blaze.Lowering
                     return RewriteFunctionExpression((BoundFunctionExpression)node);
                 case BoundNodeKind.MethodAccessExpression:
                     return RewriteMethodAccessExpression((BoundMethodAccessExpression)node);
+                case BoundNodeKind.NamespaceExpression:
+                    return RewriteNamespaceExpression((BoundNamespaceExpression)node); 
                 default:
                     throw new Exception($"Unexpected node {node.Kind}");
             }
+        }
+
+        protected virtual BoundExpression RewriteNamespaceExpression(BoundNamespaceExpression node)
+        {
+            return node;
         }
 
         protected virtual BoundExpression RewriteFieldAccessExpression(BoundFieldAccessExpression node)

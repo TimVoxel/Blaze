@@ -11,6 +11,8 @@ using System.Diagnostics;
 
 namespace Blaze.Binding
 {
+    //TODO: Add better lookup to avoid duplicating name errors
+
     internal sealed class Binder
     {
         private readonly DiagnosticBag _diagnostics = new DiagnosticBag();
@@ -227,9 +229,13 @@ namespace Blaze.Binding
 
         private void BindDeclarationsInNamespace(NamespaceDeclarationSyntax declarationSyntax)
         {
-            var functionDeclarations = declarationSyntax.Members.OfType<FunctionDeclarationSyntax>();
-            foreach (var function in functionDeclarations)
-                BindFunctionDeclaration(function);
+            foreach (var member in declarationSyntax.Members)
+            {
+                if (member is FunctionDeclarationSyntax functionDeclaration)
+                    BindFunctionDeclaration(functionDeclaration);
+                else if (member is FieldDeclarationSyntax fieldDeclaration)
+                    BindFieldDeclaration(fieldDeclaration);
+            }
         }
              
         private void BindFunctionDeclaration(FunctionDeclarationSyntax declaration)
@@ -273,11 +279,33 @@ namespace Blaze.Binding
                 _diagnostics.ReportFunctionAlreadyDeclared(declaration.Identifier.Location, function.Name);
         }
 
-        private BoundStatement BindGlobalStatement(StatementSyntax syntax) => BindStatement(syntax, true);
+        private void BindFieldDeclaration(FieldDeclarationSyntax fieldDeclaration)
+        {
+            var identifierText = fieldDeclaration.Identifier.Text;
+            var initializer = BindExpression(fieldDeclaration.Initializer);
+
+            TypeSymbol? type = null;
+            if (fieldDeclaration.DeclarationNode is TypeClauseSyntax typeClause)
+                type = BindType(typeClause.Identifier.Text, typeClause.Identifier.Location);
+
+            var variableType = type ?? initializer.Type;
+
+            var field = _namespace.Fields.FirstOrDefault(f => f.Name == identifierText);
+            if (field != null)
+            {
+                _diagnostics.ReportFieldAlreadyDeclared(fieldDeclaration.Identifier.Location, identifierText);
+                return;
+            }
+            else
+            {
+                var convertedInitializer = BindConversion(initializer, variableType, fieldDeclaration.Initializer.Location);
+                field = new FieldSymbol(identifierText, _namespace, variableType, convertedInitializer);
+                _namespace.Members.Add(field);
+            }
+        }
 
         private BoundStatement BindStatement(StatementSyntax syntax, bool isGlobal = false)
         {
-
             var result = BindStatementInternal(syntax);
 
             if (isGlobal)
@@ -531,18 +559,31 @@ namespace Blaze.Binding
                 _diagnostics.ReportUndefinedName(expression.IdentifierToken.Location, name);
                 return new BoundErrorExpression();
             }
+
+            if (_function == null && !(boundExpression is BoundTypeExpression))
+            {
+                _diagnostics.ReportInvalidFieldIdentifier(expression.Location, expression.Kind);
+                return new BoundErrorExpression();
+            }
+
             return boundExpression;
         }
 
         private BoundExpression BindMemberAccessExpression(MemberAccessExpressionSyntax expression, LookupOptions lookupOptions)
         {
+            if (_function == null)
+            {
+                _diagnostics.ReportInvalidFieldIdentifier(expression.Location, expression.Kind);
+                return new BoundErrorExpression();
+            }
+
             if (!expression.AccessedExpression.CanBeAccessed())
             {
                 _diagnostics.ReportInvalidMemberAccessLeftKind(expression.AccessedExpression.Location, expression.AccessedExpression.Kind);
                 return new BoundErrorExpression();
             }
 
-            var boundAccessed = BindExpression(expression.AccessedExpression, true);
+            var boundAccessed = BindExpression(expression.AccessedExpression, true, LookupOptions.PrioritizeVariables);
             var memberName = expression.MemberIdentifier.Text;
 
             if (boundAccessed.Type.IsError)
@@ -600,6 +641,12 @@ namespace Blaze.Binding
 
         private BoundExpression BindCallExpression(CallExpressionSyntax expression)
         {
+            if (_function == null)
+            {
+                _diagnostics.ReportInvalidFieldIdentifier(expression.Location, expression.Kind);
+                return new BoundErrorExpression();
+            }
+
             var boundIdentifier = BindExpression(expression.IdentifierExpression, true, LookupOptions.PrioritizeFunctions);
             FunctionSymbol function;
 
@@ -631,7 +678,10 @@ namespace Blaze.Binding
         private BoundExpression BindObjectCreationExpression(ObjectCreationExpressionSyntax syntax)
         {
             var boundIdentifier = BindExpression(syntax.Identifier, false, LookupOptions.PrioritizeNamedTypes);
-            
+
+            if (boundIdentifier is BoundErrorExpression)
+                return boundIdentifier;
+
             if (!(boundIdentifier is BoundTypeExpression typeExpression))
             {
                 _diagnostics.ReportInvalidObjectCreationIdentifier(syntax.Identifier.Location, boundIdentifier.Kind);
@@ -759,6 +809,9 @@ namespace Blaze.Binding
                                 ? new GlobalVariableSymbol(name, type, constant)
                                 : new LocalVariableSymbol(name, type, constant);
 
+            if (_namespace.TryLookup<FieldSymbol>(name) != null)
+                _diagnostics.ReportVariableNameIsADeclaredField(identifier.Location, name);
+
             if (!_scope.TryDeclareVariable(variable))
                 _diagnostics.ReportVariableAlreadyDeclared(identifier.Location, name);
 
@@ -791,6 +844,12 @@ namespace Blaze.Binding
             if (symbol == null)
                 return null;
 
+            if (symbol is FieldSymbol field)
+            {
+                var namespaceExpression = new BoundNamespaceExpression(_namespace);
+                return new BoundFieldAccessExpression(namespaceExpression, field);
+            }
+
             if (symbol is VariableSymbol variable)
                 return new BoundVariableExpression(variable);
 
@@ -818,6 +877,10 @@ namespace Blaze.Binding
                         var function = context.TryLookup<FunctionSymbol>(name);
                         if (function != null)
                             return function;
+
+                        var field = context.TryLookup<FieldSymbol>(name);
+                        if (field != null)
+                            return field;
 
                         var variable = _scope.TryLookupVariable(name);
                         if (variable != null)
@@ -847,6 +910,10 @@ namespace Blaze.Binding
                         if (function != null)
                             return function;
 
+                        var field = context.TryLookup<FieldSymbol>(name);
+                        if (field != null)
+                            return field;
+
                         var variable = _scope.TryLookupVariable(name);
                         if (variable != null)
                             return variable;
@@ -862,6 +929,10 @@ namespace Blaze.Binding
                     break;
                 case LookupOptions.PrioritizeVariables:
                     {
+                        var field = context.TryLookup<FieldSymbol>(name);
+                        if (field != null)
+                            return field;
+
                         var variable = _scope.TryLookupVariable(name);
                         if (variable != null)
                             return variable;
@@ -892,6 +963,10 @@ namespace Blaze.Binding
                         nestedNamespace = _globalNamespace.TryLookupDirectChild(name);
                         if (nestedNamespace != null)
                             return nestedNamespace;
+
+                        var field = context.TryLookup<FieldSymbol>(name);
+                        if (field != null)
+                            return field;
 
                         var variable = _scope.TryLookupVariable(name);
                         if (variable != null)

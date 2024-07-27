@@ -1,5 +1,6 @@
 ﻿using Blaze.Binding;
 using Blaze.Symbols;
+using System.Text;
 
 namespace Blaze.Emit.NameTranslation
 {
@@ -43,16 +44,6 @@ namespace Blaze.Emit.NameTranslation
             _rootNamespace = rootNamespace;
         }
 
-        public string GetOfExpression(BoundExpression expression)
-        {
-            if (expression is BoundVariableExpression v)
-                return GetVariableName(v.Variable);
-            else if (expression is BoundFieldAccessExpression fieldAccess)
-                return GetFieldName(fieldAccess);
-            
-            return "ERROR";
-        }
-
         public string GetStorage(TypeSymbol type)
         {
             if (type == TypeSymbol.String)
@@ -77,6 +68,22 @@ namespace Blaze.Emit.NameTranslation
                 _emittionTranslations.Add(constructorType.Constructor, new SingleName(callName));
                 isGenerated = false;
                 return callName;
+            }
+        }
+
+        public string GetNamespaceFieldPath(NamespaceSymbol namespaceSymbol)
+        {
+            if (_emittionTranslations.ContainsKey(namespaceSymbol))
+            {
+                var name = (SingleName)_emittionTranslations[namespaceSymbol];
+                return name.Value;
+            }
+            else
+            {
+                var name = $"*{namespaceSymbol.GetFullName()}";
+                var singleName = new SingleName(name);
+                _emittionTranslations.Add(namespaceSymbol, singleName);
+                return name;
             }
         }
 
@@ -111,14 +118,5 @@ namespace Blaze.Emit.NameTranslation
         }
 
         public void Unregister(VariableSymbol localVariable) => _emittionTranslations.Remove(localVariable);
-
-        private string GetFieldName(BoundFieldAccessExpression fieldAccessExpression)
-        {
-            //TODO: do something when reference types are used (when call expression returns a reference to an object)
-
-            var accessedName = GetOfExpression(fieldAccessExpression.Instance);
-            var fullName = $"{accessedName}_{fieldAccessExpression.Field.Name}";
-            return fullName;
-        }
     }
 }

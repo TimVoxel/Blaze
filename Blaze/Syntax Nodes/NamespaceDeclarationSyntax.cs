@@ -3,7 +3,7 @@ using System.Collections.Immutable;
 
 namespace Blaze.Syntax_Nodes
 {
-    public sealed class NamespaceDeclarationSyntax : MemberSyntax
+    public sealed class NamespaceDeclarationSyntax : DeclarationSyntax
     {
         public SyntaxToken NamespaceKeyword { get; }
         public SeparatedSyntaxList<SyntaxToken> IdentifierPath { get; }

@@ -197,6 +197,8 @@ namespace Blaze
         {
             if (SyntaxFacts.IsFunctionModifier(Current.Kind) || Current.Kind == SyntaxKind.FunctionKeyword)
                 return ParseFunctionDeclaration();
+            else if (Current.Kind == SyntaxKind.VarKeyword || Current.Kind == SyntaxKind.IdentifierToken)
+                return ParseFieldDeclaration();
             else
                 return ParseGlobalStatement();
         }
@@ -236,9 +238,25 @@ namespace Blaze
             return new FunctionDeclarationSyntax(_syntaxTree, modifiers.ToImmutable(), functionKeyword, identifier, openParen, parameters, closeParen, returnTypeClause, body);
         }
 
+        private DeclarationSyntax ParseFieldDeclaration()
+        {
+            SyntaxNode declarationNode;
+            if (Current.Kind == SyntaxKind.IdentifierToken)
+                declarationNode = ParseTypeClause();
+            else
+                declarationNode = TryConsume(SyntaxKind.VarKeyword);
+
+            var identifierToken = TryConsume(SyntaxKind.IdentifierToken);
+            var equalsToken = TryConsume(SyntaxKind.EqualsToken);
+            var initializer = ParseExpression();
+            var semicolon = TryConsume(SyntaxKind.SemicolonToken);
+            return new FieldDeclarationSyntax(_syntaxTree, declarationNode, identifierToken, equalsToken, initializer, semicolon);
+        }
+
         private MemberSyntax ParseGlobalStatement()
         {
             StatementSyntax statement = ParseStatement();
+            _diagnostics.ReportGlobalStatement(statement.Location);
             return new GlobalStatementSyntax(_syntaxTree, statement);
         }
 
