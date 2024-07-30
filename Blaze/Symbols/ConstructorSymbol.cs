@@ -10,7 +10,7 @@ namespace Blaze.Symbols
         public override string AddressName => string.Empty;
         
         public ConstructorSymbol(ImmutableArray<ParameterSymbol> parameters)
-            : base(string.Empty, null, parameters, TypeSymbol.Void, null)
+            : base(string.Empty, null, parameters, TypeSymbol.Void, false, false, null)
         {
         }
     }

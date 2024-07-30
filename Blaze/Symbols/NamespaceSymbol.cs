@@ -10,6 +10,9 @@ namespace Blaze.Symbols
         public IMemberSymbol? Parent { get; }
         public NamespaceDeclarationSyntax? Declaration { get; }
 
+        public FunctionSymbol? LoadFunction => Functions.SingleOrDefault(f => f.IsLoad);
+        public FunctionSymbol? TickFunction => Functions.SingleOrDefault(f => f.IsTick);
+
         public bool IsGlobal { get; }
         public bool IsBuiltIn { get; }
 

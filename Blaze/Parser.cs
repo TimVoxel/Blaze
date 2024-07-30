@@ -210,17 +210,15 @@ namespace Blaze
 
             while (SyntaxFacts.IsFunctionModifier(Current.Kind))
             {
-                if (modifierKinds.Contains(Current.Kind))
+                var current = Consume();
+                if (modifierKinds.Contains(current.Kind))
                 {
-                    var location = new TextLocation(_syntaxTree.Text, Current.Span);
+                    var location = new TextLocation(_syntaxTree.Text, current.Span);
                     _diagnostics.ReportDuplicateFunctionModifier(location);
                 }
-                else
-                {
-                    var current = Consume();
-                    modifiers.Add(current);
-                    modifierKinds.Add(current.Kind);
-                }
+
+                modifiers.Add(current);
+                modifierKinds.Add(current.Kind);
             }
 
             var functionKeyword = TryConsume(SyntaxKind.FunctionKeyword);

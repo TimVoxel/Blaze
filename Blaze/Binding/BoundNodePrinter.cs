@@ -141,6 +141,10 @@ namespace Blaze.Binding
             writer.WriteLine();
             writer.WritePunctuation("}");
             writer.WriteLine();
+            writer.WriteLine();
+
+            foreach (var child in node.Children)
+                child.Value.WriteTo(writer);
         }
 
         private static void WriteNopStatement(BoundNopStatement node, IndentedTextWriter writer)
@@ -208,7 +212,7 @@ namespace Blaze.Binding
 
         private static void WriteVariableDeclaration(BoundVariableDeclarationStatement node, IndentedTextWriter writer)
         {
-            writer.WriteKeyword("let ");
+            writer.WriteKeyword("var ");
             writer.WriteIdentifier(node.Variable.Name);
             writer.WritePunctuation(" = ");
             node.Initializer.WriteTo(writer);

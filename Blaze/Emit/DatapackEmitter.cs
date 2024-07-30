@@ -16,6 +16,9 @@ namespace Blaze.Emit
         private readonly CompilationConfiguration _configuration;
         private readonly EmittionNameTranslator _nameTranslator;
 
+        private readonly FunctionEmittion _initFunction;
+        private readonly FunctionEmittion _tickFunction;
+
         private string? _contextName = null;
         private string RootNamespace => _configuration.RootNamespace;
         private string TEMP => EmittionNameTranslator.TEMP;
@@ -26,6 +29,20 @@ namespace Blaze.Emit
             _program = program;
             _configuration = configuration;
             _nameTranslator = new EmittionNameTranslator(configuration.RootNamespace);
+
+            _initFunction = FunctionEmittion.Init(program.GlobalNamespace);
+            _tickFunction = FunctionEmittion.Tick(program.GlobalNamespace);
+
+            AddInitializationCommands();
+        }
+
+        private void AddInitializationCommands()
+        {
+            _initFunction.AppendComment("Blaze setup");
+            _initFunction.AppendLine("scoreboard objectives add vars dummy");
+            _initFunction.AppendLine("scoreboard objectives add CONST dummy");
+            _initFunction.AppendLine("scoreboard players set *-1 CONST -1");
+            _initFunction.AppendLine();
         }
 
         public static ImmutableArray<Diagnostic> Emit(BoundProgram program, CompilationConfiguration? configuration)
@@ -52,7 +69,7 @@ namespace Blaze.Emit
                 functionNamespaceEmittionBuilder.Add(namespaceEmittion);
             }
 
-            var datapack = new Datapack(_configuration, functionNamespaceEmittionBuilder.ToImmutable());
+            var datapack = new Datapack(_configuration, functionNamespaceEmittionBuilder.ToImmutable(), _initFunction, _tickFunction);
             datapack.Build();
         }
 
@@ -60,6 +77,18 @@ namespace Blaze.Emit
         {
             var functionsBuilder = ImmutableArray.CreateBuilder<FunctionEmittion>();
             var childrenBuilder = ImmutableArray.CreateBuilder<FunctionNamespaceEmittion>();
+
+            var ns = new BoundNamespaceExpression(symbol);
+
+            foreach (var field in symbol.Fields)
+            {
+                if (field.Initializer == null)
+                    continue;
+
+                var fieldAccess = new BoundFieldAccessExpression(ns, field);
+                var name = GetNameOfAssignableExpression(fieldAccess);
+                EmitAssignmentExpression(name, field.Initializer, _initFunction, 0);
+            }
 
             foreach (var function in boundNamespace.Functions)
             {
@@ -81,6 +110,13 @@ namespace Blaze.Emit
         private FunctionEmittion EmitFunction(FunctionSymbol function, BoundStatement bodyBlock)
         {
             var emittion = FunctionEmittion.FromSymbol(function);
+
+            if (function.IsLoad)
+                _initFunction.AppendLine($"function {_nameTranslator.GetCallLink(function)}");
+
+            if (function.IsTick)
+                _tickFunction.AppendLine($"function {_nameTranslator.GetCallLink(function)}");
+
             EmitStatement(bodyBlock, emittion);
             return emittion;
         }
@@ -305,10 +341,9 @@ namespace Blaze.Emit
         private string EmitAssignmentExpression(BoundAssignmentExpression assignment, FunctionEmittion emittion, int current) 
             => EmitAssignmentExpression(assignment.Left, assignment.Right, emittion, current);
 
-        //TODO: Add vars scoreboard in a load function
         private string EmitAssignmentExpression(BoundExpression left, BoundExpression right, FunctionEmittion emittion, int current)
         {
-            var leftName = GetNameOfAssignableExpression(left, emittion);
+            var leftName = GetNameOfAssignableExpression(left);
             return EmitAssignmentExpression(leftName, right, emittion, current);
         }
         
@@ -352,7 +387,7 @@ namespace Blaze.Emit
             }
             else if (right is BoundFieldAccessExpression fieldExpression)
             {
-                var otherName = GetNameOfAssignableExpression(fieldExpression, emittion);
+                var otherName = GetNameOfAssignableExpression(fieldExpression);
                 EmitVariableAssignment(name, otherName, right.Type, emittion);
             }
             else
@@ -362,7 +397,7 @@ namespace Blaze.Emit
             return name;
         }
 
-        private string GetNameOfAssignableExpression(BoundExpression left, FunctionEmittion emittion)
+        private string GetNameOfAssignableExpression(BoundExpression left)
         {
             if (left is BoundVariableExpression v)
             {
@@ -392,7 +427,6 @@ namespace Blaze.Emit
                 //Scoreboards allow us to do that, and storages have built-in nesting functionality
 
                 var nameBuilder = new StringBuilder();
-                int callIndex = 0;
 
                 while (leftAssociativeOrder.Any())
                 {
@@ -422,21 +456,7 @@ namespace Blaze.Emit
                     {
                         nameBuilder.Append($".{fieldAccess.Field.Name}");
                     }
-                    else if (current is BoundCallExpression call)
-                    {
-                        //Unused
-                        var name = $"r{callIndex}";
-
-                        //We do this so that the constructor block knows the "this" instance name
-                        var currentContextName = _contextName;
-                        _contextName = name;
-                        EmitCallExpressionAssignment(name, call, emittion);
-                        _contextName = currentContextName;
-
-                        callIndex++;
-                        nameBuilder.Append(name);
-                    }
-
+                    
                     //FunctionExpression -> do nothing
                     //MethodAccessExpression -> do nothing
                 }

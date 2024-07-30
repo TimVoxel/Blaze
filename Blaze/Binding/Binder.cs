@@ -8,6 +8,7 @@ using Blaze.SyntaxTokens;
 using Blaze.Text;
 using System.Collections.Immutable;
 using System.Diagnostics;
+using System.Runtime.InteropServices;
 
 namespace Blaze.Binding
 {
@@ -17,12 +18,11 @@ namespace Blaze.Binding
     {
         private readonly DiagnosticBag _diagnostics = new DiagnosticBag();
         private readonly FunctionSymbol? _function;
+        private readonly NamespaceSymbol _globalNamespace;
+        private readonly NamespaceSymbol _namespace;
 
         private Stack<(BoundLabel breakLabel, BoundLabel continueLabel)> _loopStack = new Stack<(BoundLabel breakLabel, BoundLabel continueLabel)>();
         private int _labelCounter = 0;
-
-        private NamespaceSymbol _globalNamespace;
-        private NamespaceSymbol _namespace;
 
         private BoundScope _scope;
         public DiagnosticBag Diagnostics => _diagnostics;
@@ -94,7 +94,7 @@ namespace Blaze.Binding
                 }
             }
 
-            return new BoundProgram(diagnostics.ToImmutable(), boundNamespaces.ToImmutable());
+            return new BoundProgram(globalScope.GlobalNamespace, diagnostics.ToImmutable(), boundNamespaces.ToImmutable());
         }
 
         private static BoundNamespace BindNamespace(NamespaceSymbol ns, ref ImmutableArray<Diagnostic>.Builder diagnostics, BoundGlobalScope globalScope)
@@ -245,8 +245,49 @@ namespace Blaze.Binding
             if (identifierText.ToLower() != identifierText)
                 _diagnostics.ReportUpperCaseInFunctionName(declaration.Identifier.Location, identifierText);
 
+            var isTick = false;
+            var isLoad = false;
+
+            foreach (var modifier in declaration.Modifiers)
+            {
+                if (modifier.Kind == SyntaxKind.LoadKeyword)
+                {
+                    if (_namespace.LoadFunction != null)
+                    {
+                        _diagnostics.ReportSecondLoadFunction(modifier.Location, _namespace.GetFullName());
+                        return;
+                    }
+                    else
+                        isLoad = true;
+                }
+                else if (modifier.Kind == SyntaxKind.TickKeyword)
+                {
+                    if (_namespace.TickFunction != null)
+                    {
+                        _diagnostics.ReportSecondTickFunction(modifier.Location, _namespace.GetFullName());
+                        return;
+                    }
+                    else
+                        isTick = true;
+                }
+            }
+
             var parameters = ImmutableArray.CreateBuilder<ParameterSymbol>();
             var seenParameterNames = new HashSet<string>();
+
+            if (declaration.Parameters.Count != 0)
+            {
+                if (isLoad)
+                {
+                    _diagnostics.ReportLoadFunctionWithParameters(declaration.Parameters.First().Location);
+                    return;
+                }
+                else if (isTick)
+                {
+                    _diagnostics.ReportTickFunctionWithParameters(declaration.Parameters.First().Location);
+                    return;
+                }
+            }
 
             foreach (var parameterSyntax in declaration.Parameters)
             {
@@ -262,18 +303,23 @@ namespace Blaze.Binding
                     parameters.Add(new ParameterSymbol(name, type));
             }
 
-            var returnType = (declaration.ReturnTypeClause == null) ? TypeSymbol.Void
-                : BindType(declaration.ReturnTypeClause.Identifier.Text, declaration.ReturnTypeClause.Identifier.Location);
-            if (returnType == null)
+            TypeSymbol? returnType;
+            if (declaration.ReturnTypeClause == null)
                 returnType = TypeSymbol.Void;
-
-            if (returnType is NamedTypeSymbol)
+            else
             {
-                Debug.Assert(declaration.ReturnTypeClause != null);
-                _diagnostics.ReportReturningNamedType(declaration.ReturnTypeClause.Location);
+                var identifier = declaration.ReturnTypeClause.Identifier;
+                returnType = BindType(identifier.Text, identifier.Location);
+
+                if (returnType == null)
+                    returnType = TypeSymbol.Void;
+                else if (returnType is NamedTypeSymbol)
+                {
+                    _diagnostics.ReportReturningNamedType(declaration.ReturnTypeClause.Location);
+                }
             }
 
-            var function = new FunctionSymbol(identifierText, _namespace, parameters.ToImmutable(), returnType, declaration);
+            var function = new FunctionSymbol(identifierText, _namespace, parameters.ToImmutable(), returnType, isLoad, isTick, declaration);
 
             if (!_namespace.TryDeclareFunction(function))
                 _diagnostics.ReportFunctionAlreadyDeclared(declaration.Identifier.Location, function.Name);

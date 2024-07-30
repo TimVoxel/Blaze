@@ -1,4 +1,5 @@
 ﻿using System.Collections;
+using System.Security.Cryptography;
 using System.Security.Cryptography.X509Certificates;
 using Blaze.Binding;
 using Blaze.Symbols;
@@ -293,6 +294,30 @@ namespace Blaze.Diagnostics
         public void ReportInvalidFieldIdentifier(TextLocation location, SyntaxKind kind)
         {
             string message = $"Expression of kind {kind} cannot be used as an identifier for a field";
+            Report(location, message);
+        }
+
+        public void ReportSecondLoadFunction(TextLocation location, string namespaceName)
+        {
+            string message = $"Namespace {namespaceName} already has a load function";
+            Report(location, message);
+        }
+
+        public void ReportSecondTickFunction(TextLocation location, string namespaceName)
+        {
+            string message = $"Namespace {namespaceName} already has a tick function";
+            Report(location, message);
+        }
+
+        public void ReportLoadFunctionWithParameters(TextLocation location)
+        {
+            string message = "Load functions cannot have parameters";
+            Report(location, message);
+        }
+
+        public void ReportTickFunctionWithParameters(TextLocation location)
+        {
+            string message = "Tick functions cannot have parameters";
             Report(location, message);
         }
     }

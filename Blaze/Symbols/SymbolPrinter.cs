@@ -53,6 +53,10 @@ namespace Blaze.Symbols
 
         private static void WriteFunction(FunctionSymbol symbol, TextWriter writer)
         {
+            if (symbol.IsLoad)
+                writer.WriteKeyword("load ");
+            if (symbol.IsTick)
+                writer.WriteKeyword("tick ");
             writer.WriteKeyword("function ");
             writer.WriteIdentifier(symbol.Name);
             writer.WritePunctuation("(");

@@ -8,11 +8,15 @@ namespace Blaze.Emit
         private readonly CompilationConfiguration _configuration;
 
         private readonly ImmutableArray<FunctionNamespaceEmittion> _namespaces;
+        private readonly FunctionEmittion _initFunction;
+        private readonly FunctionEmittion _tickFunction;
 
-        public Datapack(CompilationConfiguration configuration, ImmutableArray<FunctionNamespaceEmittion> namespaceEmittions)
+        public Datapack(CompilationConfiguration configuration, ImmutableArray<FunctionNamespaceEmittion> namespaceEmittions, FunctionEmittion initFunction, FunctionEmittion tickFunction)
         {
             _configuration = configuration;
             _namespaces = namespaceEmittions;
+            _initFunction = initFunction;
+            _tickFunction = tickFunction;
         }
 
         public void Build()
@@ -45,14 +49,44 @@ namespace Blaze.Emit
                 var rootNamespaceDirectory = Path.Combine(dataDirectory, _configuration.RootNamespace);
                 Directory.CreateDirectory(rootNamespaceDirectory);
 
-                var functionsDirectory = Path.Combine(rootNamespaceDirectory, "functions");
+                var functionsDirectory = Path.Combine(rootNamespaceDirectory, "function");
                 Directory.CreateDirectory(functionsDirectory);
 
                 foreach (var namespaceEmittion in _namespaces)
                     BuildFunctionNamespace(functionsDirectory, namespaceEmittion);
+
+                BuildFunction(functionsDirectory, _initFunction);
+                BuildFunction(functionsDirectory, _tickFunction);
             }
 
-            //4. Copy the result pack to all of the output paths
+            //4. Create the tags directory and generate tick and load function tags
+            var minecraftNamespace = Path.Combine(dataDirectory, "minecraft");
+            Directory.CreateDirectory(minecraftNamespace);
+
+            var tagsDirectory = Path.Combine(minecraftNamespace, "tags");
+            Directory.CreateDirectory(tagsDirectory);
+            var functionTags = Path.Combine(tagsDirectory, "function");
+            Directory.CreateDirectory(functionTags);
+
+            using (var streamWriter = new StreamWriter(Path.Combine(functionTags, "load.json")))
+            {
+                streamWriter.WriteLine("{");
+                streamWriter.WriteLine("\t\"values\": [");
+                streamWriter.WriteLine($"\t\t\"{_configuration.RootNamespace}:init\"");
+                streamWriter.WriteLine("\t]");
+                streamWriter.WriteLine("}");
+            }
+            using (var streamWriter = new StreamWriter(Path.Combine(functionTags, "tick.json")))
+            {
+                streamWriter.WriteLine("{");
+                streamWriter.WriteLine("\t\"values\": [");
+                streamWriter.WriteLine($"\t\t\"{_configuration.RootNamespace}:tick\"");
+                streamWriter.WriteLine("\t]");
+                streamWriter.WriteLine("}");
+            }
+
+
+            //5. Copy the result pack to all of the output paths
             foreach (var outputPath in _configuration.OutputFolders)
             {
                 if (outputPath == outputDirectory)

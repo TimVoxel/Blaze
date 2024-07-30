@@ -1,6 +1,4 @@
-﻿using System.Diagnostics.SymbolStore;
-
-namespace Blaze.Symbols
+﻿namespace Blaze.Symbols
 {
     public abstract class Symbol
     {

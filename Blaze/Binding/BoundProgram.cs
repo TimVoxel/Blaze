@@ -6,11 +6,13 @@ namespace Blaze.Binding
 {
     internal class BoundProgram
     {
-        public ImmutableArray<Diagnostic> Diagnostics { get; private set; }
-        public ImmutableDictionary<NamespaceSymbol, BoundNamespace> Namespaces { get; private set; }
+        public NamespaceSymbol GlobalNamespace { get; }
+        public ImmutableArray<Diagnostic> Diagnostics { get; }
+        public ImmutableDictionary<NamespaceSymbol, BoundNamespace> Namespaces { get; }
         
-        public BoundProgram(ImmutableArray<Diagnostic> diagnostics, ImmutableDictionary<NamespaceSymbol, BoundNamespace> namespaces)
+        public BoundProgram(NamespaceSymbol globalNamespace, ImmutableArray<Diagnostic> diagnostics, ImmutableDictionary<NamespaceSymbol, BoundNamespace> namespaces)
         {
+            GlobalNamespace = globalNamespace;
             Diagnostics = diagnostics;
             Namespaces = namespaces;
         }

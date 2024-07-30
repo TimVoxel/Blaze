@@ -12,6 +12,9 @@ namespace Blaze.Symbols
         public FunctionDeclarationSyntax? Declaration { get; }
         public IMemberSymbol? Parent { get; }
 
+        public bool IsLoad { get; }
+        public bool IsTick { get; }
+
         public virtual string AddressName
         {
             get
@@ -48,12 +51,14 @@ namespace Blaze.Symbols
 
         public override SymbolKind Kind => SymbolKind.Function;
 
-        public FunctionSymbol(string name, IMemberSymbol? parent, ImmutableArray<ParameterSymbol> parameters, TypeSymbol returnType, FunctionDeclarationSyntax? declaration = null) : base(name)
+        public FunctionSymbol(string name, IMemberSymbol? parent, ImmutableArray<ParameterSymbol> parameters, TypeSymbol returnType, bool isLoad, bool isTick, FunctionDeclarationSyntax? declaration = null) : base(name)
         {
             Parent = parent;
             Parameters = parameters;
             ReturnType = returnType;
             Declaration = declaration;
+            IsLoad = isLoad;
+            IsTick = isTick;
         }
 
         public string GetFullName()

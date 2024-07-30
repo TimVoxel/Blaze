@@ -31,7 +31,7 @@ namespace Blaze.Symbols
 
         protected FunctionSymbol Function(string name, TypeSymbol returnType, params ParameterSymbol[] parameters)
         {
-            var function = new FunctionSymbol(name, Symbol, parameters.ToImmutableArray(), returnType, null);
+            var function = new FunctionSymbol(name, Symbol, parameters.ToImmutableArray(), returnType, false, false, null);
             Symbol.TryDeclareFunction(function);
             return function;
         }

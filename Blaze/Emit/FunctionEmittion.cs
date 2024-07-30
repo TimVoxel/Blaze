@@ -1,4 +1,5 @@
 ﻿using Blaze.Symbols;
+using System.Collections.Immutable;
 using System.Text;
 
 namespace Blaze.Emit
@@ -80,6 +81,17 @@ namespace Blaze.Emit
         public static FunctionEmittion FromConstructor(ConstructorSymbol constructorSymbol, string fullName)
         {
             return new FunctionEmittion(fullName, constructorSymbol, false);
+        }
+
+        public static FunctionEmittion Init(NamespaceSymbol globalNamespace)
+        {
+            FunctionSymbol init = new FunctionSymbol("init", globalNamespace, ImmutableArray<ParameterSymbol>.Empty, TypeSymbol.Void, true, false, null);
+            return new FunctionEmittion(init.Name, init, false);
+        }
+        public static FunctionEmittion Tick(NamespaceSymbol globalNamespace)
+        {
+            FunctionSymbol tick = new FunctionSymbol("tick", globalNamespace, ImmutableArray<ParameterSymbol>.Empty, TypeSymbol.Void, false, true, null);
+            return new FunctionEmittion(tick.Name, tick, false);
         }
 
         public static FunctionEmittion CreateSub(FunctionEmittion parent, SubFunctionKind kind)
