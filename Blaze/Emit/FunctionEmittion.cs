@@ -121,6 +121,7 @@ namespace Blaze.Emit
 
         public void AppendLine() => Body += Environment.NewLine;
         public void AppendComment(string text) => AppendLine($"#{text}");
+        public void AppendMacro(string text) => AppendLine($"${text}");
 
         public void AppendCleanUp(string line)
         {

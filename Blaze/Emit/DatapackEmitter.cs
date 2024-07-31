@@ -18,6 +18,7 @@ namespace Blaze.Emit
 
         private readonly FunctionEmittion _initFunction;
         private readonly FunctionEmittion _tickFunction;
+        private readonly Dictionary<FunctionSymbol, FunctionEmittion> _usedBuiltIn = new Dictionary<FunctionSymbol, FunctionEmittion>();
 
         private string? _contextName = null;
         private string RootNamespace => _configuration.RootNamespace;
@@ -32,7 +33,6 @@ namespace Blaze.Emit
 
             _initFunction = FunctionEmittion.Init(program.GlobalNamespace);
             _tickFunction = FunctionEmittion.Tick(program.GlobalNamespace);
-
             AddInitializationCommands();
         }
 
@@ -43,6 +43,22 @@ namespace Blaze.Emit
             _initFunction.AppendLine("scoreboard objectives add CONST dummy");
             _initFunction.AppendLine("scoreboard players set *-1 CONST -1");
             _initFunction.AppendLine();
+        }
+
+        private FunctionEmittion GetOrCreateBuiltIn(FunctionSymbol function, out bool isCreated)
+        {
+            FunctionEmittion emittion;
+            isCreated = !_usedBuiltIn.ContainsKey(function);
+
+            if (isCreated)
+            {
+                emittion = FunctionEmittion.FromSymbol(function);
+                _usedBuiltIn.Add(function, emittion);
+            }
+            else
+                emittion = _usedBuiltIn[function];
+
+            return emittion;
         }
 
         public static ImmutableArray<Diagnostic> Emit(BoundProgram program, CompilationConfiguration? configuration)
@@ -69,8 +85,59 @@ namespace Blaze.Emit
                 functionNamespaceEmittionBuilder.Add(namespaceEmittion);
             }
 
+            foreach (var ns in _program.GlobalNamespace.NestedNamespaces)
+            {
+                if (ns.IsBuiltIn)
+                {
+                    var emittion = EmitBuiltInNamespace(ns);
+                    if (emittion != null)
+                        functionNamespaceEmittionBuilder.Add(emittion);
+                }
+            }
+            
             var datapack = new Datapack(_configuration, functionNamespaceEmittionBuilder.ToImmutable(), _initFunction, _tickFunction);
             datapack.Build();
+        }
+
+        private FunctionNamespaceEmittion? EmitBuiltInNamespace(NamespaceSymbol ns)
+        {
+            //We do this so that we do not generate unused functions and folders
+
+            ImmutableArray<FunctionEmittion>.Builder? functionsBuilder = null;
+            ImmutableArray<FunctionNamespaceEmittion>.Builder? childrenBuilder = null;
+
+            foreach (var function in ns.Functions)
+            {
+                if (_usedBuiltIn.ContainsKey(function))
+                {
+                    if (functionsBuilder == null)
+                        functionsBuilder = ImmutableArray.CreateBuilder<FunctionEmittion>();
+
+                    var emittion = _usedBuiltIn[function];
+                    functionsBuilder.Add(emittion);
+                }
+            }
+
+            foreach (var child in ns.NestedNamespaces)
+            {
+                var emittion = EmitBuiltInNamespace(child);
+                if (emittion != null)
+                {
+                    if (childrenBuilder == null)
+                        childrenBuilder = ImmutableArray.CreateBuilder<FunctionNamespaceEmittion>();
+                    childrenBuilder.Add(emittion);
+                }
+            }
+
+            FunctionNamespaceEmittion? result = null;
+
+            if (functionsBuilder != null || childrenBuilder != null)
+            {
+                var functions = functionsBuilder == null ? ImmutableArray<FunctionEmittion>.Empty : functionsBuilder.ToImmutable();
+                var children = childrenBuilder == null ? ImmutableArray<FunctionNamespaceEmittion>.Empty : childrenBuilder.ToImmutable();
+                result = new FunctionNamespaceEmittion(ns.Name, children, functions);
+            }
+            return result;
         }
 
         private FunctionNamespaceEmittion EmitFunctionNamespace(NamespaceSymbol symbol, BoundNamespace boundNamespace)
@@ -305,7 +372,7 @@ namespace Blaze.Emit
             }
             else if (expression is BoundCallExpression call)
             {
-                EmitCallExpression(call, emittion);
+                EmitCallExpression(null, call, emittion, 0);
             }
             else
             {
@@ -313,7 +380,7 @@ namespace Blaze.Emit
             }
         }
 
-        private void EmitCallExpression(BoundCallExpression call, FunctionEmittion emittion)
+        private void EmitCallExpression(string? name, BoundCallExpression call, FunctionEmittion emittion, int current)
         {
             //Can be a built-in function -> TryEmitBuiltInFunction();
             //Can be a user defined function ->
@@ -322,7 +389,7 @@ namespace Blaze.Emit
             //function <function>
             //Reset every parameter
 
-            var isBuiltIt = TryEmitBuiltInFunction(call, emittion);
+            var isBuiltIt = TryEmitBuiltInFunction(name, call, emittion, current);
             if (!isBuiltIt)
             {
                 var setNames = EmitFunctionParametersAssignment(call.Function.Parameters, call.Arguments, emittion);
@@ -375,7 +442,7 @@ namespace Blaze.Emit
             }
             else if (right is BoundCallExpression c)
             {
-                EmitCallExpressionAssignment(name, c, emittion);
+                EmitCallExpressionAssignment(name, c, emittion, current);
             }
             else if (right is BoundConversionExpression conv)
             {
@@ -478,6 +545,7 @@ namespace Blaze.Emit
             if (literal.Type == TypeSymbol.String)
             {
                 var value = (string)literal.Value;
+                value = value.Replace("\"", "\\\"");
                 var command = $"data modify storage strings {varName} set value \"{value}\"";
                 emittion.AppendLine(command);
             }
@@ -821,7 +889,7 @@ namespace Blaze.Emit
             emittion.AppendLine(command);
         }
 
-        private void EmitCallExpressionAssignment(string name, BoundCallExpression call, FunctionEmittion emittion)
+        private void EmitCallExpressionAssignment(string name, BoundCallExpression call, FunctionEmittion emittion, int current)
         {
             //The return value via a temp variable also works for int and bool, but since
             //Mojang's added /return why not use it instead
@@ -834,15 +902,19 @@ namespace Blaze.Emit
 
             if (call.Function.ReturnType == TypeSymbol.Int || call.Function.ReturnType == TypeSymbol.Bool)
             {
-                var setParameters = EmitFunctionParametersAssignment(call.Function.Parameters, call.Arguments, emittion);
-                var command = $"execute store result score {name} vars run function {_nameTranslator.GetCallLink(call.Function)}";
-                emittion.AppendLine(command);
+                var isBuiltIt = TryEmitBuiltInFunction(name, call, emittion, current);
 
-                EmitFunctionParameterCleanUp(setParameters, emittion);
+                if (!isBuiltIt)
+                {
+                    var setParameters = EmitFunctionParametersAssignment(call.Function.Parameters, call.Arguments, emittion);
+                    var command = $"execute store result score {name} vars run function {_nameTranslator.GetCallLink(call.Function)}";
+                    emittion.AppendLine(command);
+                    EmitFunctionParameterCleanUp(setParameters, emittion);
+                }
             }
             else
             {
-                EmitCallExpression(call, emittion);
+                EmitCallExpression(name, call, emittion, current);
                 var command2 = $"data modify storage {_nameTranslator.GetStorage(call.Type)} {name} set from storage strings {RETURN_TEMP_NAME}";
                 emittion.AppendLine(command2);
             }
@@ -924,11 +996,10 @@ namespace Blaze.Emit
         private string EmitAssignmentToTemp(string tempName, BoundExpression expression, FunctionEmittion emittion, int index, bool addDot = true)
         {
             var varName = $"{(addDot ? "." : string.Empty)}{tempName}{index}";
-            var temp = new LocalVariableSymbol(varName, expression.Type, null);
-            var resultName = EmitAssignmentExpression(temp, expression, emittion, index);
+            var resultName = EmitAssignmentExpression(varName, expression, emittion, index);
             return resultName;
         }
 
-        private string EmitAssignmentToTemp(BoundExpression expression, FunctionEmittion emittion, int index) => EmitAssignmentToTemp("temp", expression, emittion, index);
+        private string EmitAssignmentToTemp(BoundExpression expression, FunctionEmittion emittion, int index) => EmitAssignmentToTemp(TEMP, expression, emittion, index);
     }
 }
