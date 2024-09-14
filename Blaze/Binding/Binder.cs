@@ -957,7 +957,8 @@ namespace Blaze.Binding
 
             if (symbol is FieldSymbol field)
             {
-                var namespaceExpression = new BoundNamespaceExpression(_namespace);
+                var parentNamespace = (NamespaceSymbol) field.Parent;
+                var namespaceExpression = new BoundNamespaceExpression(parentNamespace);
                 return new BoundFieldAccessExpression(namespaceExpression, field);
             }
 
