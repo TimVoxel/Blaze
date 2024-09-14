@@ -10,6 +10,8 @@
         Namespace,
         NamedType,
         Constructor,
-        Field
+        Field,
+        Enum,
+        EnumMember
     }
 }

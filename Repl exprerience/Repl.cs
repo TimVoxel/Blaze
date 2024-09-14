@@ -135,7 +135,7 @@ namespace ReplExperience
                             _cursorTop--;
                     }
 
-                   Console.SetCursorPosition(0, _cursorTop + lineCount);
+                    Console.SetCursorPosition(0, _cursorTop + lineCount);
                     Console.ForegroundColor = ConsoleColor.Green;
 
                     if (lineCount == 0)

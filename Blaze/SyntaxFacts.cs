@@ -165,8 +165,9 @@ namespace Blaze
                 "namespace" => SyntaxKind.NamespaceKeyword,
                 "using"     => SyntaxKind.UsingKeyword,
                 "new"       => SyntaxKind.NewKeyword,
+                "enum"      => SyntaxKind.EnumKeyword,
                 _           => SyntaxKind.IdentifierToken,
-            };;
+            };
         }
 
         public static IEnumerable<SyntaxKind> GetBinaryOperators()
@@ -218,6 +219,7 @@ namespace Blaze
                 SyntaxKind.NamespaceKeyword => "namespace",
                 SyntaxKind.UsingKeyword => "using",
                 SyntaxKind.NewKeyword => "new",
+                SyntaxKind.EnumKeyword => "enum",
                 SyntaxKind.SemicolonToken => ";",
                 SyntaxKind.ColonToken => ":",
                 SyntaxKind.CommaToken => ",",

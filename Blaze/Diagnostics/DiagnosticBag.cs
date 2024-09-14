@@ -66,7 +66,7 @@ namespace Blaze.Diagnostics
 
         public void ReportUndefinedBinaryOperator(TextLocation location, string operatorText, TypeSymbol leftType, TypeSymbol rightType)
         {
-            string message = $"Binary operator '{operatorText}' is not defined for types {leftType} and {rightType}";
+            string message = $"Binary operator '{operatorText}' is not defined for types {leftType.Name} and {rightType.Name}";
             Report(location, message);
         }
 
@@ -291,6 +291,18 @@ namespace Blaze.Diagnostics
             Report(location, message);
         }
 
+        public void ReportEnumAlreadyDeclared(TextLocation location, string identifierText)
+        {
+            string message = $"Enum {identifierText} is already declared";
+            Report(location, message);
+        }
+
+        public void ReportEnumMemberAlreadyDeclared(TextLocation location, string memberName, string identifierText)
+        {
+            string message = $"Enum {identifierText} already has a member named \"{memberName}\"";
+            Report(location, message);
+        }
+
         public void ReportInvalidFieldIdentifier(TextLocation location, SyntaxKind kind)
         {
             string message = $"Expression of kind {kind} cannot be used as an identifier for a field";
@@ -318,6 +330,24 @@ namespace Blaze.Diagnostics
         public void ReportTickFunctionWithParameters(TextLocation location)
         {
             string message = "Tick functions cannot have parameters";
+            Report(location, message);
+        }
+
+        public void ReportUndefinedEnumMember(TextLocation location, string name, string memberName)
+        {
+            string message = $"Enum {name} has no member named \"{memberName}\"";
+            Report(location, message);
+        }
+
+        public void ReportAssigningToReadOnly(TextLocation location, BoundNodeKind kind)
+        {
+            string expressionKindName = "ERROR";
+            if (kind == BoundNodeKind.VariableExpression)
+                expressionKindName = "Variable";
+            else
+                expressionKindName = "Field";
+
+            var message = $"{expressionKindName} is read-only and cannot be assigned to";
             Report(location, message);
         }
     }

@@ -19,6 +19,7 @@
         ConversionExpression,
         ObjectCreationExpression,
         TypeExpression,
+        EnumExpression,
         NamespaceExpression,
         FunctionExpression,
         FieldAccessExpression,

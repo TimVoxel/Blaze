@@ -59,6 +59,7 @@
         NamespaceKeyword,
         UsingKeyword,
         NewKeyword,
+        EnumKeyword,
 
         //Nodes
         CompilationUnit,
@@ -66,10 +67,16 @@
         ReturnTypeClause,
         ElseClause,
         GlobalStatement,
-        FunctionDeclaration,
-        NamespaceDeclaration,
         UsingNamespace,
         Parameter,
+        EnumMemberEquals,
+
+        //Declarations
+        FunctionDeclaration,
+        NamespaceDeclaration,
+        FieldDeclaration,
+        EnumDeclaration,
+        EnumMemberDeclaration,
 
         //Expressions
         LiteralExpression,

@@ -535,7 +535,6 @@ namespace Blaze.Emit
                 throw new Exception($"Unexpected bound expression kind {left.Kind}");
         }
 
-
         private void EmitLiteralAssignment(string varName, BoundLiteralExpression literal, FunctionEmittion emittion)
         {
             //int literal       -> scoreboard players set *v integers <value>
@@ -564,7 +563,16 @@ namespace Blaze.Emit
         }
 
         private void EmitVariableAssignment(string varName, VariableSymbol otherVar, FunctionEmittion emittion)
-            => EmitVariableAssignment(varName, _nameTranslator.GetVariableName(otherVar), otherVar.Type, emittion);
+        {
+            if (otherVar is EnumMemberSymbol enumMember)
+            {
+                var value = enumMember.UnderlyingValue;
+                var command = $"scoreboard players set {varName} vars {value}";
+                emittion.AppendLine(command);
+            }
+            else 
+                EmitVariableAssignment(varName, _nameTranslator.GetVariableName(otherVar), otherVar.Type, emittion);
+        }
 
         private void EmitVariableAssignment(string varName, string otherName, TypeSymbol type, FunctionEmittion emittion)
         {
@@ -581,7 +589,7 @@ namespace Blaze.Emit
                 var command = $"data modify storage {storage} {varName} set from storage {storage} {otherName}";
                 emittion.AppendLine(command);
             }
-            else if (type == TypeSymbol.Int || type == TypeSymbol.Bool)
+            else if (type == TypeSymbol.Int || type == TypeSymbol.Bool || type is EnumSymbol)
             {
                 var command = $"scoreboard players operation {varName} vars = {otherName} vars";
                 emittion.AppendLine(command);
@@ -792,8 +800,21 @@ namespace Blaze.Emit
         private void EmitComparisonBinaryOperation(FunctionEmittion emittion, BoundExpression left, BoundExpression right, string name, BoundBinaryOperatorKind operation, int index)
         {
             var leftName = string.Empty;
+            var initialValue = operation == BoundBinaryOperatorKind.NotEquals ? 1 : 0;
+            var successValue = operation == BoundBinaryOperatorKind.NotEquals ? 0 : 1;
+
             if (left is BoundVariableExpression v)
             {
+                //TODO: remove this when constant folding will be in place
+                //This can only occur when two constants are compared
+                if (v.Variable is EnumMemberSymbol enumMember)
+                {
+                    var other = (EnumMemberSymbol) ((BoundVariableExpression)right).Variable;
+                    var result = (other.UnderlyingValue == enumMember.UnderlyingValue) ? successValue : initialValue;
+                    emittion.AppendLine($"scoreboard players set {name} vars {result}");
+                    return;
+                }
+
                 leftName = _nameTranslator.GetVariableName(v.Variable);
             }
             else
@@ -801,16 +822,13 @@ namespace Blaze.Emit
                 leftName = EmitAssignmentToTemp("lTemp", left, emittion, index + 1);
                 EmitCleanUp(leftName, left.Type, emittion);
             }
-                
-            var initialValue = operation == BoundBinaryOperatorKind.NotEquals ? 1 : 0;
-            var successValue = operation == BoundBinaryOperatorKind.NotEquals ? 0 : 1;
-
+            
             var command1 = $"scoreboard players set {name} vars {initialValue}";
             var command2 = string.Empty;
             if (right is BoundLiteralExpression l && l.Value is int)
             {
                 int value = (int) l.Value;
-                var comparason = "matches" + operation switch
+                var comparason = "matches " + operation switch
                 {
                     BoundBinaryOperatorKind.Less => ".." + (value - 1).ToString(),
                     BoundBinaryOperatorKind.LessOrEquals => ".." + value,
@@ -825,6 +843,14 @@ namespace Blaze.Emit
                 var rightName = string.Empty;
                 if (right is BoundVariableExpression vr)
                 {
+                    if (vr.Variable is EnumMemberSymbol enumMember)
+                    {
+                        var memberUnderlyingValue = enumMember.UnderlyingValue;
+                        command2 = $"execute if score {leftName} vars matches {memberUnderlyingValue} run scoreboard players set {name} vars {successValue}";
+                        emittion.AppendLine(command1);
+                        emittion.AppendLine(command2);
+                        return;
+                    }
                     rightName = _nameTranslator.GetVariableName(vr.Variable);
                 }
                 else

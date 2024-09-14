@@ -28,9 +28,26 @@ namespace Blaze.Symbols
                 case SymbolKind.Field:
                     WriteField((FieldSymbol)symbol, writer);
                     break;
+                case SymbolKind.Enum:
+                    WriteEnum((EnumSymbol)symbol, writer);
+                    break;
+                case SymbolKind.EnumMember:
+                    WriteEnumMember((EnumMemberSymbol)symbol, writer);
+                    break;
                 default:
                     throw new Exception($"Unexpected symbol kind {symbol.Kind}");
             }
+        }
+
+        private static void WriteEnumMember(EnumMemberSymbol symbol, TextWriter writer)
+        {
+            writer.WriteIdentifier(symbol.Name);
+        }
+
+        private static void WriteEnum(EnumSymbol symbol, TextWriter writer)
+        {
+            writer.WriteKeyword("enum ");
+            writer.WriteIdentifier(symbol.GetFullName());
         }
 
         private static void WriteField(FieldSymbol symbol, TextWriter writer)

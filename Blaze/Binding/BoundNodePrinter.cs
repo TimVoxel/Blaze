@@ -118,6 +118,24 @@ namespace Blaze.Binding
             }
             writer.WriteLine();
 
+            foreach (var e in node.Namespace.Enums)
+            {
+                e.WriteTo(writer);
+                writer.WriteLine();
+                writer.WritePunctuation("{");
+                writer.Indent++;
+
+                foreach (var enumMember in e.Members)
+                {
+                    writer.WriteIdentifier(enumMember.Name);
+                    writer.WriteLine();
+                }
+
+                writer.Indent--;
+                writer.WritePunctuation("}");
+            }
+            writer.WriteLine();
+
             foreach (var field in node.Namespace.Fields)
             {
                 field.WriteTo(writer);

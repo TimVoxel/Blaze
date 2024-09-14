@@ -4,14 +4,13 @@ namespace Blaze.Syntax_Nodes
 {
     public sealed class FieldDeclarationSyntax : DeclarationSyntax
     {
+        public SyntaxNode DeclarationNode { get; }
+        public SyntaxToken Identifier { get; }
+        public SyntaxToken EqualsToken { get; }
+        public ExpressionSyntax Initializer { get; }
+        public SyntaxToken Semicolon { get; }
 
-        public SyntaxNode DeclarationNode { get; private set; }
-        public SyntaxToken Identifier { get; private set; }
-        public SyntaxToken EqualsToken { get; private set; }
-        public ExpressionSyntax Initializer { get; private set; }
-        public SyntaxToken Semicolon { get; private set; }
-
-        public override SyntaxKind Kind => SyntaxKind.VariableDeclarationStatement;
+        public override SyntaxKind Kind => SyntaxKind.FieldDeclaration;
 
         internal FieldDeclarationSyntax(SyntaxTree tree, SyntaxNode declarationNode, SyntaxToken identifier, SyntaxToken equalsToken, ExpressionSyntax initializer, SyntaxToken semicolon) : base(tree)
         {

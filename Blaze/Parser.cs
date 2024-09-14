@@ -195,6 +195,8 @@ namespace Blaze
 
         private MemberSyntax ParseMember()
         {
+            if (Current.Kind == SyntaxKind.EnumKeyword)
+                return ParseEnumDeclaration();
             if (SyntaxFacts.IsFunctionModifier(Current.Kind) || Current.Kind == SyntaxKind.FunctionKeyword)
                 return ParseFunctionDeclaration();
             else if (Current.Kind == SyntaxKind.VarKeyword || Current.Kind == SyntaxKind.IdentifierToken)
@@ -249,6 +251,48 @@ namespace Blaze
             var initializer = ParseExpression();
             var semicolon = TryConsume(SyntaxKind.SemicolonToken);
             return new FieldDeclarationSyntax(_syntaxTree, declarationNode, identifierToken, equalsToken, initializer, semicolon);
+        }
+
+        private DeclarationSyntax ParseEnumDeclaration()
+        {
+            var enumKeyword = TryConsume(SyntaxKind.EnumKeyword);
+            var identifier = TryConsume(SyntaxKind.IdentifierToken);
+            var openBrace = TryConsume(SyntaxKind.OpenBraceToken);
+
+            var memberDeclarations = ImmutableArray.CreateBuilder<EnumMemberDeclarationSyntax>();
+
+            while (Current.Kind != SyntaxKind.CloseBraceToken && Current.Kind != SyntaxKind.EndOfFileToken)
+            {
+                var startToken = Current;
+                memberDeclarations.Add(ParseEnumMemberDeclaration());
+
+                if (Current == startToken)
+                    Consume();
+            }
+            
+            var closeBrace = TryConsume(SyntaxKind.CloseBraceToken);
+
+            return new EnumDeclarationSyntax(_syntaxTree, enumKeyword, identifier, openBrace, memberDeclarations.ToImmutable(), closeBrace);
+        }
+
+        private EnumMemberDeclarationSyntax ParseEnumMemberDeclaration()
+        {
+            var mustHaveComma = Next.Kind == SyntaxKind.IdentifierToken || Next.Kind == SyntaxKind.CommaToken;
+            var identifier = TryConsume(SyntaxKind.IdentifierToken);
+
+            EnumMemberEqualsSyntax? equalsSyntax = null;
+            if (Current.Kind == SyntaxKind.EqualsToken)
+            {
+                var equalsToken = TryConsume(SyntaxKind.EqualsToken);
+                var literalToken = TryConsume(SyntaxKind.IntegerLiteralToken);
+                equalsSyntax = new EnumMemberEqualsSyntax(_syntaxTree, equalsToken, literalToken);
+            }
+
+            SyntaxToken? commaToken = null;
+            if (mustHaveComma)
+                commaToken = TryConsume(SyntaxKind.CommaToken);
+
+            return new EnumMemberDeclarationSyntax(_syntaxTree, identifier, equalsSyntax, commaToken);
         }
 
         private MemberSyntax ParseGlobalStatement()

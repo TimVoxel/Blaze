@@ -1,19 +1,18 @@
-﻿using Blaze.Binding;
-using System.Text;
+﻿using System.Text;
+using Blaze.Binding;
 
 namespace Blaze.Symbols
 {
-    public sealed class FieldSymbol : VariableSymbol, IMemberSymbol
+    public sealed class EnumMemberSymbol : VariableSymbol, IMemberSymbol
     {
-        public IMemberSymbol Parent { get; }
-        internal BoundExpression? Initializer { get; }
+        public int UnderlyingValue { get; }
+        public IMemberSymbol? Parent { get; }
+        public override SymbolKind Kind => SymbolKind.EnumMember;
 
-        public override SymbolKind Kind => SymbolKind.Field;
-        
-        internal FieldSymbol(string name, IMemberSymbol parent, TypeSymbol type, BoundExpression? initializer = null) : base(name, type, false, null)
+        public EnumMemberSymbol(EnumSymbol parent, string name, int underlyingValue) : base(name, parent, true, new BoundConstant(underlyingValue))
         {
             Parent = parent;
-            Initializer = initializer;
+            UnderlyingValue = underlyingValue;
         }
 
         public string GetFullName()
@@ -24,7 +23,7 @@ namespace Blaze.Symbols
 
             while (previous != null)
             {
-                if (previous is NamespaceSymbol n && n.IsGlobal)
+                if (previous is NamespaceSymbol ns && ns.IsGlobal)
                     break;
                 nameStack.Push(previous.Name);
                 previous = previous.Parent;

@@ -15,6 +15,19 @@ namespace Blaze.Binding
         }
     }
 
+    internal sealed class BoundEnumExpression : BoundExpression
+    {
+        public EnumSymbol EnumSymbol { get; }
+
+        public override BoundNodeKind Kind => BoundNodeKind.EnumExpression;
+        public override TypeSymbol Type => EnumSymbol;
+
+        public BoundEnumExpression(EnumSymbol enumSymbol)
+        {
+            EnumSymbol = enumSymbol;
+        }
+    }
+
     internal sealed class BoundNamespaceExpression : BoundExpression
     {
         public NamespaceSymbol Namespace { get; }

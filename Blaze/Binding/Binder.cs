@@ -8,7 +8,6 @@ using Blaze.SyntaxTokens;
 using Blaze.Text;
 using System.Collections.Immutable;
 using System.Diagnostics;
-using System.Runtime.InteropServices;
 
 namespace Blaze.Binding
 {
@@ -235,6 +234,8 @@ namespace Blaze.Binding
                     BindFunctionDeclaration(functionDeclaration);
                 else if (member is FieldDeclarationSyntax fieldDeclaration)
                     BindFieldDeclaration(fieldDeclaration);
+                else if (member is EnumDeclarationSyntax enumDeclaration)
+                    BindEnumDeclaration(enumDeclaration);
             }
         }
              
@@ -340,13 +341,47 @@ namespace Blaze.Binding
             if (field != null)
             {
                 _diagnostics.ReportFieldAlreadyDeclared(fieldDeclaration.Identifier.Location, identifierText);
-                return;
             }
             else
             {
                 var convertedInitializer = BindConversion(initializer, variableType, fieldDeclaration.Initializer.Location);
                 field = new FieldSymbol(identifierText, _namespace, variableType, convertedInitializer);
                 _namespace.Members.Add(field);
+            }
+        }
+
+        private void BindEnumDeclaration(EnumDeclarationSyntax enumDeclaration)
+        {
+            var identifierText = enumDeclaration.Identifier.Text;
+
+            var declaredEnum = _namespace.Enums.FirstOrDefault();
+            if (declaredEnum != null)
+            {
+                _diagnostics.ReportEnumAlreadyDeclared(enumDeclaration.Identifier.Location, identifierText);
+            }
+            else
+            {
+                declaredEnum = new EnumSymbol(_namespace, identifierText);
+                _namespace.Members.Add(declaredEnum);
+
+                var seenNames = new HashSet<string>();
+
+                for (int i = 0; i < enumDeclaration.MemberDeclarations.Length; i++)
+                {
+                    var memberDeclaration = enumDeclaration.MemberDeclarations[i];
+                    var memberName = memberDeclaration.Identifier.Text;
+
+                    if (seenNames.Contains(memberName))
+                    {
+                        _diagnostics.ReportEnumMemberAlreadyDeclared(memberDeclaration.Location, memberName, identifierText);
+                    }
+                    else
+                    {
+                        var declaredMember = new EnumMemberSymbol(declaredEnum, memberName, i);
+                        declaredEnum.Members.Add(declaredMember);
+                        seenNames.Add(memberName);
+                    }
+                }
             }
         }
 
@@ -396,8 +431,9 @@ namespace Blaze.Binding
             if (syntax.DeclarationNode is TypeClauseSyntax typeClause)
                 type = BindType(typeClause.Identifier.Text, typeClause.Identifier.Location);
 
+            //TODO: Add const variable declarations
             var variableType = type ?? initializer.Type;
-            var variable = BindVariable(syntax.Identifier, variableType, initializer.ConstantValue);
+            var variable = BindVariable(syntax.Identifier, variableType, false, initializer.ConstantValue);
             var convertedInitializer = BindConversion(initializer, variableType, syntax.Initializer.Location);
             return new BoundVariableDeclarationStatement(variable, convertedInitializer);
         }
@@ -437,7 +473,7 @@ namespace Blaze.Binding
             var previous = _scope;
             _scope = new BoundScope(previous);
 
-            var variable = BindVariable(syntax.Identifier, TypeSymbol.Int);
+            var variable = BindVariable(syntax.Identifier, TypeSymbol.Int, false);
             var body = BindLoopBody(syntax.Body, out BoundLabel breakLabel, out BoundLabel continueLabel);
             _scope = previous;
             return new BoundForStatement(variable, lowerBound, upperBound, body, breakLabel, continueLabel);
@@ -678,6 +714,17 @@ namespace Blaze.Binding
                 }
                 return boundSymbolExression;
             }
+            else if (boundAccessed is BoundEnumExpression enumExpression)
+            {
+                //Enum types -> Enum members
+                var member = enumExpression.EnumSymbol.TryLookup(memberName);
+                if (member == null)
+                {
+                    _diagnostics.ReportUndefinedEnumMember(expression.MemberIdentifier.Location, enumExpression.EnumSymbol.Name, memberName);
+                    return new BoundErrorExpression();
+                }
+                return new BoundVariableExpression(member);
+            }
             else
             {
                 _diagnostics.ReportInvalidMemberAccess(expression.AccessedExpression.Location, boundAccessed.Type.Name);
@@ -770,11 +817,27 @@ namespace Blaze.Binding
         {
             var boundLeft = BindExpression(expression.Left, false, LookupOptions.PrioritizeVariables);
             var boundRight = BindExpression(expression.Right);
-            
-            if (boundLeft.Kind != BoundNodeKind.VariableExpression &&
-                boundLeft.Kind != BoundNodeKind.FieldAccessExpression)
+
+            if (boundLeft is BoundVariableExpression variableExpression)
             {
-                _diagnostics.ReportInvalidLeftHandAssignmentExpression(expression.Left.Location, expression.Left.Kind);
+                if (variableExpression.Variable.IsReadOnly)
+                {
+                    _diagnostics.ReportAssigningToReadOnly(expression.Left.Location, boundLeft.Kind);
+                    return new BoundErrorExpression();
+                }
+            }
+            else if (boundLeft is BoundFieldAccessExpression fieldAccessExpression)
+            {
+                if (fieldAccessExpression.Field.IsReadOnly)
+                {
+                    _diagnostics.ReportAssigningToReadOnly(expression.Left.Location, boundLeft.Kind);
+                    return new BoundErrorExpression();
+                }
+            }
+            else 
+            {
+                if (boundLeft.Kind != BoundNodeKind.ErrorExpression)
+                    _diagnostics.ReportInvalidLeftHandAssignmentExpression(expression.Left.Location, expression.Left.Kind);
                 return new BoundErrorExpression();
             }
 
@@ -848,12 +911,12 @@ namespace Blaze.Binding
             return new BoundConversionExpression(type, expression);
         }
 
-        private VariableSymbol BindVariable(SyntaxToken identifier, TypeSymbol type, BoundConstant? constant = null)
+        private VariableSymbol BindVariable(SyntaxToken identifier, TypeSymbol type, bool isReadOnly, BoundConstant? constant = null)
         {
             var name = identifier.Text;
             VariableSymbol variable = _function == null
-                                ? new GlobalVariableSymbol(name, type, constant)
-                                : new LocalVariableSymbol(name, type, constant);
+                                ? new GlobalVariableSymbol(name, type, isReadOnly, constant)
+                                : new LocalVariableSymbol(name, type, isReadOnly, constant);
 
             if (_namespace.TryLookup<FieldSymbol>(name) != null)
                 _diagnostics.ReportVariableNameIsADeclaredField(identifier.Location, name);
@@ -879,6 +942,8 @@ namespace Blaze.Binding
             TypeSymbol? type = TypeSymbol.Lookup(name);
             if (type == null)
                 type = _namespace.TryLookup<NamedTypeSymbol>(name);
+            if (type == null)
+                type = _namespace.TryLookup<EnumSymbol>(name);
 
             return type;
         }
@@ -899,6 +964,9 @@ namespace Blaze.Binding
             if (symbol is VariableSymbol variable)
                 return new BoundVariableExpression(variable);
 
+            if (symbol is EnumMemberSymbol enumSymbol)
+                return new BoundVariableExpression(enumSymbol);
+
             if (symbol is NamedTypeSymbol type)
                 return new BoundTypeExpression(type);
 
@@ -908,6 +976,8 @@ namespace Blaze.Binding
             if (symbol is FunctionSymbol function)
                 return new BoundFunctionExpression(function);
 
+            if (symbol is EnumSymbol en)
+                return new BoundEnumExpression(en);
             return null;
         }
 
@@ -943,7 +1013,10 @@ namespace Blaze.Binding
                         nestedNamespace = _globalNamespace.TryLookupDirectChild(name);
                         if (nestedNamespace != null)
                             return nestedNamespace;
-                        
+
+                        var enumSymbol = context.TryLookup<EnumSymbol>(name);
+                        if (enumSymbol != null)
+                            return enumSymbol;
                     }
                     break;
                 case LookupOptions.PrioritizeNamedTypes:
@@ -951,6 +1024,10 @@ namespace Blaze.Binding
                         var namedType = context.TryLookup<NamedTypeSymbol>(name);
                         if (namedType != null)
                             return namedType;
+
+                        var enumSymbol = context.TryLookup<EnumSymbol>(name);
+                        if (enumSymbol != null)
+                            return enumSymbol;
 
                         var function = context.TryLookup<FunctionSymbol>(name);
                         if (function != null)
@@ -987,6 +1064,10 @@ namespace Blaze.Binding
                         if (namedType != null)
                             return namedType;
 
+                        var enumSymbol = context.TryLookup<EnumSymbol>(name);
+                        if (enumSymbol != null)
+                            return enumSymbol;
+
                         var function = context.TryLookup<FunctionSymbol>(name);
                         if (function != null)
                             return function;
@@ -1017,6 +1098,10 @@ namespace Blaze.Binding
                         var variable = _scope.TryLookupVariable(name);
                         if (variable != null)
                             return variable;
+
+                        var enumSymbol = context.TryLookup<EnumSymbol>(name);
+                        if (enumSymbol != null)
+                            return enumSymbol;
 
                         var namedType = context.TryLookup<NamedTypeSymbol>(name);
                         if (namedType != null)

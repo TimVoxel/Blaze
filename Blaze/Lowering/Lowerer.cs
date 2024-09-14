@@ -82,7 +82,7 @@ namespace Blaze.Lowering
 
             var declarationStatement = new BoundVariableDeclarationStatement(node.Variable, node.LowerBound);
 
-            var upperBound = new GlobalVariableSymbol(".upperBound", TypeSymbol.Int, node.UpperBound.ConstantValue);
+            var upperBound = new GlobalVariableSymbol(".upperBound", TypeSymbol.Int, true, node.UpperBound.ConstantValue);
             var upperBoundDeclarationStatement = new BoundVariableDeclarationStatement(upperBound, node.UpperBound);
 
             var variableExpression = new BoundVariableExpression(node.Variable);
@@ -107,32 +107,58 @@ namespace Blaze.Lowering
             //namedType1 == namedType2
             //>
             //namedType1.f == namedType2.f && namedType1.y == namedType2.y && ... 
-
-            if (node.Operator == BoundBinaryOperator.NamedTypeDoubleEqualsOperator)
+            
+            BoundExpression RewriteAsFieldComparasons(NamedTypeSymbol type, BoundBinaryOperatorKind op)
             {
-                NamedTypeSymbol type = (NamedTypeSymbol) node.Left.Type;
-
                 var equations = new Queue<BoundExpression>();
 
                 foreach (var field in type.Fields)
                 {
                     var leftAccess = new BoundFieldAccessExpression(node.Left, field);
                     var rightAccess = new BoundFieldAccessExpression(node.Right, field);
-                    var equalityOperator = BoundBinaryOperator.SafeBind(BoundBinaryOperatorKind.Equals, field.Type, field.Type);
+                    var equalityOperator = BoundBinaryOperator.SafeBind(op, field.Type, field.Type);
                     var fieldsEqual = RewriteBinaryExpression(new BoundBinaryExpression(leftAccess, equalityOperator, rightAccess));
                     equations.Enqueue(fieldsEqual);
                 }
 
                 BoundExpression expression = equations.Dequeue();
-                var andOperator = BoundBinaryOperator.SafeBind(BoundBinaryOperatorKind.LogicalMultiplication, TypeSymbol.Bool, TypeSymbol.Bool);
+
+                var connectOperator = BoundBinaryOperator.SafeBind(
+                        op == BoundBinaryOperatorKind.Equals
+                        ? BoundBinaryOperatorKind.LogicalMultiplication
+                        : BoundBinaryOperatorKind.LogicalAddition,
+                        TypeSymbol.Bool, TypeSymbol.Bool
+                    );
 
                 while (equations.Any())
                 {
                     var current = equations.Dequeue();
-                    expression = new BoundBinaryExpression(expression, andOperator, current);
+                    expression = new BoundBinaryExpression(expression, connectOperator, current);
                 }
+
                 return expression;
             }
+
+            //Rewrite equations between named types to have them compare every field
+
+            if (node.Operator == BoundBinaryOperator.NamedTypeDoubleEqualsOperator)
+            {
+                NamedTypeSymbol type = (NamedTypeSymbol) node.Left.Type;
+                return RewriteAsFieldComparasons(type, BoundBinaryOperatorKind.Equals);
+            }
+            else if (node.Operator == BoundBinaryOperator.NamedTypeNotEqualsOperator)
+            {
+                NamedTypeSymbol type = (NamedTypeSymbol)node.Left.Type;
+                return RewriteAsFieldComparasons(type, BoundBinaryOperatorKind.NotEquals);
+            }
+
+            //Rewrite Yoda-code, for example "0 == a" turns into "a == 0"
+            //This is needed to more easily apply emittion level optimisations
+            if (node.Left is BoundLiteralExpression)
+                node = new BoundBinaryExpression(node.Right, node.Operator, node.Left);
+            if (node.Left is BoundVariableExpression v && v.Variable is EnumMemberSymbol)
+                node = new BoundBinaryExpression(node.Right, node.Operator, node.Left);
+
             return node;
         }
 
@@ -144,7 +170,7 @@ namespace Blaze.Lowering
 
             var binary = new BoundBinaryExpression(node.Left, node.Operator, node.Right);
             var assignment = new BoundAssignmentExpression(node.Left, binary);
-            return assignment;
+            return RewriteExpression(assignment);
         }
 
         protected override BoundExpression RewriteIncrementExpression(BoundIncrementExpression node)
@@ -156,7 +182,7 @@ namespace Blaze.Lowering
             var oneLiteral = new BoundLiteralExpression(1);
             var binary = new BoundBinaryExpression(node.Operand, node.IncrementOperator, oneLiteral);
             var assignment = new BoundAssignmentExpression(node.Operand, binary);
-            return assignment;
+            return RewriteExpression(assignment);
         }
     }
 }

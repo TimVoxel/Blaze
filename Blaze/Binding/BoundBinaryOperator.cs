@@ -1,4 +1,6 @@
 ﻿using Blaze.Symbols;
+using System.Diagnostics;
+using System.Net.WebSockets;
 
 namespace Blaze.Binding
 {
@@ -6,6 +8,13 @@ namespace Blaze.Binding
     {
         public readonly static BoundBinaryOperator NamedTypeDoubleEqualsOperator
             = new BoundBinaryOperator(SyntaxKind.DoubleEqualsToken, BoundBinaryOperatorKind.Equals, TypeSymbol.Object, TypeSymbol.Bool);
+        public readonly static BoundBinaryOperator NamedTypeNotEqualsOperator
+            = new BoundBinaryOperator(SyntaxKind.NotEqualsToken, BoundBinaryOperatorKind.NotEquals, TypeSymbol.Object, TypeSymbol.Bool);
+
+        public readonly static BoundBinaryOperator EnumValueEqualsOperator
+            = new BoundBinaryOperator(SyntaxKind.DoubleEqualsToken, BoundBinaryOperatorKind.Equals, TypeSymbol.Object, TypeSymbol.Bool);
+        public readonly static BoundBinaryOperator EnumValueNotEqualsOperator
+            = new BoundBinaryOperator(SyntaxKind.NotEqualsToken, BoundBinaryOperatorKind.NotEquals, TypeSymbol.Object, TypeSymbol.Bool); 
 
         private static BoundBinaryOperator[] _operators =
         {
@@ -53,21 +62,23 @@ namespace Blaze.Binding
 
         internal static BoundBinaryOperator? Bind(SyntaxKind kind, TypeSymbol leftType, TypeSymbol rightType)
         {
-            if (leftType is NamedTypeSymbol && rightType is NamedTypeSymbol && leftType == rightType)
-                return NamedTypeDoubleEqualsOperator;
+            if (TryBindEnumOrNamedTypeOperator(kind, leftType, rightType, out BoundBinaryOperator? op))
+                return op;
 
             foreach (BoundBinaryOperator binary in _operators)
-            {
                 if (binary.SyntaxKind == kind && binary.LeftType == leftType && binary.RightType == rightType)
                     return binary;
-            }
+            
             return null;
         }
 
         internal static BoundBinaryOperator SafeBind(BoundBinaryOperatorKind kind, TypeSymbol leftType, TypeSymbol rightType)
         {
-            if (leftType is NamedTypeSymbol && rightType is NamedTypeSymbol && leftType == rightType)
-                return NamedTypeDoubleEqualsOperator;
+            if (TryBindEnumOrNamedTypeOperator(kind, leftType, rightType, out BoundBinaryOperator? op))
+            {
+                Debug.Assert(op != null);
+                return op;
+            }
 
             foreach (BoundBinaryOperator binary in _operators)
             {
@@ -75,6 +86,48 @@ namespace Blaze.Binding
                     return binary;
             }
             throw new Exception($"Operator of kind {kind} is not defined for types {leftType} and {rightType}");
+        }
+
+        private static bool TryBindEnumOrNamedTypeOperator(BoundBinaryOperatorKind kind, TypeSymbol leftType, TypeSymbol rightType, out BoundBinaryOperator? op)
+        {
+            op = null;
+
+            if (leftType == rightType)
+            {
+                if (leftType is NamedTypeSymbol && rightType is NamedTypeSymbol)
+                {
+                    if (kind == BoundBinaryOperatorKind.Equals)
+                        op = NamedTypeDoubleEqualsOperator;
+                    else if (kind == BoundBinaryOperatorKind.NotEquals)
+                        op = NamedTypeNotEqualsOperator;
+                }
+                else if (leftType is EnumSymbol && rightType is EnumSymbol)
+                {
+                    if (kind == BoundBinaryOperatorKind.Equals)
+                        op = EnumValueEqualsOperator;
+                    else if (kind == BoundBinaryOperatorKind.NotEquals)
+                        op = EnumValueNotEqualsOperator;
+                }
+            }
+            return op != null;
+        }
+
+        private static bool TryBindEnumOrNamedTypeOperator(SyntaxKind kind, TypeSymbol leftType, TypeSymbol rightType, out BoundBinaryOperator? op)
+        {
+            BoundBinaryOperatorKind? operatorKind = null;
+
+            if (kind == SyntaxKind.DoubleEqualsToken)
+                operatorKind = BoundBinaryOperatorKind.Equals;
+            else if (kind == SyntaxKind.NotEqualsToken)
+                operatorKind = BoundBinaryOperatorKind.NotEquals;
+            
+            if (operatorKind != null)
+                return TryBindEnumOrNamedTypeOperator((BoundBinaryOperatorKind) operatorKind, leftType, rightType, out op);
+            else
+            {
+                op = null;
+                return false;
+            }
         }
     }
 }
