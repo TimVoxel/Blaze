@@ -157,11 +157,11 @@ namespace Blaze.Binding
                 if (TryLookupNamespace(usingSyntax.IdentifierPath, out var namespaceToUse))
                 {   
                     Debug.Assert(namespaceToUse != null);
-                    if (seenUsings.Contains(namespaceToUse))
-                    {
-                        //TODO: Add warning diagnostics
+
+                    //TODO: Add warning diagnostics for duplicate usings
+                    if (seenUsings.Contains(namespaceToUse))                      
                         continue;
-                    }
+  
                     seenUsings.Add(namespaceToUse);
                     
                     foreach (var ns in namespaces)
@@ -1006,7 +1006,7 @@ namespace Blaze.Binding
                         if (namedType != null)
                             return namedType;
 
-                        var nestedNamespace = context.TryLookupDirectChild(name);
+                        var nestedNamespace = context.TryLookupDirectChildOrUsed(name);
                         if (nestedNamespace != null)
                             return nestedNamespace;
 
@@ -1041,7 +1041,7 @@ namespace Blaze.Binding
                         if (variable != null)
                             return variable;
 
-                        var nestedNamespace = context.TryLookupDirectChild(name);
+                        var nestedNamespace = context.TryLookupDirectChildOrUsed(name);
                         if (nestedNamespace != null)
                             return nestedNamespace;
 
@@ -1072,7 +1072,7 @@ namespace Blaze.Binding
                         if (function != null)
                             return function;
 
-                        var nestedNamespace = context.TryLookupDirectChild(name);
+                        var nestedNamespace = context.TryLookupDirectChildOrUsed(name);
                         if (nestedNamespace != null)
                             return nestedNamespace;
 
@@ -1083,7 +1083,7 @@ namespace Blaze.Binding
                     break;
                 default:
                     {
-                        var nestedNamespace = context.TryLookupDirectChild(name);
+                        var nestedNamespace = context.TryLookupDirectChildOrUsed(name);
                         if (nestedNamespace != null)
                             return nestedNamespace;
 

@@ -1,6 +1,5 @@
 ﻿using Blaze.Binding;
 using Blaze.Symbols;
-using System.Security.Cryptography;
 
 namespace Blaze.Emit
 {
@@ -41,7 +40,7 @@ namespace Blaze.Emit
 
             //Non void functions
             if (varName == null)
-                throw new Exception("No variable for returning");
+                return false;
 
             if (call.Function == BuiltInNamespace.Minecraft.General.GetDatapackCount)
             {

@@ -1,4 +1,5 @@
 ﻿using Blaze.Syntax_Nodes;
+using System.Diagnostics.Metrics;
 using System.Text;
 
 namespace Blaze.Symbols
@@ -106,17 +107,6 @@ namespace Blaze.Symbols
             return true;
         }
 
-        public FunctionSymbol? TryLookupFunction(string name, bool includeUsings = true)
-        {
-            var function = Members.OfType<FunctionSymbol>().FirstOrDefault(f => f.Name == name.ToLower());
-            var parent = (NamespaceSymbol?) Parent;
-
-            if (function == null && parent != null)
-                return parent.TryLookupFunction(name.ToLower());
-
-            return function;
-        }
-
         public T? TryLookup<T>(string name, bool includeUsings = true) where T : IMemberSymbol
         {
             var member = Members.OfType<T>().FirstOrDefault(m => m.Name == name);
@@ -126,7 +116,7 @@ namespace Blaze.Symbols
                 {
                     foreach (var usedNamespace in Usings)
                     {
-                        member = usedNamespace.TryLookup<T>(name, true);
+                        member = usedNamespace.TryLookup<T>(name, false);
                         if (member != null)
                             return member;
                     }
@@ -142,30 +132,19 @@ namespace Blaze.Symbols
             return member;
         }
 
-        public NamedTypeSymbol? TryLookupClass(string name, bool includeUsings = true)
+        public NamespaceSymbol? TryLookupDirectChildOrUsed(string name)
         {
-            var classSymbol = NamedTypes.FirstOrDefault(cl => cl.Name == name);
-            
-            if (classSymbol == null)
+            var nested = NestedNamespaces.FirstOrDefault(n => n.Name == name);
+            if (nested == null)
             {
-                if (includeUsings)
+                foreach (var usedNamespace in Usings)
                 {
-                    foreach (var usedNamespace in Usings)
-                    {
-                        classSymbol = usedNamespace.TryLookupClass(name, true);
-                        if (classSymbol != null)
-                            return classSymbol;
-                    }
+                    nested = usedNamespace.NestedNamespaces.FirstOrDefault(n => n.Name == name);
+                    if (nested != null)
+                        return nested;
                 }
-
-                if (Parent != null)
-                {
-                    var parent = (NamespaceSymbol) Parent;
-                    return parent.TryLookupClass(name, includeUsings);
-                }
-                else return classSymbol;
             }
-            return classSymbol;
+            return nested;
         }
 
         public NamespaceSymbol? TryLookupDirectChild(string name)
