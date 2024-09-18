@@ -1,6 +1,5 @@
 ﻿using Blaze.Binding;
 using Blaze.Symbols.BuiltIn;
-using Mono.Cecil;
 using System.Collections.Immutable;
 
 namespace Blaze.Symbols
@@ -50,6 +49,13 @@ namespace Blaze.Symbols
         }
 
         protected FieldSymbol Field(NamedTypeSymbol parent, string name, TypeSymbol type)
+        {
+            var field = new FieldSymbol(name, parent, type);
+            parent.Members.Add(field);
+            return field;
+        }
+
+        protected FieldSymbol Field(NamespaceSymbol parent, string name, TypeSymbol type)
         {
             var field = new FieldSymbol(name, parent, type);
             parent.Members.Add(field);

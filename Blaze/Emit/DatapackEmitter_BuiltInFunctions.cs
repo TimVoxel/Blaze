@@ -150,12 +150,12 @@ namespace Blaze.Emit
             else if (argument is BoundVariableExpression variable)
             {
                 var varName = _nameTranslator.GetVariableName(variable.Variable);
-                command = "tellraw @a {\"storage\":\"strings\",\"nbt\":\"" + varName + "\"}";
+                command = "tellraw @a {\"storage\":\"strings\",\"nbt\":\"\\\"" + varName + "\\\"\"}";
             }
             else
             {
                 var tempName = EmitAssignmentToTemp(TEMP, argument, emittion, 0, false);
-                command = "tellraw @a {\"storage\":\"strings\",\"nbt\":\"" + tempName + "\"}";
+                command = "tellraw @a {\"storage\":\"strings\",\"nbt\":\"\\\"" + tempName + "\\\"\"}";
                 EmitCleanUp(tempName, argument.Type, emittion);
             }
             

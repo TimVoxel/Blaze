@@ -1,5 +1,4 @@
 ﻿using Blaze.Syntax_Nodes;
-using System.Diagnostics.Metrics;
 using System.Text;
 
 namespace Blaze.Symbols

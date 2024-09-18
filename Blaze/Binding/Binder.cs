@@ -968,7 +968,10 @@ namespace Blaze.Binding
             if (symbol is EnumMemberSymbol enumSymbol)
                 return new BoundVariableExpression(enumSymbol);
 
-            if (symbol is NamedTypeSymbol type)
+            if (symbol is EnumSymbol en)
+                return new BoundEnumExpression(en);
+
+            if (symbol is TypeSymbol type)
                 return new BoundTypeExpression(type);
 
             if (symbol is NamespaceSymbol ns)
@@ -977,8 +980,6 @@ namespace Blaze.Binding
             if (symbol is FunctionSymbol function)
                 return new BoundFunctionExpression(function);
 
-            if (symbol is EnumSymbol en)
-                return new BoundEnumExpression(en);
             return null;
         }
 
@@ -986,6 +987,10 @@ namespace Blaze.Binding
         {
             //Options simply specify the order in which the members are lookup up
             //This is quite dirty but I can't think of another way to do this
+
+            TypeSymbol? type = TypeSymbol.Lookup(name);
+            if (type != null)
+                return type;
 
             switch (options)
             {

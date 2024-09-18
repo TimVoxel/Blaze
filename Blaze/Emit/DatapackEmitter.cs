@@ -410,6 +410,25 @@ namespace Blaze.Emit
 
         private string EmitAssignmentExpression(BoundExpression left, BoundExpression right, FunctionEmittion emittion, int current)
         {
+            //Built-in fields may require non-scoreboard approachers
+            //Such fields include gamerules, difficulty and other things
+            //Entity and block data management requires the /data command
+
+            //TODO: Add Reclassifator and actual corresponding nodes that can
+            //Be translated pretty much one to one
+
+            if (left is BoundFieldAccessExpression fieldAccess)
+            {
+                string? tempName;
+                if (TryEmitBuiltInFieldAssignment(fieldAccess.Field, right, emittion, current, out tempName))
+                {
+                    //This is a problem that needs to be addressed
+                    if (tempName == null)
+                        return string.Empty;
+                    return tempName;
+                }    
+            }    
+
             var leftName = GetNameOfAssignableExpression(left);
             return EmitAssignmentExpression(leftName, right, emittion, current);
         }
@@ -454,8 +473,11 @@ namespace Blaze.Emit
             }
             else if (right is BoundFieldAccessExpression fieldExpression)
             {
-                var otherName = GetNameOfAssignableExpression(fieldExpression);
-                EmitVariableAssignment(name, otherName, right.Type, emittion);
+                if (!TryEmitBuiltInFieldGetter(name, fieldExpression, emittion, current))
+                {
+                    var otherName = GetNameOfAssignableExpression(fieldExpression);
+                    EmitVariableAssignment(name, otherName, right.Type, emittion);
+                }
             }
             else
             {
@@ -545,7 +567,7 @@ namespace Blaze.Emit
             {
                 var value = (string)literal.Value;
                 value = value.Replace("\"", "\\\"");
-                var command = $"data modify storage strings {varName} set value \"{value}\"";
+                var command = $"data modify storage strings \"{varName}\" set value \"{value}\"";
                 emittion.AppendLine(command);
             }
             else
@@ -586,7 +608,7 @@ namespace Blaze.Emit
             if (type == TypeSymbol.String || type == TypeSymbol.Object)
             {
                 var storage = _nameTranslator.GetStorage(type);
-                var command = $"data modify storage {storage} {varName} set from storage {storage} {otherName}";
+                var command = $"data modify storage {storage} \"{varName}\" set from storage {storage} {otherName}";
                 emittion.AppendLine(command);
             }
             else if (type == TypeSymbol.Int || type == TypeSymbol.Bool || type is EnumSymbol)
@@ -642,6 +664,7 @@ namespace Blaze.Emit
             //            If it is 1, set the <*name> to 0
             //            If it is 0, set the <*name> to 1
 
+            emittion.AppendLine();
             emittion.AppendComment($"Emitting unary expression \"{unary}\" to \"{name}\"");
             var expression = unary.Operand;
             var operatorKind = unary.Operator.OperatorKind;
@@ -669,7 +692,6 @@ namespace Blaze.Emit
                 default:
                     throw new Exception($"Unexpected unary operator kind {operatorKind}");
             }
-            emittion.AppendLine();
         }
 
         private void EmitBinaryExpressionAssignment(string name, BoundBinaryExpression binary, FunctionEmittion emittion, int current)
@@ -699,6 +721,7 @@ namespace Blaze.Emit
             //Greater, GreaterOrEquals Set < *name > to 0
             //                         if score < *left > is <sign> than <.right >, set < *name > to 1
 
+            emittion.AppendLine();
             emittion.AppendComment($"Emitting binary expression \"{binary}\" to \"{name}\"");
             var left = binary.Left;
             var right = binary.Right;
@@ -756,7 +779,7 @@ namespace Blaze.Emit
                         var leftName = EmitAssignmentToTemp("lTemp", left, emittion, current + 1, false);
                         var rightName = EmitAssignmentToTemp("rTemp", right, emittion, current + 1, false);
 
-                        var command1 = $"execute store success score {TEMP} vars run data modify storage strings {leftName} set from storage strings {rightName}";
+                        var command1 = $"execute store success score {TEMP} vars run data modify storage strings \"{leftName}\" set from storage strings \"{rightName}\"";
                         var command2 = $"execute if score {TEMP} vars matches 1 run scoreboard players set {name} vars 0";
                         var command3 = $"execute if score {TEMP} vars matches 0 run scoreboard players set {name} vars 1";
                         emittion.AppendLine(command1);
@@ -777,7 +800,7 @@ namespace Blaze.Emit
                         var leftName = EmitAssignmentToTemp("lTemp", left, emittion, current + 1, false);
                         var rightName = EmitAssignmentToTemp("rTemp", right, emittion, current + 1, false);
 
-                        var command1 = $"execute store success score {name} vars run data modify storage strings {leftName} set from storage strings {rightName}";
+                        var command1 = $"execute store success score {name} vars run data modify storage strings \"{leftName}\" set from storage strings \"{rightName}\"";
                         emittion.AppendLine(command1);
                         EmitCleanUp(leftName, left.Type, emittion);
                         EmitCleanUp(rightName, right.Type, emittion);
@@ -794,7 +817,6 @@ namespace Blaze.Emit
                     EmitComparisonBinaryOperation(emittion, left, right, name, operatorKind, current);
                     break;
             }
-            emittion.AppendLine();
         }
 
         private void EmitComparisonBinaryOperation(FunctionEmittion emittion, BoundExpression left, BoundExpression right, string name, BoundBinaryOperatorKind operation, int index)
@@ -941,7 +963,7 @@ namespace Blaze.Emit
             else
             {
                 EmitCallExpression(name, call, emittion, current);
-                var command2 = $"data modify storage {_nameTranslator.GetStorage(call.Type)} {name} set from storage strings {RETURN_TEMP_NAME}";
+                var command2 = $"data modify storage {_nameTranslator.GetStorage(call.Type)} \"{name}\" set from storage strings \"{RETURN_TEMP_NAME}\"";
                 emittion.AppendLine(command2);
             }
         }
@@ -982,29 +1004,29 @@ namespace Blaze.Emit
 
             if (resultType == TypeSymbol.String && (sourceType == TypeSymbol.Int || sourceType == TypeSymbol.Bool))
             {
+                var stringsStorage = _nameTranslator.GetStorage(TypeSymbol.String);
                 var tempPath = "TEMP.*temp1";
-                var command1 = $"execute store result storage {_nameTranslator.GetStorage(TypeSymbol.String)} {tempPath} int 1 run scoreboard players get {tempName} vars";
-                var command2 = $"data modify storage strings {name} set string storage strings {tempPath}";
+                var command1 = $"execute store result storage {stringsStorage} \"{tempPath}\" int 1 run scoreboard players get {tempName} vars";
+                var command2 = $"data modify storage {stringsStorage} \"{name}\" set string storage strings \"{tempPath}\"";
                 emittion.AppendLine(command1);
                 emittion.AppendLine(command2);
-                EmitCleanUp(tempName, sourceType, emittion);
                 EmitCleanUp(tempPath, resultType, emittion);
             }
             if (resultType == TypeSymbol.Object)
             {
+                string command;
+
                 if (sourceType == TypeSymbol.Int || sourceType == TypeSymbol.Bool)
                 {
-                    var command = $"execute store result storage {_nameTranslator.GetStorage(TypeSymbol.Object)} {name} int 1 run scoreboard players get {tempName} vars";
-                    emittion.AppendLine(command);
-                    EmitCleanUp(tempName, sourceType, emittion);
+                    command = $"execute store result storage {_nameTranslator.GetStorage(TypeSymbol.Object)} \"{name}\" int 1 run scoreboard players get {tempName} vars";
                 }
                 else
                 {
-                    var command = $"data modify storage {_nameTranslator.GetStorage(TypeSymbol.Object)} {name} set from storage strings {tempName}";
-                    emittion.AppendLine(command);
-                    EmitCleanUp(tempName, sourceType, emittion);
+                    command = $"data modify storage {_nameTranslator.GetStorage(TypeSymbol.Object)} \"{name}\" set from storage strings \"{tempName}\"";         
                 }
+                emittion.AppendLine(command);
             }
+            EmitCleanUp(tempName, sourceType, emittion);
         }
 
         private void EmitCleanUp(string name, TypeSymbol type, FunctionEmittion emittion)
@@ -1014,7 +1036,7 @@ namespace Blaze.Emit
             if (type == TypeSymbol.Int || type == TypeSymbol.Bool)
                 command = $"scoreboard players reset {name} vars";
             else
-                command = $"data remove storage {_nameTranslator.GetStorage(type)} {name}";
+                command = $"data remove storage {_nameTranslator.GetStorage(type)} \"{name}\"";
 
             emittion.AppendCleanUp(command);
         }
