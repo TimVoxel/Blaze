@@ -1,6 +1,5 @@
 ﻿using Blaze.Binding;
 using Blaze.Symbols;
-using Blaze.Symbols.BuiltIn;
 using System.Diagnostics;
 
 namespace Blaze.Emit
@@ -9,9 +8,14 @@ namespace Blaze.Emit
     {
         public bool TryEmitBuiltInFieldAssignment(FieldSymbol field, BoundExpression right, FunctionEmittion emittion, int current, out string? tempName)
         {
-            if (MinecraftNamespace.GeneralNamespace.GamerulesNamespace.IsGamerule(field))
+            if (BuiltInNamespace.Minecraft.General.Gamerules.IsGamerule(field))
             {
                 tempName = EmitGameruleAssignment(field, right, emittion, current);
+                return true;
+            }
+            else if (BuiltInNamespace.Minecraft.General.DifficultyField == field)
+            {
+                tempName = EmitDifficultyAssignment(field, right, emittion, current);
                 return true;
             }
             tempName = null;
@@ -35,7 +39,7 @@ namespace Blaze.Emit
             }
             else
             {
-                var macroFunctionSymbol = MinecraftNamespace.GeneralNamespace.GamerulesNamespace.SetGamerule;
+                var macroFunctionSymbol = BuiltInNamespace.Minecraft.General.Gamerules.SetGamerule;
                 Debug.Assert(macroFunctionSymbol != null);
                 var macro = GetOrCreateBuiltIn(macroFunctionSymbol, out bool isCreated);
 
@@ -51,6 +55,27 @@ namespace Blaze.Emit
                 emittion.AppendLine(command1);
                 emittion.AppendLine(command2);
                 emittion.AppendLine(command3);
+            }
+
+            EmitCleanUp(rightName, right.Type, emittion);
+            return rightName;
+        }
+
+        private string EmitDifficultyAssignment(FieldSymbol field, BoundExpression right, FunctionEmittion emittion, int current)
+        {
+            if (right is BoundVariableExpression variableExpression && variableExpression.Variable is EnumMemberSymbol em)
+            {
+                var command = $"difficulty {em.Name.ToLower()}";
+                emittion.AppendLine(command);
+                return string.Empty;
+            }
+
+            var rightName = EmitAssignmentToTemp(right, emittion, current);
+
+            foreach (var enumMember in BuiltInNamespace.Minecraft.General.Difficulty.Members)
+            {
+                var command = $"execute if score {rightName} vars matches {enumMember.UnderlyingValue} run difficulty {enumMember.Name.ToLower()}";
+                emittion.AppendLine(command);
             }
 
             EmitCleanUp(rightName, right.Type, emittion);

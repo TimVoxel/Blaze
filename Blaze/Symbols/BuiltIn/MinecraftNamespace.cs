@@ -1,7 +1,4 @@
-﻿using System.Collections.Immutable;
-using System.Data;
-
-namespace Blaze.Symbols.BuiltIn
+﻿namespace Blaze.Symbols.BuiltIn
 {
     internal sealed class MinecraftNamespace : BuiltInNamespace
     {
@@ -31,7 +28,7 @@ namespace Blaze.Symbols.BuiltIn
             internal sealed class GamerulesNamespace : BuiltInNamespace
             {
                 //TODO: Add limitations to short values
-                public static FunctionSymbol? SetGamerule { get; private set; }
+                public FunctionSymbol SetGamerule { get; private set; }
                 public FieldSymbol AnnounceAdvancements { get; }
                 public FieldSymbol BlockExplosionDropDecay { get; }
                 public FieldSymbol CommandBlockOutput { get; }
@@ -202,12 +199,14 @@ namespace Blaze.Symbols.BuiltIn
                     });
                 }
 
-                public static bool IsGamerule(FieldSymbol field) => _gamerules.Contains(field);
+                public bool IsGamerule(FieldSymbol field) => _gamerules.Contains(field);
             }
 
             public GamerulesNamespace Gamerules { get; }
-
+            public EnumSymbol Difficulty { get; }
             public NamedTypeSymbol Pos { get; }
+
+            public FieldSymbol DifficultyField { get; }
 
             public FunctionSymbol RunCommand { get; }
             public FunctionSymbol DatapackEnable { get; }
@@ -220,6 +219,14 @@ namespace Blaze.Symbols.BuiltIn
             public GeneralNamespace(MinecraftNamespace parent) : base("general", parent)
             {
                 Gamerules = new GamerulesNamespace(this);
+
+                Difficulty = Enum("Difficulty");
+                DeclareEnumMember("Peaceful", Difficulty, 0);
+                DeclareEnumMember("Easy", Difficulty, 1);
+                DeclareEnumMember("Normal", Difficulty, 2);
+                DeclareEnumMember("Hard", Difficulty, 3);
+
+                DifficultyField = Field(Symbol, "difficulty", Difficulty);
 
                 //Pos class
                 var x = Parameter("x", TypeSymbol.Int);

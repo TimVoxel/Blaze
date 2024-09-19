@@ -42,6 +42,20 @@ namespace Blaze.Symbols
             return classSymbol;
         }
 
+        protected EnumSymbol Enum(string name)
+        {
+            var enumSymbol = new EnumSymbol(Symbol, name);
+            Symbol.Members.Add(enumSymbol);
+            return enumSymbol;
+        }
+
+        protected EnumSymbol DeclareEnumMember(string name, EnumSymbol enumSymbol, int underlyingValue)
+        {
+            var classSymbol = new EnumMemberSymbol(enumSymbol, name, underlyingValue);
+            enumSymbol.Members.Add(classSymbol);
+            return enumSymbol;
+        }
+
         protected ConstructorSymbol Constructor(params ParameterSymbol[] parameters)
         {
             var constructor = new ConstructorSymbol(parameters.ToImmutableArray());

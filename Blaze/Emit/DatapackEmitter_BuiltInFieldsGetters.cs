@@ -1,5 +1,5 @@
 ﻿using Blaze.Binding;
-using Blaze.Symbols.BuiltIn;
+using Blaze.Symbols;
 
 namespace Blaze.Emit
 {
@@ -7,13 +7,20 @@ namespace Blaze.Emit
     {
         public bool TryEmitBuiltInFieldGetter(string outputName, BoundFieldAccessExpression right, FunctionEmittion emittion, int current)
         {
-            if (MinecraftNamespace.GeneralNamespace.GamerulesNamespace.IsGamerule(right.Field))
+            if (BuiltInNamespace.Minecraft.General.Gamerules.IsGamerule(right.Field))
             {
                 var command = $"execute store result score {outputName} vars run gamerule {right.Field.Name}";
                 emittion.AppendLine(command);
                 return true;
             }
+            else if (BuiltInNamespace.Minecraft.General.DifficultyField == right.Field)
+            {
+                var command = $"execute store result score {outputName} vars run difficulty";
+                emittion.AppendLine(command);
+                return true;
+            }
             return false;
         }
+
     }
 }

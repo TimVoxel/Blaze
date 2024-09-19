@@ -2,6 +2,7 @@
 using Blaze.Diagnostics;
 using Blaze.Emit.NameTranslation;
 using Blaze.Symbols;
+using Mono.Cecil;
 using System.Collections.Immutable;
 using System.Diagnostics;
 using System.Text;
@@ -350,7 +351,7 @@ namespace Blaze.Emit
             var returnName = EmitAssignmentToTemp(desiredReturnName, returnExpression, emittion, 0, false);
             EmitCleanUp();
 
-            if (returnExpression.Type == TypeSymbol.Int || returnExpression.Type == TypeSymbol.Bool)
+            if (returnExpression.Type == TypeSymbol.Int || returnExpression.Type == TypeSymbol.Bool || returnExpression.Type is EnumSymbol)
             {
                 var returnCommand = $"return run scoreboard players get {returnName} vars";
                 emittion.AppendLine(returnCommand);
@@ -948,7 +949,7 @@ namespace Blaze.Emit
 
             emittion.AppendComment($"Assigning return value of {call.Function.Name} to \"{name}\"");
 
-            if (call.Function.ReturnType == TypeSymbol.Int || call.Function.ReturnType == TypeSymbol.Bool)
+            if (call.Function.ReturnType == TypeSymbol.Int || call.Function.ReturnType == TypeSymbol.Bool || call.Function.ReturnType is EnumSymbol)
             {
                 var isBuiltIt = TryEmitBuiltInFunction(name, call, emittion, current);
 
@@ -1002,15 +1003,27 @@ namespace Blaze.Emit
             var sourceType = conv.Expression.Type;
             var tempName = EmitAssignmentToTemp(conv.Expression, emittion, current);
 
-            if (resultType == TypeSymbol.String && (sourceType == TypeSymbol.Int || sourceType == TypeSymbol.Bool))
+            if (resultType == TypeSymbol.String)
             {
                 var stringsStorage = _nameTranslator.GetStorage(TypeSymbol.String);
                 var tempPath = "TEMP.*temp1";
-                var command1 = $"execute store result storage {stringsStorage} \"{tempPath}\" int 1 run scoreboard players get {tempName} vars";
-                var command2 = $"data modify storage {stringsStorage} \"{name}\" set string storage strings \"{tempPath}\"";
-                emittion.AppendLine(command1);
-                emittion.AppendLine(command2);
-                EmitCleanUp(tempPath, resultType, emittion);
+
+                if (sourceType == TypeSymbol.Int || sourceType == TypeSymbol.Bool)
+                {
+                    var command1 = $"execute store result storage {stringsStorage} \"{tempPath}\" int 1 run scoreboard players get {tempName} vars";
+                    var command2 = $"data modify storage {stringsStorage} \"{name}\" set string storage strings \"{tempPath}\"";
+                    emittion.AppendLine(command1);
+                    emittion.AppendLine(command2);
+                    EmitCleanUp(tempPath, resultType, emittion);
+                }
+                else if (sourceType is EnumSymbol enumSymbol)
+                {
+                    foreach (var enumMember in enumSymbol.Members)
+                    {
+                        var command = $"execute if score {tempName} vars matches {enumMember.UnderlyingValue} run data modify storage {stringsStorage} \"{name}\" set value \"{enumMember.Name}\"";
+                        emittion.AppendLine(command);
+                    }
+                }
             }
             if (resultType == TypeSymbol.Object)
             {
@@ -1033,7 +1046,7 @@ namespace Blaze.Emit
         {
             string command;
 
-            if (type == TypeSymbol.Int || type == TypeSymbol.Bool)
+            if (type == TypeSymbol.Int || type == TypeSymbol.Bool || type is EnumSymbol)
                 command = $"scoreboard players reset {name} vars";
             else
                 command = $"data remove storage {_nameTranslator.GetStorage(type)} \"{name}\"";

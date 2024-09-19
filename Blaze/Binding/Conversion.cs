@@ -38,6 +38,10 @@ namespace Blaze.Binding
             if (from == TypeSymbol.Int || from == TypeSymbol.Bool)
                 if (to == TypeSymbol.String)
                     return Explicit;
+
+            // enum -> string
+            if (from is EnumSymbol e && to == TypeSymbol.String)
+                return Explicit;
            
             /*
             // string -> int or bool
