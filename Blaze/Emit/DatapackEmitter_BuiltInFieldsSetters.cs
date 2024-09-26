@@ -50,11 +50,10 @@ namespace Blaze.Emit
                 if (isCreated)
                     macro.AppendMacro("gamerule $(rule) $(value)");
 
-                EmitCleanUp("**macros.value", TypeSymbol.String, emittion);
-                EmitCleanUp("**macros.rule", TypeSymbol.String, emittion);
                 emittion.AppendLine(command1);
                 emittion.AppendLine(command2);
                 emittion.AppendLine(command3);
+                EmitMacroCleanUp(emittion);
             }
 
             EmitCleanUp(rightName, right.Type, emittion);
@@ -74,7 +73,8 @@ namespace Blaze.Emit
 
             foreach (var enumMember in BuiltInNamespace.Minecraft.General.Difficulty.Members)
             {
-                var command = $"execute if score {rightName} vars matches {enumMember.UnderlyingValue} run difficulty {enumMember.Name.ToLower()}";
+                var intMember = (IntEnumMemberSymbol) enumMember;
+                var command = $"execute if score {rightName} vars matches {intMember.UnderlyingValue} run difficulty {enumMember.Name.ToLower()}";
                 emittion.AppendLine(command);
             }
 

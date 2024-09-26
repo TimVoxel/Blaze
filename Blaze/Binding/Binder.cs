@@ -354,14 +354,19 @@ namespace Blaze.Binding
         {
             var identifierText = enumDeclaration.Identifier.Text;
 
-            var declaredEnum = _namespace.Enums.FirstOrDefault();
+            var declaredEnum = _namespace.Enums.FirstOrDefault(e => e.Name == identifierText);
             if (declaredEnum != null)
             {
                 _diagnostics.ReportEnumAlreadyDeclared(enumDeclaration.Identifier.Location, identifierText);
             }
             else
             {
-                declaredEnum = new EnumSymbol(_namespace, identifierText);
+                //We use string enums if there are 10 or more possible options
+                //This is to reduce the string conversion time
+                //The valye 10 is arbitrary and should be replaced with a calculated optimal value
+
+                var isIntEnum = enumDeclaration.MemberDeclarations.Length <= 10;
+                declaredEnum = new EnumSymbol(_namespace, identifierText, isIntEnum);
                 _namespace.Members.Add(declaredEnum);
 
                 var seenNames = new HashSet<string>();
@@ -377,7 +382,17 @@ namespace Blaze.Binding
                     }
                     else
                     {
-                        var declaredMember = new EnumMemberSymbol(declaredEnum, memberName, i);
+                        EnumMemberSymbol declaredMember;
+
+                        if (isIntEnum)
+                        {
+                            declaredMember = new IntEnumMemberSymbol(declaredEnum, memberName, i);
+                        }
+                        else
+                        {
+                            declaredMember = new StringEnumMemberSymbol(declaredEnum, memberName, memberName);
+                        }
+
                         declaredEnum.Members.Add(declaredMember);
                         seenNames.Add(memberName);
                     }

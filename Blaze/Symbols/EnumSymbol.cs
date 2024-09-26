@@ -6,18 +6,17 @@ namespace Blaze.Symbols
     {
         public IMemberSymbol Parent { get; }
         public List<EnumMemberSymbol> Members { get; }
+        public bool IsIntEnum { get; }
         public override SymbolKind Kind => SymbolKind.Enum;
-
-        public EnumSymbol(IMemberSymbol parent, string name) : base(name)
+        
+        public EnumSymbol(IMemberSymbol parent, string name, bool isIntEnum) : base(name)
         {
             Parent = parent;
+            IsIntEnum = isIntEnum;
             Members = new List<EnumMemberSymbol>();
         }
 
         public EnumMemberSymbol? TryLookup(string name) => Members.FirstOrDefault(m => m.Name == name);
-
-        public T? TryLookup<T>(string name) where T : IMemberSymbol
-            => Members.OfType<T>().FirstOrDefault(m => m.Name == name);
 
         public string GetFullName()
         {

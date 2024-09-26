@@ -1,5 +1,6 @@
 ﻿using Blaze.Binding;
 using Blaze.Symbols;
+using Blaze.Syntax_Nodes;
 
 namespace Blaze.Emit
 {
@@ -27,17 +28,27 @@ namespace Blaze.Emit
                 EmitSetDatapackEnabled(call, emittion, current);
                 return true;
             }
+            if (call.Function == BuiltInNamespace.Minecraft.General.Weather.SetWeather)
+            {
+                EmitSetWeather(call, emittion, current);
+                return true;
+            }
+            if (call.Function == BuiltInNamespace.Minecraft.General.Weather.SetWeatherForTicks)
+            {
+                EmitSetWeatherForTicks(call, emittion, current);
+                return true;
+            }
             if (call.Function == BuiltInNamespace.Minecraft.Chat.Say)
             {
                 EmitSay(call, emittion);
                 return true;
             }
-            else if (call.Function == BuiltInNamespace.Minecraft.Chat.Print)
+            if (call.Function == BuiltInNamespace.Minecraft.Chat.Print)
             {
                 EmitPrint(call, emittion);
                 return true;
             }
-
+            
             //Non void functions
             if (varName == null)
                 return false;
@@ -69,9 +80,8 @@ namespace Blaze.Emit
             if (isCreated)
                 macro.AppendMacro("$(command)");
 
-            var command = $"function {_nameTranslator.GetCallLink(macro)} with storage strings **macros";
-            emittion.AppendLine(command);
-            EmitCleanUp(tempName, argument.Type, emittion);
+            emittion.AppendLine($"function {_nameTranslator.GetCallLink(macro)} with storage strings **macros");
+            EmitMacroCleanUp(emittion);
         } 
 
         private void EmitDatapackEnable(BoundCallExpression call, FunctionEmittion emittion)
@@ -135,6 +145,86 @@ namespace Blaze.Emit
             var command = $"execute store result score {name} vars run datapack list{filter}";
             emittion.AppendLine(command);
         } 
+
+        private void EmitSetWeather(BoundCallExpression call, FunctionEmittion emittion, int current, string? timeUnits = null)
+        { 
+            void EmitNonMacroNonConstantTypeCheck(BoundExpression weatherType, FunctionEmittion emittion, int current, int time = 0, string? timeUnits = null)
+            {
+                var right = EmitAssignmentToTemp("type", weatherType, emittion, current);
+
+                foreach (var enumMember in BuiltInNamespace.Minecraft.General.Weather.Weather.Members)
+                {
+                    var intMember = (IntEnumMemberSymbol)enumMember;
+
+                    string command;
+                    if (timeUnits == null)
+                        command = $"execute if score {right} vars matches {intMember.UnderlyingValue} run weather {enumMember.Name.ToLower()}";
+                    else
+                        command = $"execute if score {right} vars matches {intMember.UnderlyingValue} run weather {enumMember.Name.ToLower()} {time}{timeUnits}";
+
+                    emittion.AppendLine(command);
+                }
+
+                EmitCleanUp(right, weatherType.Type, emittion);
+            }
+
+            var weatherType = call.Arguments[0];
+
+            if (call.Arguments.Length > 1)
+            {
+                //Time specified
+                if (call.Arguments[1] is BoundLiteralExpression l)
+                {
+                    if (weatherType is BoundVariableExpression variableExpression && variableExpression.Variable is EnumMemberSymbol em)
+                    {
+                        emittion.AppendLine($"weather {em.Name.ToLower()} {l.Value}{timeUnits}");
+                        return;
+                    }
+                    else
+                    {
+                        var time = (int) l.Value;
+                        EmitNonMacroNonConstantTypeCheck(weatherType, emittion, current, time, timeUnits);
+                    }
+                }
+                else 
+                {
+                    var type = EmitAssignmentExpression("**macros.type", weatherType, emittion, current);
+                    var duration = EmitAssignmentToTemp("dur", call.Arguments[1], emittion, current);
+                    var macro = GetOrCreateBuiltIn(BuiltInNamespace.Minecraft.General.Weather.SetWeather, out bool isCreated);
+
+                    emittion.AppendLine($"execute store result storage strings **macros.duration int 1 run scoreboard players get {duration} vars");
+                    emittion.AppendLine($"data modify storage strings **macros.tu set value \"{timeUnits}\"");
+                    emittion.AppendLine($"function {_nameTranslator.GetCallLink(macro)} with storage strings **macros");
+
+                    if (isCreated)
+                        macro.AppendMacro($"weather $(type) $(duration)(tu)");
+
+                    EmitCleanUp(duration, TypeSymbol.Int, emittion);
+                    EmitMacroCleanUp(emittion);
+                }
+            }
+            else
+            {
+                //Don't have time specified
+                if (weatherType is BoundVariableExpression variableExpression && variableExpression.Variable is EnumMemberSymbol em)
+                {
+                    emittion.AppendLine($"weather {em.Name.ToLower()}");
+                }
+                else
+                {
+                    EmitNonMacroNonConstantTypeCheck(weatherType, emittion, current);
+                }  
+            }
+        }
+
+        private void EmitSetWeatherForTicks(BoundCallExpression call, FunctionEmittion emittion, int current)
+            => EmitSetWeather(call, emittion, current, "t");
+
+        private void EmitSetWeatherForSeconds(BoundCallExpression call, FunctionEmittion emittion, int current)
+            => EmitSetWeather(call, emittion, current, "s");
+
+        private void EmitSetWeatherForDays(BoundCallExpression call, FunctionEmittion emittion, int current)
+            => EmitSetWeather(call, emittion, current, "d");
 
         private void EmitSay(BoundCallExpression call, FunctionEmittion emittion) => EmitPrint(call, emittion);
 

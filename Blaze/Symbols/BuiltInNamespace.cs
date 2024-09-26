@@ -42,17 +42,24 @@ namespace Blaze.Symbols
             return classSymbol;
         }
 
-        protected EnumSymbol Enum(string name)
+        protected EnumSymbol Enum(string name, bool isInt)
         {
-            var enumSymbol = new EnumSymbol(Symbol, name);
+            var enumSymbol = new EnumSymbol(Symbol, name, isInt);
             Symbol.Members.Add(enumSymbol);
+            return enumSymbol;
+        }
+
+        protected EnumSymbol DeclareEnumMember(string name, EnumSymbol enumSymbol, string underlyingValue)
+        {
+            var member = new StringEnumMemberSymbol(enumSymbol, name, underlyingValue);
+            enumSymbol.Members.Add(member);
             return enumSymbol;
         }
 
         protected EnumSymbol DeclareEnumMember(string name, EnumSymbol enumSymbol, int underlyingValue)
         {
-            var classSymbol = new EnumMemberSymbol(enumSymbol, name, underlyingValue);
-            enumSymbol.Members.Add(classSymbol);
+            var member = new IntEnumMemberSymbol(enumSymbol, name, underlyingValue);
+            enumSymbol.Members.Add(member);
             return enumSymbol;
         }
 

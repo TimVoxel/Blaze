@@ -1,10 +1,12 @@
-﻿using Blaze.Binding;
+﻿
+using Blaze.Binding;
 using Blaze.Diagnostics;
 using Blaze.Emit.NameTranslation;
 using Blaze.Symbols;
 using Mono.Cecil;
 using System.Collections.Immutable;
 using System.Diagnostics;
+using System.Net.WebSockets;
 using System.Text;
 
 namespace Blaze.Emit
@@ -351,7 +353,7 @@ namespace Blaze.Emit
             var returnName = EmitAssignmentToTemp(desiredReturnName, returnExpression, emittion, 0, false);
             EmitCleanUp();
 
-            if (returnExpression.Type == TypeSymbol.Int || returnExpression.Type == TypeSymbol.Bool || returnExpression.Type is EnumSymbol)
+            if (returnExpression.Type == TypeSymbol.Int || returnExpression.Type == TypeSymbol.Bool || returnExpression.Type is EnumSymbol e && e.IsIntEnum)
             {
                 var returnCommand = $"return run scoreboard players get {returnName} vars";
                 emittion.AppendLine(returnCommand);
@@ -587,9 +589,16 @@ namespace Blaze.Emit
 
         private void EmitVariableAssignment(string varName, VariableSymbol otherVar, FunctionEmittion emittion)
         {
-            if (otherVar is EnumMemberSymbol enumMember)
+            if (otherVar is StringEnumMemberSymbol stringEnumMember)
             {
-                var value = enumMember.UnderlyingValue;
+                var storage = _nameTranslator.GetStorage(otherVar.Type);
+                var value = stringEnumMember.UnderlyingValue;
+                var command = $"data modify storage {storage} \"{varName}\" set value \"{value}\"";
+                emittion.AppendLine(command);
+            }
+            else if (otherVar is IntEnumMemberSymbol intEnumMember)
+            {
+                var value = intEnumMember.UnderlyingValue;
                 var command = $"scoreboard players set {varName} vars {value}";
                 emittion.AppendLine(command);
             }
@@ -606,13 +615,13 @@ namespace Blaze.Emit
             if (varName == otherName)
                 return;
 
-            if (type == TypeSymbol.String || type == TypeSymbol.Object)
+            if (type == TypeSymbol.String || type == TypeSymbol.Object || type is EnumSymbol e && !e.IsIntEnum)
             {
                 var storage = _nameTranslator.GetStorage(type);
                 var command = $"data modify storage {storage} \"{varName}\" set from storage {storage} {otherName}";
                 emittion.AppendLine(command);
             }
-            else if (type == TypeSymbol.Int || type == TypeSymbol.Bool || type is EnumSymbol)
+            else if (type == TypeSymbol.Int || type == TypeSymbol.Bool || type is EnumSymbol intI)
             {
                 var command = $"scoreboard players operation {varName} vars = {otherName} vars";
                 emittion.AppendLine(command);
@@ -775,40 +784,44 @@ namespace Blaze.Emit
                     }
                     break;
                 case BoundBinaryOperatorKind.Equals:
-                    if (left.Type == TypeSymbol.String || left.Type == TypeSymbol.Object)
                     {
-                        var leftName = EmitAssignmentToTemp("lTemp", left, emittion, current + 1, false);
-                        var rightName = EmitAssignmentToTemp("rTemp", right, emittion, current + 1, false);
+                        if (left.Type == TypeSymbol.String || left.Type == TypeSymbol.Object || left.Type is EnumSymbol e && !e.IsIntEnum)
+                        {
+                            var leftName = EmitAssignmentToTemp("lTemp", left, emittion, current + 1, false);
+                            var rightName = EmitAssignmentToTemp("rTemp", right, emittion, current + 1, false);
 
-                        var command1 = $"execute store success score {TEMP} vars run data modify storage strings \"{leftName}\" set from storage strings \"{rightName}\"";
-                        var command2 = $"execute if score {TEMP} vars matches 1 run scoreboard players set {name} vars 0";
-                        var command3 = $"execute if score {TEMP} vars matches 0 run scoreboard players set {name} vars 1";
-                        emittion.AppendLine(command1);
-                        emittion.AppendLine(command2);
-                        emittion.AppendLine(command3);
-                        EmitCleanUp(leftName, left.Type, emittion);
-                        EmitCleanUp(rightName, right.Type, emittion);
-                        EmitCleanUp(TEMP, TypeSymbol.Bool, emittion);
-                    }
-                    else
-                    {
-                        EmitComparisonBinaryOperation(emittion, left, right, name, operatorKind, current);
+                            var command1 = $"execute store success score {TEMP} vars run data modify storage strings \"{leftName}\" set from storage strings \"{rightName}\"";
+                            var command2 = $"execute if score {TEMP} vars matches 1 run scoreboard players set {name} vars 0";
+                            var command3 = $"execute if score {TEMP} vars matches 0 run scoreboard players set {name} vars 1";
+                            emittion.AppendLine(command1);
+                            emittion.AppendLine(command2);
+                            emittion.AppendLine(command3);
+                            EmitCleanUp(leftName, left.Type, emittion);
+                            EmitCleanUp(rightName, right.Type, emittion);
+                            EmitCleanUp(TEMP, TypeSymbol.Bool, emittion);
+                        }
+                        else
+                        {
+                            EmitComparisonBinaryOperation(emittion, left, right, name, operatorKind, current);
+                        }
                     }
                     break;
                 case BoundBinaryOperatorKind.NotEquals:
-                    if (left.Type == TypeSymbol.String)
                     {
-                        var leftName = EmitAssignmentToTemp("lTemp", left, emittion, current + 1, false);
-                        var rightName = EmitAssignmentToTemp("rTemp", right, emittion, current + 1, false);
+                        if (left.Type == TypeSymbol.String || left.Type == TypeSymbol.Object || left.Type is EnumSymbol e && !e.IsIntEnum)
+                        {
+                            var leftName = EmitAssignmentToTemp("lTemp", left, emittion, current + 1, false);
+                            var rightName = EmitAssignmentToTemp("rTemp", right, emittion, current + 1, false);
 
-                        var command1 = $"execute store success score {name} vars run data modify storage strings \"{leftName}\" set from storage strings \"{rightName}\"";
-                        emittion.AppendLine(command1);
-                        EmitCleanUp(leftName, left.Type, emittion);
-                        EmitCleanUp(rightName, right.Type, emittion);
-                    }
-                    else
-                    {
-                        EmitComparisonBinaryOperation(emittion, left, right, name, operatorKind, current);
+                            var command1 = $"execute store success score {name} vars run data modify storage strings \"{leftName}\" set from storage strings \"{rightName}\"";
+                            emittion.AppendLine(command1);
+                            EmitCleanUp(leftName, left.Type, emittion);
+                            EmitCleanUp(rightName, right.Type, emittion);
+                        }
+                        else
+                        {
+                            EmitComparisonBinaryOperation(emittion, left, right, name, operatorKind, current);
+                        }
                     }
                     break;
                 case BoundBinaryOperatorKind.Less:
@@ -830,9 +843,9 @@ namespace Blaze.Emit
             {
                 //TODO: remove this when constant folding will be in place
                 //This can only occur when two constants are compared
-                if (v.Variable is EnumMemberSymbol enumMember)
+                if (v.Variable is IntEnumMemberSymbol enumMember)
                 {
-                    var other = (EnumMemberSymbol) ((BoundVariableExpression)right).Variable;
+                    var other = (IntEnumMemberSymbol)((BoundVariableExpression)right).Variable;
                     var result = (other.UnderlyingValue == enumMember.UnderlyingValue) ? successValue : initialValue;
                     emittion.AppendLine($"scoreboard players set {name} vars {result}");
                     return;
@@ -845,12 +858,12 @@ namespace Blaze.Emit
                 leftName = EmitAssignmentToTemp("lTemp", left, emittion, index + 1);
                 EmitCleanUp(leftName, left.Type, emittion);
             }
-            
+
             var command1 = $"scoreboard players set {name} vars {initialValue}";
             var command2 = string.Empty;
             if (right is BoundLiteralExpression l && l.Value is int)
             {
-                int value = (int) l.Value;
+                int value = (int)l.Value;
                 var comparason = "matches " + operation switch
                 {
                     BoundBinaryOperatorKind.Less => ".." + (value - 1).ToString(),
@@ -866,7 +879,7 @@ namespace Blaze.Emit
                 var rightName = string.Empty;
                 if (right is BoundVariableExpression vr)
                 {
-                    if (vr.Variable is EnumMemberSymbol enumMember)
+                    if (vr.Variable is IntEnumMemberSymbol enumMember)
                     {
                         var memberUnderlyingValue = enumMember.UnderlyingValue;
                         command2 = $"execute if score {leftName} vars matches {memberUnderlyingValue} run scoreboard players set {name} vars {successValue}";
@@ -915,6 +928,11 @@ namespace Blaze.Emit
                     emittion.AppendLine(command1);
                     return;
                 }
+                else
+                {
+                    rightName = EmitAssignmentToTemp("rTemp", right, emittion, index + 1);
+                    EmitCleanUp(rightName, left.Type, emittion);
+                }
             }
             else if (right is BoundVariableExpression v)
             {
@@ -925,7 +943,7 @@ namespace Blaze.Emit
                 rightName = EmitAssignmentToTemp("rTemp", right, emittion, index + 1);
                 EmitCleanUp(rightName, left.Type, emittion);
             }
-
+           
             var operationSign = operation switch
             {
                 BoundBinaryOperatorKind.Addition => "+=",
@@ -992,16 +1010,16 @@ namespace Blaze.Emit
             }
         }
 
-        private void EmitConversionExpressionAssignment(string name, BoundConversionExpression conv, FunctionEmittion emittion, int current)
+        private void EmitConversionExpressionAssignment(string name, BoundConversionExpression conversion, FunctionEmittion emittion, int current)
         {
             //to int -> scoreboard players operation
             //to string -> copy to storage, than copy with data modify ... string
             //to object -> data modify storage
 
-            emittion.AppendComment($"Assigning a conversion from {conv.Expression.Type} to {conv.Type} to variable \"{name}\"");
-            var resultType = conv.Type;
-            var sourceType = conv.Expression.Type;
-            var tempName = EmitAssignmentToTemp(conv.Expression, emittion, current);
+            emittion.AppendComment($"Assigning a conversion from {conversion.Expression.Type} to {conversion.Type} to variable \"{name}\"");
+            var resultType = conversion.Type;
+            var sourceType = conversion.Expression.Type;
+            var tempName = EmitAssignmentToTemp(conversion.Expression, emittion, current);
 
             if (resultType == TypeSymbol.String)
             {
@@ -1018,9 +1036,19 @@ namespace Blaze.Emit
                 }
                 else if (sourceType is EnumSymbol enumSymbol)
                 {
-                    foreach (var enumMember in enumSymbol.Members)
+                    if (enumSymbol.IsIntEnum)
                     {
-                        var command = $"execute if score {tempName} vars matches {enumMember.UnderlyingValue} run data modify storage {stringsStorage} \"{name}\" set value \"{enumMember.Name}\"";
+                        foreach (var enumMember in enumSymbol.Members)
+                        {
+                            var intMember = (IntEnumMemberSymbol) enumMember;
+                            var command = $"execute if score {tempName} vars matches {intMember.UnderlyingValue} run data modify storage {stringsStorage} \"{name}\" set value \"{enumMember.Name}\"";
+                            emittion.AppendLine(command);
+                        }
+                    }
+                    else
+                    {
+                        var enumStorage = _nameTranslator.GetStorage(enumSymbol);
+                        var command = $"data modify storage {stringsStorage} \"{name}\" set from storage {enumStorage} \"{tempName}\"";
                         emittion.AppendLine(command);
                     }
                 }
@@ -1035,7 +1063,7 @@ namespace Blaze.Emit
                 }
                 else
                 {
-                    command = $"data modify storage {_nameTranslator.GetStorage(TypeSymbol.Object)} \"{name}\" set from storage strings \"{tempName}\"";         
+                    command = $"data modify storage {_nameTranslator.GetStorage(TypeSymbol.Object)} \"{name}\" set from storage strings \"{tempName}\"";
                 }
                 emittion.AppendLine(command);
             }
@@ -1046,13 +1074,15 @@ namespace Blaze.Emit
         {
             string command;
 
-            if (type == TypeSymbol.Int || type == TypeSymbol.Bool || type is EnumSymbol)
+            if (type == TypeSymbol.Int || type == TypeSymbol.Bool || type is EnumSymbol e && e.IsIntEnum)
                 command = $"scoreboard players reset {name} vars";
             else
                 command = $"data remove storage {_nameTranslator.GetStorage(type)} \"{name}\"";
 
             emittion.AppendCleanUp(command);
         }
+
+        private void EmitMacroCleanUp(FunctionEmittion emittion) => EmitCleanUp("**macros", TypeSymbol.String, emittion);
 
         private string EmitAssignmentToTemp(string tempName, BoundExpression expression, FunctionEmittion emittion, int index, bool addDot = true)
         {

@@ -3,16 +3,33 @@ using Blaze.Binding;
 
 namespace Blaze.Symbols
 {
-    public sealed class EnumMemberSymbol : VariableSymbol, IMemberSymbol
+    public class StringEnumMemberSymbol : EnumMemberSymbol
+    {
+        public string UnderlyingValue { get; }
+
+        public StringEnumMemberSymbol(EnumSymbol parent, string name, string underlyingValue) : base(parent, name, underlyingValue)
+        {
+            UnderlyingValue = underlyingValue;
+        }
+    }
+
+    public class IntEnumMemberSymbol : EnumMemberSymbol
     {
         public int UnderlyingValue { get; }
+
+        public IntEnumMemberSymbol(EnumSymbol parent, string name, int underlyingValue) : base(parent, name, underlyingValue)
+        {
+            UnderlyingValue = underlyingValue;
+        }
+    }
+
+    public abstract class EnumMemberSymbol : VariableSymbol, IMemberSymbol
+    {   
         public IMemberSymbol? Parent { get; }
         public override SymbolKind Kind => SymbolKind.EnumMember;
 
-        public EnumMemberSymbol(EnumSymbol parent, string name, int underlyingValue) : base(name, parent, true, new BoundConstant(underlyingValue))
+        public EnumMemberSymbol(EnumSymbol parent, string name, object underlyingValue) : base(name, parent, true, new BoundConstant(underlyingValue))
         {
-            Parent = parent;
-            UnderlyingValue = underlyingValue;
         }
 
         public string GetFullName()

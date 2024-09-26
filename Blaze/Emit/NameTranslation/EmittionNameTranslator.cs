@@ -1,6 +1,4 @@
-﻿using Blaze.Binding;
-using Blaze.Symbols;
-using System.Text;
+﻿using Blaze.Symbols;
 
 namespace Blaze.Emit.NameTranslation
 {
@@ -50,6 +48,8 @@ namespace Blaze.Emit.NameTranslation
                 return "strings";
             else if (type == TypeSymbol.Object)
                 return "objects";
+            else if (type is EnumSymbol)
+                return "enums";
             else
                 return "instances";
         }
