@@ -2,40 +2,16 @@
 
 namespace Blaze.Emit.NameTranslation
 {
-    internal abstract class EmittionTranslation { }
-    internal class SingleName : EmittionTranslation
-    {
-        public string Value { get; }
-
-        public SingleName(string value)
-        {
-            Value = value;
-        }
-    }
-
-    internal class ObjectNameSet : EmittionTranslation
-    {
-        public Dictionary<Symbol, EmittionTranslation> _localTranslations = new Dictionary<Symbol, EmittionTranslation>();
-
-        public string ObjectName { get; }
-
-        public ObjectNameSet(VariableSymbol? reference, NamedTypeSymbol type)
-        {
-            if (reference == null)
-                ObjectName = "*obj_temp";
-            else
-                ObjectName = $"*{reference.Name}";
-        }
-    }
-
     internal class EmittionNameTranslator
     {
         public const string TEMP = ".temp";
         public const string RETURN_TEMP_NAME = "return.value";
-        public const string CONSTRUCTORS_NAMESPACE = "__constructors";
 
-        private readonly Dictionary<Symbol, EmittionTranslation> _emittionTranslations = new Dictionary<Symbol, EmittionTranslation>();
+        private readonly Dictionary<Symbol, string> _emittionTranslations = new Dictionary<Symbol, string>();
         private readonly string _rootNamespace;
+
+        public string Vars => $"{_rootNamespace}.vars";
+        public string Const => "CONST";
 
         public EmittionNameTranslator(string rootNamespace)
         {
@@ -45,52 +21,28 @@ namespace Blaze.Emit.NameTranslation
         public string GetStorage(TypeSymbol type)
         {
             if (type == TypeSymbol.String)
-                return "strings";
+                return $"{_rootNamespace}:strings";
             else if (type == TypeSymbol.Object)
-                return "objects";
+                return $"{_rootNamespace}:objects";
             else if (type is EnumSymbol)
-                return "enums";
+                return $"{_rootNamespace}:enums";
             else
-                return "instances";
-        }
-
-        public string GetConstructorCallName(NamedTypeSymbol constructorType, out bool isGenerated)
-        {
-            if (_emittionTranslations.ContainsKey(constructorType.Constructor))
-            {
-                var name = (SingleName) _emittionTranslations[constructorType.Constructor];
-                isGenerated = true;
-                return name.Value;
-            }
-            else
-            {
-                string callName = $"{CONSTRUCTORS_NAMESPACE}/{constructorType.GetFullName().ToLower()}";
-                _emittionTranslations.Add(constructorType.Constructor, new SingleName(callName));
-                isGenerated = false;
-                return callName;
-            }
+                return $"{_rootNamespace}:instances";
         }
 
         public string GetNamespaceFieldPath(NamespaceSymbol namespaceSymbol)
         {
             if (_emittionTranslations.ContainsKey(namespaceSymbol))
             {
-                var name = (SingleName)_emittionTranslations[namespaceSymbol];
-                return name.Value;
+                var name = _emittionTranslations[namespaceSymbol];
+                return name;
             }
             else
             {
                 var name = $"*{namespaceSymbol.GetFullName()}";
-                var singleName = new SingleName(name);
-                _emittionTranslations.Add(namespaceSymbol, singleName);
+                _emittionTranslations.Add(namespaceSymbol, name);
                 return name;
             }
-        }
-
-        public string GetConstructorCallLink(ConstructorSymbol constructorSymbol)
-        {
-            var name = (SingleName) _emittionTranslations[constructorSymbol];
-            return $"{_rootNamespace}:{name.Value}";
         }
 
         public string GetCallLink(FunctionEmittion emittion)
@@ -107,13 +59,12 @@ namespace Blaze.Emit.NameTranslation
         {
             if (_emittionTranslations.ContainsKey(localVariable))
             {
-                var name = (SingleName)_emittionTranslations[localVariable];
-                return name.Value;
+                var name = _emittionTranslations[localVariable];
+                return name;
             }
 
             var scoreName = $"*{localVariable.Name}";
-            var newName = new SingleName(scoreName);
-            _emittionTranslations.Add(localVariable, newName);
+            _emittionTranslations.Add(localVariable, scoreName);
             return scoreName;
         }
 

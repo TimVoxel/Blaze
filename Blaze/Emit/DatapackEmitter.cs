@@ -1,12 +1,9 @@
-﻿
-using Blaze.Binding;
+﻿using Blaze.Binding;
 using Blaze.Diagnostics;
 using Blaze.Emit.NameTranslation;
 using Blaze.Symbols;
-using Mono.Cecil;
 using System.Collections.Immutable;
 using System.Diagnostics;
-using System.Net.WebSockets;
 using System.Text;
 
 namespace Blaze.Emit
@@ -24,9 +21,11 @@ namespace Blaze.Emit
         private readonly Dictionary<FunctionSymbol, FunctionEmittion> _usedBuiltIn = new Dictionary<FunctionSymbol, FunctionEmittion>();
 
         private string? _contextName = null;
-        private string RootNamespace => _configuration.RootNamespace;
         private string TEMP => EmittionNameTranslator.TEMP;
         private string RETURN_TEMP_NAME => EmittionNameTranslator.RETURN_TEMP_NAME;
+
+        private string Vars => _nameTranslator.Vars;
+        private string Const => _nameTranslator.Const;
 
         public DatapackEmitter(BoundProgram program, CompilationConfiguration configuration)
         {
@@ -42,9 +41,9 @@ namespace Blaze.Emit
         private void AddInitializationCommands()
         {
             _initFunction.AppendComment("Blaze setup");
-            _initFunction.AppendLine("scoreboard objectives add vars dummy");
-            _initFunction.AppendLine("scoreboard objectives add CONST dummy");
-            _initFunction.AppendLine("scoreboard players set *-1 CONST -1");
+            _initFunction.AppendLine($"scoreboard objectives add {Vars} dummy");
+            _initFunction.AppendLine($"scoreboard objectives add {Const} dummy");
+            _initFunction.AppendLine($"scoreboard players set *-1 {Const} -1");
             _initFunction.AppendLine();
         }
 
@@ -253,7 +252,7 @@ namespace Blaze.Emit
             EmitStatement(node.Body, subFunction);
 
             var tempName = EmitAssignmentToTemp(node.Condition, emittion, 0);
-            var callClauseCommand = $"execute if score {tempName} vars matches 1 run function {_nameTranslator.GetCallLink(subFunction)}";
+            var callClauseCommand = $"execute if score {tempName} {Vars} matches 1 run function {_nameTranslator.GetCallLink(subFunction)}";
 
             emittion.AppendLine(callClauseCommand);
 
@@ -261,7 +260,7 @@ namespace Blaze.Emit
             {
                 var elseSubFunction = FunctionEmittion.CreateSub(emittion, SubFunctionKind.Else);
                 EmitStatement(node.ElseBody, elseSubFunction);
-                var elseCallClauseCommand = $"execute if score {tempName} vars matches 0 run function {_nameTranslator.GetCallLink(elseSubFunction)}";
+                var elseCallClauseCommand = $"execute if score {tempName} {Vars} matches 0 run function {_nameTranslator.GetCallLink(elseSubFunction)}";
 
                 emittion.AppendLine(elseCallClauseCommand);
             }
@@ -282,7 +281,7 @@ namespace Blaze.Emit
             var callCommand = $"function {_nameTranslator.GetCallLink(subFunction)}";
 
             var tempName = EmitAssignmentToTemp(node.Condition, subFunction, 0);
-            var breakClauseCommand = $"execute if score {tempName} vars matches 0 run return 0";
+            var breakClauseCommand = $"execute if score {tempName} {Vars} matches 0 run return 0";
             subFunction.AppendLine(breakClauseCommand);
             subFunction.AppendLine();
 
@@ -310,7 +309,7 @@ namespace Blaze.Emit
             EmitStatement(node.Body, subFunction);
 
             var tempName = EmitAssignmentToTemp(node.Condition, subFunction, 0);
-            var loopClauseCommand = $"execute if score {tempName} vars matches 1 run {callCommand}";
+            var loopClauseCommand = $"execute if score {tempName} {Vars} matches 1 run {callCommand}";
             subFunction.AppendLine(loopClauseCommand);
             subFunction.AppendLine();
 
@@ -355,7 +354,7 @@ namespace Blaze.Emit
 
             if (returnExpression.Type == TypeSymbol.Int || returnExpression.Type == TypeSymbol.Bool || returnExpression.Type is EnumSymbol e && e.IsIntEnum)
             {
-                var returnCommand = $"return run scoreboard players get {returnName} vars";
+                var returnCommand = $"return run scoreboard players get {returnName} {Vars}";
                 emittion.AppendLine(returnCommand);
             }
             else
@@ -570,7 +569,7 @@ namespace Blaze.Emit
             {
                 var value = (string)literal.Value;
                 value = value.Replace("\"", "\\\"");
-                var command = $"data modify storage strings \"{varName}\" set value \"{value}\"";
+                var command = $"data modify storage {_nameTranslator.GetStorage(TypeSymbol.String)} \"{varName}\" set value \"{value}\"";
                 emittion.AppendLine(command);
             }
             else
@@ -582,7 +581,7 @@ namespace Blaze.Emit
                 else
                     value = ((bool)literal.Value) ? 1 : 0;
 
-                var command = $"scoreboard players set {varName} vars {value}";
+                var command = $"scoreboard players set {varName} {Vars} {value}";
                 emittion.AppendLine(command);
             }
         }
@@ -599,7 +598,7 @@ namespace Blaze.Emit
             else if (otherVar is IntEnumMemberSymbol intEnumMember)
             {
                 var value = intEnumMember.UnderlyingValue;
-                var command = $"scoreboard players set {varName} vars {value}";
+                var command = $"scoreboard players set {varName} {Vars} {value}";
                 emittion.AppendLine(command);
             }
             else 
@@ -623,7 +622,7 @@ namespace Blaze.Emit
             }
             else if (type == TypeSymbol.Int || type == TypeSymbol.Bool || type is EnumSymbol intI)
             {
-                var command = $"scoreboard players operation {varName} vars = {otherName} vars";
+                var command = $"scoreboard players operation {varName} {Vars} = {otherName} {Vars}";
                 emittion.AppendLine(command);
             }
             else
@@ -687,14 +686,14 @@ namespace Blaze.Emit
                 case BoundUnaryOperatorKind.Negation:
 
                     var varName = EmitAssignmentExpression(name, expression, emittion, current);
-                    var command = $"scoreboard players operation {varName} vars *= *-1 CONST";
+                    var command = $"scoreboard players operation {varName} {Vars} *= *-1 {Const}";
                     emittion.AppendLine(command);
                     break;
                 case BoundUnaryOperatorKind.LogicalNegation:
 
                     var tempName = EmitAssignmentToTemp(expression, emittion, current);
-                    var command1 = $"execute if score {tempName} vars matches 1 run scoreboard players set {name} vars 0";
-                    var command2 = $"execute if score {tempName} vars matches 0 run scoreboard players set {name} vars 1";
+                    var command1 = $"execute if score {tempName} {Vars} matches 1 run scoreboard players set {name} {Vars} 0";
+                    var command2 = $"execute if score {tempName} {Vars} matches 0 run scoreboard players set {name} {Vars} 1";
                     emittion.AppendLine(command1);
                     emittion.AppendLine(command2);
                     EmitCleanUp(tempName, TypeSymbol.Bool, emittion);
@@ -760,8 +759,8 @@ namespace Blaze.Emit
                         var leftName = EmitAssignmentToTemp($"lbTemp", left, emittion, current + 1);
                         var rightName = EmitAssignmentToTemp($"rbTemp", right, emittion, current + 1);
 
-                        var command1 = $"scoreboard players set {name} vars 0";
-                        var command2 = $"execute if score {leftName} vars matches 1 if score {rightName} vars matches 1 run scoreboard players set {name} vars 1";
+                        var command1 = $"scoreboard players set {name} {Vars} 0";
+                        var command2 = $"execute if score {leftName} {Vars} matches 1 if score {rightName} {Vars} matches 1 run scoreboard players set {name} {Vars} 1";
                         emittion.AppendLine(command1);
                         emittion.AppendLine(command2);
                         EmitCleanUp(leftName, left.Type, emittion);
@@ -773,9 +772,9 @@ namespace Blaze.Emit
                         var leftName = EmitAssignmentToTemp($"lbTemp", left, emittion, current + 1);
                         var rightName = EmitAssignmentToTemp($"rbTemp", right, emittion, current + 1);
 
-                        var command1 = $"scoreboard players set {name} vars 0";
-                        var command2 = $"execute if score {leftName} vars matches 1 run scoreboard players set {name} vars 1";
-                        var command3 = $"execute if score {rightName} vars matches 1 run scoreboard players set {name} vars 1";
+                        var command1 = $"scoreboard players set {name} {Vars} 0";
+                        var command2 = $"execute if score {leftName} {Vars} matches 1 run scoreboard players set {name} {Vars} 1";
+                        var command3 = $"execute if score {rightName} {Vars} matches 1 run scoreboard players set {name} {Vars} 1";
                         emittion.AppendLine(command1);
                         emittion.AppendLine(command2);
                         emittion.AppendLine(command3);
@@ -790,9 +789,9 @@ namespace Blaze.Emit
                             var leftName = EmitAssignmentToTemp("lTemp", left, emittion, current + 1, false);
                             var rightName = EmitAssignmentToTemp("rTemp", right, emittion, current + 1, false);
 
-                            var command1 = $"execute store success score {TEMP} vars run data modify storage strings \"{leftName}\" set from storage strings \"{rightName}\"";
-                            var command2 = $"execute if score {TEMP} vars matches 1 run scoreboard players set {name} vars 0";
-                            var command3 = $"execute if score {TEMP} vars matches 0 run scoreboard players set {name} vars 1";
+                            var command1 = $"execute store success score {TEMP} {Vars} run data modify storage {_nameTranslator.GetStorage(TypeSymbol.String)} \"{leftName}\" set from storage {_nameTranslator.GetStorage(TypeSymbol.String)} \"{rightName}\"";
+                            var command2 = $"execute if score {TEMP} {Vars} matches 1 run scoreboard players set {name} {Vars} 0";
+                            var command3 = $"execute if score {TEMP} {Vars} matches 0 run scoreboard players set {name} {Vars} 1";
                             emittion.AppendLine(command1);
                             emittion.AppendLine(command2);
                             emittion.AppendLine(command3);
@@ -813,7 +812,7 @@ namespace Blaze.Emit
                             var leftName = EmitAssignmentToTemp("lTemp", left, emittion, current + 1, false);
                             var rightName = EmitAssignmentToTemp("rTemp", right, emittion, current + 1, false);
 
-                            var command1 = $"execute store success score {name} vars run data modify storage strings \"{leftName}\" set from storage strings \"{rightName}\"";
+                            var command1 = $"execute store success score {name} {Vars} run data modify storage {_nameTranslator.GetStorage(TypeSymbol.String)} \"{leftName}\" set from storage {_nameTranslator.GetStorage(TypeSymbol.String)} \"{rightName}\"";
                             emittion.AppendLine(command1);
                             EmitCleanUp(leftName, left.Type, emittion);
                             EmitCleanUp(rightName, right.Type, emittion);
@@ -847,7 +846,7 @@ namespace Blaze.Emit
                 {
                     var other = (IntEnumMemberSymbol)((BoundVariableExpression)right).Variable;
                     var result = (other.UnderlyingValue == enumMember.UnderlyingValue) ? successValue : initialValue;
-                    emittion.AppendLine($"scoreboard players set {name} vars {result}");
+                    emittion.AppendLine($"scoreboard players set {name} {Vars} {result}");
                     return;
                 }
 
@@ -859,7 +858,7 @@ namespace Blaze.Emit
                 EmitCleanUp(leftName, left.Type, emittion);
             }
 
-            var command1 = $"scoreboard players set {name} vars {initialValue}";
+            var command1 = $"scoreboard players set {name} {Vars} {initialValue}";
             var command2 = string.Empty;
             if (right is BoundLiteralExpression l && l.Value is int)
             {
@@ -872,7 +871,7 @@ namespace Blaze.Emit
                     BoundBinaryOperatorKind.GreaterOrEquals => value + "..",
                     _ => value
                 };
-                command2 = $"execute unless score {leftName} vars {comparason} run scoreboard players set {name} vars {successValue}";
+                command2 = $"execute unless score {leftName} {Vars} {comparason} run scoreboard players set {name} {Vars} {successValue}";
             }
             else
             {
@@ -882,7 +881,7 @@ namespace Blaze.Emit
                     if (vr.Variable is IntEnumMemberSymbol enumMember)
                     {
                         var memberUnderlyingValue = enumMember.UnderlyingValue;
-                        command2 = $"execute if score {leftName} vars matches {memberUnderlyingValue} run scoreboard players set {name} vars {successValue}";
+                        command2 = $"execute if score {leftName} {Vars} matches {memberUnderlyingValue} run scoreboard players set {name} {Vars} {successValue}";
                         emittion.AppendLine(command1);
                         emittion.AppendLine(command2);
                         return;
@@ -902,7 +901,7 @@ namespace Blaze.Emit
                     BoundBinaryOperatorKind.GreaterOrEquals => ">=",
                     _ => "="
                 };
-                command2 = $"execute if score {leftName} vars {operationSign} {rightName} vars run scoreboard players set {name} vars {successValue}";
+                command2 = $"execute if score {leftName} {Vars} {operationSign} {rightName} {Vars} run scoreboard players set {name} {Vars} {successValue}";
             }
 
             emittion.AppendLine(command1);
@@ -918,13 +917,13 @@ namespace Blaze.Emit
             {
                 if (operation == BoundBinaryOperatorKind.Addition)
                 {
-                    var command1 = $"scoreboard players add {leftName} vars {l.Value}";
+                    var command1 = $"scoreboard players add {leftName} {Vars} {l.Value}";
                     emittion.AppendLine(command1);
                     return;
                 }
                 else if (operation == BoundBinaryOperatorKind.Subtraction)
                 {
-                    var command1 = $"scoreboard players remove {leftName} vars {l.Value}";
+                    var command1 = $"scoreboard players remove {leftName} {Vars} {l.Value}";
                     emittion.AppendLine(command1);
                     return;
                 }
@@ -952,7 +951,7 @@ namespace Blaze.Emit
                 BoundBinaryOperatorKind.Division => "/=",
                 _ => "="
             };
-            var command = $"scoreboard players operation {leftName} vars {operationSign} {rightName} vars";
+            var command = $"scoreboard players operation {leftName} {Vars} {operationSign} {rightName} {Vars}";
             emittion.AppendLine(command);
         }
 
@@ -974,7 +973,7 @@ namespace Blaze.Emit
                 if (!isBuiltIt)
                 {
                     var setParameters = EmitFunctionParametersAssignment(call.Function.Parameters, call.Arguments, emittion);
-                    var command = $"execute store result score {name} vars run function {_nameTranslator.GetCallLink(call.Function)}";
+                    var command = $"execute store result score {name} {Vars} run function {_nameTranslator.GetCallLink(call.Function)}";
                     emittion.AppendLine(command);
                     EmitFunctionParameterCleanUp(setParameters, emittion);
                 }
@@ -982,7 +981,7 @@ namespace Blaze.Emit
             else
             {
                 EmitCallExpression(name, call, emittion, current);
-                var command2 = $"data modify storage {_nameTranslator.GetStorage(call.Type)} \"{name}\" set from storage strings \"{RETURN_TEMP_NAME}\"";
+                var command2 = $"data modify storage {_nameTranslator.GetStorage(call.Type)} \"{name}\" set from storage {_nameTranslator.GetStorage(TypeSymbol.String)} \"{RETURN_TEMP_NAME}\"";
                 emittion.AppendLine(command2);
             }
         }
@@ -1028,8 +1027,8 @@ namespace Blaze.Emit
 
                 if (sourceType == TypeSymbol.Int || sourceType == TypeSymbol.Bool)
                 {
-                    var command1 = $"execute store result storage {stringsStorage} \"{tempPath}\" int 1 run scoreboard players get {tempName} vars";
-                    var command2 = $"data modify storage {stringsStorage} \"{name}\" set string storage strings \"{tempPath}\"";
+                    var command1 = $"execute store result storage {stringsStorage} \"{tempPath}\" int 1 run scoreboard players get {tempName} {Vars}";
+                    var command2 = $"data modify storage {stringsStorage} \"{name}\" set string storage {stringsStorage} \"{tempPath}\"";
                     emittion.AppendLine(command1);
                     emittion.AppendLine(command2);
                     EmitCleanUp(tempPath, resultType, emittion);
@@ -1041,7 +1040,7 @@ namespace Blaze.Emit
                         foreach (var enumMember in enumSymbol.Members)
                         {
                             var intMember = (IntEnumMemberSymbol) enumMember;
-                            var command = $"execute if score {tempName} vars matches {intMember.UnderlyingValue} run data modify storage {stringsStorage} \"{name}\" set value \"{enumMember.Name}\"";
+                            var command = $"execute if score {tempName} {Vars} matches {intMember.UnderlyingValue} run data modify storage {stringsStorage} \"{name}\" set value \"{enumMember.Name}\"";
                             emittion.AppendLine(command);
                         }
                     }
@@ -1059,11 +1058,11 @@ namespace Blaze.Emit
 
                 if (sourceType == TypeSymbol.Int || sourceType == TypeSymbol.Bool)
                 {
-                    command = $"execute store result storage {_nameTranslator.GetStorage(TypeSymbol.Object)} \"{name}\" int 1 run scoreboard players get {tempName} vars";
+                    command = $"execute store result storage {_nameTranslator.GetStorage(TypeSymbol.Object)} \"{name}\" int 1 run scoreboard players get {tempName} {Vars}";
                 }
                 else
                 {
-                    command = $"data modify storage {_nameTranslator.GetStorage(TypeSymbol.Object)} \"{name}\" set from storage strings \"{tempName}\"";
+                    command = $"data modify storage {_nameTranslator.GetStorage(TypeSymbol.Object)} \"{name}\" set from storage {_nameTranslator.GetStorage(TypeSymbol.String)} \"{tempName}\"";
                 }
                 emittion.AppendLine(command);
             }
@@ -1075,7 +1074,7 @@ namespace Blaze.Emit
             string command;
 
             if (type == TypeSymbol.Int || type == TypeSymbol.Bool || type is EnumSymbol e && e.IsIntEnum)
-                command = $"scoreboard players reset {name} vars";
+                command = $"scoreboard players reset {name} {Vars}";
             else
                 command = $"data remove storage {_nameTranslator.GetStorage(type)} \"{name}\"";
 

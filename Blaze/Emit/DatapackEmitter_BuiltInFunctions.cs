@@ -1,6 +1,5 @@
 ﻿using Blaze.Binding;
 using Blaze.Symbols;
-using Blaze.Syntax_Nodes;
 
 namespace Blaze.Emit
 {
@@ -80,7 +79,7 @@ namespace Blaze.Emit
             if (isCreated)
                 macro.AppendMacro("$(command)");
 
-            emittion.AppendLine($"function {_nameTranslator.GetCallLink(macro)} with storage strings **macros");
+            emittion.AppendLine($"function {_nameTranslator.GetCallLink(macro)} with storage {_nameTranslator.GetStorage(TypeSymbol.String)} **macros");
             EmitMacroCleanUp(emittion);
         } 
 
@@ -93,9 +92,9 @@ namespace Blaze.Emit
             if (isCreated)
                 macro.AppendMacro($"datapack enable \"file/$(pack)\"");
 
-            var command = $"function {_nameTranslator.GetCallLink(macro)} with storage strings **macros";
+            var command = $"function {_nameTranslator.GetCallLink(macro)} with storage {_nameTranslator.GetStorage(TypeSymbol.String)} **macros";
             emittion.AppendLine(command);
-            EmitCleanUp(tempName, argument.Type, emittion);
+            EmitMacroCleanUp(emittion);
         }
 
         private void EmitDatapackDisable(BoundCallExpression call, FunctionEmittion emittion)
@@ -107,9 +106,9 @@ namespace Blaze.Emit
             if (isCreated)
                 macro.AppendMacro($"datapack disable \"file/$(pack)\"");
 
-            var command = $"function {_nameTranslator.GetCallLink(macro)} with storage strings **macros";
+            var command = $"function {_nameTranslator.GetCallLink(macro)} with storage {_nameTranslator.GetStorage(TypeSymbol.String)} **macros";
             emittion.AppendLine(command);
-            EmitCleanUp(tempName, argument.Type, emittion);
+            EmitMacroCleanUp(emittion);
         }
 
         private void EmitSetDatapackEnabled(BoundCallExpression call, FunctionEmittion emittion, int current)
@@ -123,26 +122,26 @@ namespace Blaze.Emit
 
             if (isCreated)
             {
-                macro.AppendMacro($"execute if score {valueName} vars matches 1 run return run datapack enable \"file/$(pack)\"");
+                macro.AppendMacro($"execute if score {valueName} {Vars} matches 1 run return run datapack enable \"file/$(pack)\"");
                 macro.AppendMacro($"datapack disable \"file/$(pack)\"");
             }
 
-            var command = $"function {_nameTranslator.GetCallLink(macro)} with storage strings **macros";
+            var command = $"function {_nameTranslator.GetCallLink(macro)} with storage {_nameTranslator.GetStorage(TypeSymbol.String)} **macros";
             emittion.AppendLine(command);
 
-            EmitCleanUp(packName, pack.Type, emittion);
             EmitCleanUp(valueName, value.Type, emittion);
+            EmitMacroCleanUp(emittion);
         }
         
         private void EmitGetDatapackCount(string name, BoundCallExpression call, FunctionEmittion emittion, bool countEnabled = false, bool countAvailable = false)
         {
             string filter = string.Empty;
             if (countEnabled)
-                filter = " enabled";
+                filter = "enabled";
             else
-                filter = " available";
+                filter = "available";
 
-            var command = $"execute store result score {name} vars run datapack list{filter}";
+            var command = $"execute store result score {name} {Vars} run datapack list {filter}";
             emittion.AppendLine(command);
         } 
 
@@ -158,9 +157,9 @@ namespace Blaze.Emit
 
                     string command;
                     if (timeUnits == null)
-                        command = $"execute if score {right} vars matches {intMember.UnderlyingValue} run weather {enumMember.Name.ToLower()}";
+                        command = $"execute if score {right} {Vars} matches {intMember.UnderlyingValue} run weather {enumMember.Name.ToLower()}";
                     else
-                        command = $"execute if score {right} vars matches {intMember.UnderlyingValue} run weather {enumMember.Name.ToLower()} {time}{timeUnits}";
+                        command = $"execute if score {right} {Vars} matches {intMember.UnderlyingValue} run weather {enumMember.Name.ToLower()} {time}{timeUnits}";
 
                     emittion.AppendLine(command);
                 }
@@ -192,9 +191,9 @@ namespace Blaze.Emit
                     var duration = EmitAssignmentToTemp("dur", call.Arguments[1], emittion, current);
                     var macro = GetOrCreateBuiltIn(BuiltInNamespace.Minecraft.General.Weather.SetWeather, out bool isCreated);
 
-                    emittion.AppendLine($"execute store result storage strings **macros.duration int 1 run scoreboard players get {duration} vars");
-                    emittion.AppendLine($"data modify storage strings **macros.tu set value \"{timeUnits}\"");
-                    emittion.AppendLine($"function {_nameTranslator.GetCallLink(macro)} with storage strings **macros");
+                    emittion.AppendLine($"execute store result storage {_nameTranslator.GetStorage(TypeSymbol.String)} **macros.duration int 1 run scoreboard players get {duration} {Vars}");
+                    emittion.AppendLine($"data modify storage {_nameTranslator.GetStorage(TypeSymbol.String)} **macros.tu set value \"{timeUnits}\"");
+                    emittion.AppendLine($"function {_nameTranslator.GetCallLink(macro)} with storage {_nameTranslator.GetStorage(TypeSymbol.String)} **macros");
 
                     if (isCreated)
                         macro.AppendMacro($"weather $(type) $(duration)(tu)");
@@ -240,12 +239,12 @@ namespace Blaze.Emit
             else if (argument is BoundVariableExpression variable)
             {
                 var varName = _nameTranslator.GetVariableName(variable.Variable);
-                command = "tellraw @a {\"storage\":\"strings\",\"nbt\":\"\\\"" + varName + "\\\"\"}";
+                command = "tellraw @a {\"storage\":\"{_nameTranslator.GetStorage(TypeSymbol.String)}\",\"nbt\":\"\\\"" + varName + "\\\"\"}";
             }
             else
             {
                 var tempName = EmitAssignmentToTemp(TEMP, argument, emittion, 0, false);
-                command = "tellraw @a {\"storage\":\"strings\",\"nbt\":\"\\\"" + tempName + "\\\"\"}";
+                command = "tellraw @a {\"storage\":\"{_nameTranslator.GetStorage(TypeSymbol.String)}\",\"nbt\":\"\\\"" + tempName + "\\\"\"}";
                 EmitCleanUp(tempName, argument.Type, emittion);
             }
             

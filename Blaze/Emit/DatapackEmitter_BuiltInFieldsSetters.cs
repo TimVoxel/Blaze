@@ -32,8 +32,8 @@ namespace Blaze.Emit
 
             if (field.Type == TypeSymbol.Bool)
             {
-                var command1 = $"execute if score {rightName} vars matches 1 run gamerule {field.Name} true";
-                var command2 = $"execute if score {rightName} vars matches 0 run gamerule {field.Name} false";
+                var command1 = $"execute if score {rightName} {Vars} matches 1 run gamerule {field.Name} true";
+                var command2 = $"execute if score {rightName} {Vars} matches 0 run gamerule {field.Name} false";
                 emittion.AppendLine(command1);
                 emittion.AppendLine(command2);
             }
@@ -43,9 +43,9 @@ namespace Blaze.Emit
                 Debug.Assert(macroFunctionSymbol != null);
                 var macro = GetOrCreateBuiltIn(macroFunctionSymbol, out bool isCreated);
 
-                var command1 = $"data modify storage strings **macros.rule set value \"{field.Name}\"";
-                var command2 = $"execute store result storage strings **macros.value int 1 run scoreboard players get {rightName} vars";
-                var command3 = $"function {_nameTranslator.GetCallLink(macro)} with storage strings **macros";
+                var command1 = $"data modify storage {_nameTranslator.GetStorage(TypeSymbol.String)} **macros.rule set value \"{field.Name}\"";
+                var command2 = $"execute store result storage {_nameTranslator.GetStorage(TypeSymbol.String)} **macros.value int 1 run scoreboard players get {rightName} {Vars}";
+                var command3 = $"function {_nameTranslator.GetCallLink(macro)} with storage {_nameTranslator.GetStorage(TypeSymbol.String)} **macros";
 
                 if (isCreated)
                     macro.AppendMacro("gamerule $(rule) $(value)");
@@ -74,7 +74,7 @@ namespace Blaze.Emit
             foreach (var enumMember in BuiltInNamespace.Minecraft.General.Difficulty.Members)
             {
                 var intMember = (IntEnumMemberSymbol) enumMember;
-                var command = $"execute if score {rightName} vars matches {intMember.UnderlyingValue} run difficulty {enumMember.Name.ToLower()}";
+                var command = $"execute if score {rightName} {Vars} matches {intMember.UnderlyingValue} run difficulty {enumMember.Name.ToLower()}";
                 emittion.AppendLine(command);
             }
 
