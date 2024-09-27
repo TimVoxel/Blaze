@@ -1,13 +1,14 @@
 ﻿using Blaze.Symbols;
+using System.Diagnostics;
 
 namespace Blaze.Binding
 {
     internal static class ConstantFolding
     {
-        public static BoundConstant? Fold(BoundExpression left, BoundBinaryOperator op, BoundExpression right)
+        public static BoundConstant? Fold(BoundExpression leftExpression, BoundBinaryOperator op, BoundExpression rightExpression)
         {
-            var leftConstant = left.ConstantValue;
-            var rightConstant = right.ConstantValue;
+            var leftConstant = leftExpression.ConstantValue;
+            var rightConstant = rightExpression.ConstantValue;
 
             if (op.OperatorKind == BoundBinaryOperatorKind.LogicalMultiplication)
             {
@@ -25,31 +26,92 @@ namespace Blaze.Binding
             if (leftConstant == null || rightConstant == null)
                 return null;
 
-            var leftValue = leftConstant.Value;
-            var rightValue = rightConstant.Value;
+            var left = leftConstant.Value;
+            var right = rightConstant.Value;
 
-            return op.OperatorKind switch 
+            switch (op.OperatorKind)
             {
-                BoundBinaryOperatorKind.Addition when left.Type == TypeSymbol.String => new BoundConstant((string)leftValue + (string)rightValue),
+                case BoundBinaryOperatorKind.Addition:
 
-                BoundBinaryOperatorKind.Addition when left.Type == TypeSymbol.Int => new BoundConstant((int)leftValue + (int)rightValue),      
-                BoundBinaryOperatorKind.Subtraction => new BoundConstant((int)leftValue - (int)rightValue),
-                BoundBinaryOperatorKind.Multiplication => new BoundConstant((int)leftValue * (int)rightValue),
-                BoundBinaryOperatorKind.Division => new BoundConstant((int)leftValue / (int)rightValue),
+                    if (leftExpression.Type == TypeSymbol.Int)
+                        return new BoundConstant((int)left + (int)right);
+                    else if (leftExpression.Type == TypeSymbol.Float)
+                        return new BoundConstant(Convert.ToSingle(left) + Convert.ToSingle(right));
+                    else if (leftExpression.Type == TypeSymbol.Double)
+                        return new BoundConstant((double)left + (double)right);
+                    else if (leftExpression.Type == TypeSymbol.String)
+                        return new BoundConstant((string)left + (string)right);
+                    break;
+                case BoundBinaryOperatorKind.Subtraction:
 
-                
-                BoundBinaryOperatorKind.LogicalMultiplication => new BoundConstant((bool)leftValue && (bool)rightValue),
-                BoundBinaryOperatorKind.LogicalAddition => new BoundConstant((bool)leftValue || (bool)rightValue),
+                    if (leftExpression.Type == TypeSymbol.Int)
+                        return new BoundConstant((int)left - (int)right);
+                    else if (leftExpression.Type == TypeSymbol.Float)
+                        return new BoundConstant(Convert.ToSingle(left) - Convert.ToSingle(right));
+                    else if (leftExpression.Type == TypeSymbol.Double)
+                        return new BoundConstant((double)left - (double)right);
+                    break;
+                case BoundBinaryOperatorKind.Multiplication:
 
-                BoundBinaryOperatorKind.Equals => new BoundConstant(Equals(leftValue, rightValue)),
-                BoundBinaryOperatorKind.NotEquals => new BoundConstant(!Equals(leftValue, rightValue)),
-                BoundBinaryOperatorKind.Less =>  new BoundConstant((int)leftValue < (int)rightValue),
-                BoundBinaryOperatorKind.LessOrEquals => new BoundConstant((int)leftValue <= (int)rightValue),
-                BoundBinaryOperatorKind.Greater =>  new BoundConstant((int)leftValue > (int)rightValue),
-                BoundBinaryOperatorKind.GreaterOrEquals => new BoundConstant((int)leftValue >= (int)rightValue),
+                    if (leftExpression.Type == TypeSymbol.Int)
+                        return new BoundConstant((int)left * (int)right);
+                    else if (leftExpression.Type == TypeSymbol.Float)
+                        return new BoundConstant(Convert.ToSingle(left) * Convert.ToSingle(right));
+                    else if (leftExpression.Type == TypeSymbol.Double)
+                        return new BoundConstant((double)left * (double)right);
+                    break;
+                case BoundBinaryOperatorKind.Division:
 
-                _ => throw new Exception($"Unexpected binary operator {op.OperatorKind}"),
-            };
+                    if (leftExpression.Type == TypeSymbol.Int)
+                        return new BoundConstant((int)left / (int)right);
+                    else if (leftExpression.Type == TypeSymbol.Float)
+                        return new BoundConstant(Convert.ToSingle(left) / Convert.ToSingle(right));
+                    else if (leftExpression.Type == TypeSymbol.Double)
+                        return new BoundConstant((double)left / (double)right);
+                    break;
+                case BoundBinaryOperatorKind.Equals:
+                    return new BoundConstant(Equals(left, right));
+                case BoundBinaryOperatorKind.NotEquals:
+                    return new BoundConstant(!Equals(left, right));
+                case BoundBinaryOperatorKind.Less:
+
+                    if (leftExpression.Type == TypeSymbol.Int)
+                        return new BoundConstant((int)left < (int)right);
+                    else if (leftExpression.Type == TypeSymbol.Float)
+                        return new BoundConstant(Convert.ToSingle(left) < Convert.ToSingle(right));
+                    else if (leftExpression.Type == TypeSymbol.Double)
+                        return new BoundConstant((double)left < (double)right);
+                    break;
+
+                case BoundBinaryOperatorKind.LessOrEquals:
+
+                    if (leftExpression.Type == TypeSymbol.Int)
+                        return new BoundConstant((int)left <= (int)right);
+                    else if (leftExpression.Type == TypeSymbol.Float)
+                        return new BoundConstant(Convert.ToSingle(left) <= Convert.ToSingle(right));
+                    else if (leftExpression.Type == TypeSymbol.Double)
+                        return new BoundConstant((double)left <= (double)right);
+                    break;
+                case BoundBinaryOperatorKind.Greater:
+
+                    if (leftExpression.Type == TypeSymbol.Int)
+                        return new BoundConstant((int)left > (int)right);
+                    else if (leftExpression.Type == TypeSymbol.Float)
+                        return new BoundConstant(Convert.ToSingle(left) > Convert.ToSingle(right));
+                    else if (leftExpression.Type == TypeSymbol.Double)
+                        return new BoundConstant((double)left > (double)right);
+                    break;
+                case BoundBinaryOperatorKind.GreaterOrEquals:
+
+                    if (leftExpression.Type == TypeSymbol.Int)
+                        return new BoundConstant((int)left >= (int)right);
+                    else if (leftExpression.Type == TypeSymbol.Float)
+                        return new BoundConstant(Convert.ToSingle(left) >= Convert.ToSingle(right));
+                    else if (leftExpression.Type == TypeSymbol.Double)
+                        return new BoundConstant((double)left >= (double)right);
+                    break;
+            }
+            throw new Exception($"Unexpected binary operator {op.OperatorKind} with types {leftExpression.Type} and {rightExpression.Type}");
         }
 
         public static BoundConstant? ComputeConstant(BoundUnaryOperator op, BoundExpression operand)
@@ -64,6 +126,31 @@ namespace Blaze.Binding
                 BoundUnaryOperatorKind.LogicalNegation => new BoundConstant(!(bool)operand.ConstantValue.Value),
                 _ => throw new Exception($"Unexpected unary operator {op.OperatorKind}")
             };
+        }
+
+        public static BoundConstant? ComputeCast(BoundExpression expression, TypeSymbol type)
+        {
+            var constant = expression.ConstantValue;
+            if (constant == null)
+                return null;
+
+            if (type == TypeSymbol.String)
+            {
+                string? value = constant.Value.ToString();
+                Debug.Assert(value != null);
+                return new BoundConstant(value);
+            }
+
+            if (type == TypeSymbol.Float)
+                return new BoundConstant(Convert.ToSingle(constant.Value));
+            if (type == TypeSymbol.Int)
+                return new BoundConstant(Convert.ToInt32(constant.Value));
+            if (type == TypeSymbol.Double)
+                return new BoundConstant(Convert.ToDouble(constant.Value));
+            if (type == TypeSymbol.Bool)
+                return new BoundConstant(Convert.ToBoolean(constant.Value));
+
+            return null;
         }
     }
 }

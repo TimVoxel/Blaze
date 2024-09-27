@@ -6,6 +6,7 @@ namespace Blaze.Binding
     {
         public override TypeSymbol Type { get; }
         public BoundExpression Expression { get; private set; }
+        public override BoundConstant? ConstantValue { get; }
 
         public override BoundNodeKind Kind => BoundNodeKind.ConversionExpression;
 
@@ -13,6 +14,7 @@ namespace Blaze.Binding
         {
             Type = type;
             Expression = expression;
+            ConstantValue = ConstantFolding.ComputeCast(expression, type);
         }
     }
 }

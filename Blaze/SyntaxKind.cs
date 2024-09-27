@@ -40,6 +40,8 @@
         //Literals
         IntegerLiteralToken,
         StringLiteralToken,
+        FloatLiteralToken,
+        DoubleLiteralToken,
 
         //Keywords
         FalseKeyword,

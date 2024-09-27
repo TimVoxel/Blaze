@@ -18,6 +18,10 @@ namespace Blaze.Binding
                 Type = TypeSymbol.Bool;
             else if (value is string)
                 Type = TypeSymbol.String;
+            else if (value is float)
+                Type = TypeSymbol.Float;
+            else if (value is double)
+                Type = TypeSymbol.Double;
             else
                 throw new Exception($"Unexpected literal {value} of type {value.GetType()}");
 

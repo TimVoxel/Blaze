@@ -344,7 +344,7 @@ namespace Blaze.Binding
             }
             if (node.Type == TypeSymbol.Bool)
                 writer.WriteKeyword(value);
-            else if (node.Type == TypeSymbol.Int)
+            else if (node.Type == TypeSymbol.Int || node.Type == TypeSymbol.Float || node.Type == TypeSymbol.Double)
                 writer.WriteNumber(value);
             else if (node.Type == TypeSymbol.String)
             {

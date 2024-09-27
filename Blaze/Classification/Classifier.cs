@@ -58,6 +58,8 @@ namespace Blaze.Classification
         private static Classification GetClassification(SyntaxKind kind) => kind switch
         {
             SyntaxKind.IntegerLiteralToken => Classification.Number,
+            SyntaxKind.FloatLiteralToken => Classification.Number,
+            SyntaxKind.DoubleLiteralToken => Classification.Number,
             SyntaxKind.IdentifierToken => Classification.Identifier,
             SyntaxKind.StringLiteralToken => Classification.String,
             _ when SyntaxFacts.IsComment(kind) => Classification.Comment,

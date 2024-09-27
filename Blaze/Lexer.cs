@@ -58,7 +58,6 @@ namespace Blaze
             _start = _position;
             _kind = SyntaxKind.IncorrectToken;
             _value = null;
-
             switch (Current)
             {
                 case '\0':
@@ -200,7 +199,7 @@ namespace Blaze
                 default:
                     if (char.IsDigit(Current))
                     {
-                        ReadIntegerLiteral();
+                        ReadNumberLiteral();
                     }
                     else if (char.IsLetter(Current) || Current == '_')
                     {
@@ -279,28 +278,72 @@ namespace Blaze
 
         private char Peek(int offset)
         {
-            int index = _position + offset;
+            var index = _position + offset;
             if (index >= _text.Length)
                 return '\0';
             return _text[index];
         }
 
-        private void ReadIntegerLiteral()
+        private void ReadNumberLiteral()
         {
             while (char.IsDigit(Current))
                 _position++;
 
-            int length = _position - _start;
-            string text = _text.ToString(_start, length);
+            if (Current == '.')
+                ReadFloatOrDoubleLiteral();
+            else
+                ReadIntegerLiteral();
+        }
+
+        private void ReadIntegerLiteral()
+        {
+            var length = _position - _start;
+            var text = _text.ToString(_start, length);
+
             if (!int.TryParse(text, out int value))
-            {
-                TextSpan span = new TextSpan(_start, length);
-                TextLocation location = new TextLocation(_text, span);
-                _diagnostics.ReportInvalidNumber(location, text, TypeSymbol.Int);
-            }
+                ReportInvalidNumber(text, TypeSymbol.Int);
                 
             _value = value;
             _kind = SyntaxKind.IntegerLiteralToken;
+        }
+
+        private void ReadFloatOrDoubleLiteral()
+        {
+            _position++;
+
+            while (char.IsDigit(Current))
+                _position++;
+
+            if (Current == 'f' || Current == 'F')
+            {
+                _position++;
+                var length = _position - _start - 1;
+                var text = _text.ToString(_start, length);
+
+                if (!float.TryParse(text, out float value))
+                    ReportInvalidNumber(text, TypeSymbol.Float);
+
+                _value = value;
+                _kind = SyntaxKind.FloatLiteralToken;
+            }
+            else
+            {
+                var length = _position - _start;
+                var text = _text.ToString(_start, length);
+
+                if (!double.TryParse(text, out double value))
+                    ReportInvalidNumber(text, TypeSymbol.Double);
+                
+                _value = value;
+                _kind = SyntaxKind.DoubleLiteralToken;
+            }    
+        }
+
+        private void ReportInvalidNumber(string text, TypeSymbol type)
+        {
+            var span = new TextSpan(_start, text.Length);
+            var location = new TextLocation(_text, span);
+            _diagnostics.ReportInvalidNumber(location, text, TypeSymbol.Float);
         }
 
         private void ReadWhitespace()
@@ -342,17 +385,17 @@ namespace Blaze
         {
             while (char.IsLetterOrDigit(Current) || Current == '_')
                 _position++;
-            int length = _position - _start;
-            string text = _text.ToString(_start, length);
+            var length = _position - _start;
+            var text = _text.ToString(_start, length);
             _kind = SyntaxFacts.GetKeywordKind(text);
         }
 
         private void ReadStringLiteral()
         {
             _position++;
-            StringBuilder value = new StringBuilder();
+            var value = new StringBuilder();
 
-            bool done = false;
+            var done = false;
             while (!done)
             {
                 switch (Current)
@@ -360,8 +403,8 @@ namespace Blaze
                     case '\0':
                     case '\r':
                     case '\n':
-                        TextSpan span = new TextSpan(_start, 1);
-                        TextLocation location = new TextLocation(_text, span);
+                        var span = new TextSpan(_start, 1);
+                        var location = new TextLocation(_text, span);
                         _diagnostics.ReportUnterminatedString(location);
                         done = true;
                         break;
@@ -392,7 +435,7 @@ namespace Blaze
         private void ReadSingleLineComment()
         {
             _position += 2;
-            bool done = false;
+            var done = false;
             _kind = SyntaxKind.SingleLineCommentTrivia;
 
             while (!done)
@@ -415,15 +458,15 @@ namespace Blaze
         {
             _kind = SyntaxKind.MultiLineCommentTrivia;
             _position += 2;
-            bool done = false;
+            var done = false;
 
             while (!done)
             {
                 switch (Current)
                 {
                     case '\0':
-                        TextSpan span = new TextSpan(_start, 2);
-                        TextLocation location = new TextLocation(_text, span);
+                        var span = new TextSpan(_start, 2);
+                        var location = new TextLocation(_text, span);
                         _diagnostics.ReportUnterminatedMultiLineComment(location);
                         done = true;
                         break;

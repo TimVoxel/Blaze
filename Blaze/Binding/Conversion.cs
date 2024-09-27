@@ -34,10 +34,26 @@ namespace Blaze.Binding
             if (from == TypeSymbol.Object && to != TypeSymbol.Void)
                 return Explicit;
 
-            // int or bool -> string
+            // int, float, double, bool -> string
             if (from == TypeSymbol.Int || from == TypeSymbol.Bool)
                 if (to == TypeSymbol.String)
                     return Explicit;
+
+            //float -> double
+            if (from == TypeSymbol.Float && to == TypeSymbol.Double)
+                return Implicit;
+
+            //double -> float
+            if (from == TypeSymbol.Double && to == TypeSymbol.Float)
+                return Implicit;
+
+            //double, float -> int
+            if (from == TypeSymbol.Float || from == TypeSymbol.Double && to == TypeSymbol.Int)
+                return Explicit;
+
+            //int -> double, float
+            if (from == TypeSymbol.Int && to == TypeSymbol.Float || to == TypeSymbol.Double)
+                return Implicit;
 
             // enum -> string
             if (from is EnumSymbol e && to == TypeSymbol.String)

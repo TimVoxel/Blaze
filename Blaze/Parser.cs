@@ -3,6 +3,7 @@ using Blaze.Syntax_Nodes;
 using Blaze.SyntaxTokens;
 using Blaze.Text;
 using System.Collections.Immutable;
+using System.Net.WebSockets;
 
 namespace Blaze
 {
@@ -554,6 +555,12 @@ namespace Blaze
                 case SyntaxKind.IntegerLiteralToken:
                     expression = ParseIntegerLiteral();
                     break;
+                case SyntaxKind.FloatLiteralToken:
+                    expression = ParseFloatLiteral();
+                    break;
+                case SyntaxKind.DoubleLiteralToken:
+                    expression = ParseDoubleLiteral();
+                    break;
                 case SyntaxKind.StringLiteralToken:
                     expression = ParseStringLiteral();
                     break;
@@ -633,23 +640,16 @@ namespace Blaze
             return new ObjectCreationExpressionSyntax(_syntaxTree, keyword, identifier, openParen, arguments, closeParen);
         }
 
-        private ExpressionSyntax ParseIntegerLiteral()
+        private ExpressionSyntax ParseIntegerLiteral() => ParseLiteral(SyntaxKind.IntegerLiteralToken);
+        private ExpressionSyntax ParseFloatLiteral() => ParseLiteral(SyntaxKind.FloatLiteralToken);
+        private ExpressionSyntax ParseDoubleLiteral() => ParseLiteral(SyntaxKind.DoubleLiteralToken);
+        private ExpressionSyntax ParseBooleanLiteral() => ParseLiteral(Current.Kind);
+        private ExpressionSyntax ParseStringLiteral() => ParseLiteral(SyntaxKind.StringLiteralToken);
+        
+        private ExpressionSyntax ParseLiteral(SyntaxKind kind)
         {
-            var numberToken = TryConsume(SyntaxKind.IntegerLiteralToken);
-            return new LiteralExpressionSyntax(_syntaxTree, numberToken);
-        }
-
-        private ExpressionSyntax ParseBooleanLiteral()
-        {
-            var isTrue = Current.Kind == SyntaxKind.TrueKeyword;
-            var keywordToken = (isTrue) ? TryConsume(SyntaxKind.TrueKeyword) : TryConsume(SyntaxKind.FalseKeyword);
-            return new LiteralExpressionSyntax(_syntaxTree, keywordToken, isTrue);
-        }
-
-        private ExpressionSyntax ParseStringLiteral()
-        {
-            var stringToken = TryConsume(SyntaxKind.StringLiteralToken);
-            return new LiteralExpressionSyntax(_syntaxTree, stringToken);
+            var token = TryConsume(kind);
+            return new LiteralExpressionSyntax(_syntaxTree, token);
         }
 
         private SeparatedSyntaxList<ExpressionSyntax> ParseArguments()

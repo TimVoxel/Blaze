@@ -7,6 +7,8 @@
 
         public static readonly TypeSymbol Object = new TypeSymbol("object");
         public static readonly TypeSymbol Int = new TypeSymbol("int");
+        public static readonly TypeSymbol Float = new TypeSymbol("float");
+        public static readonly TypeSymbol Double = new TypeSymbol("double");
         public static readonly TypeSymbol Bool = new TypeSymbol("bool");
         public static readonly TypeSymbol String = new TypeSymbol("string");
 
@@ -18,6 +20,8 @@
         {
             yield return Object;
             yield return Int;
+            yield return Float;
+            yield return Double;
             yield return Bool;
             yield return String;
         }
