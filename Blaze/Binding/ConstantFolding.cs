@@ -36,7 +36,7 @@ namespace Blaze.Binding
                     if (leftExpression.Type == TypeSymbol.Int)
                         return new BoundConstant((int)left + (int)right);
                     else if (leftExpression.Type == TypeSymbol.Float)
-                        return new BoundConstant(Convert.ToSingle(left) + Convert.ToSingle(right));
+                        return new BoundConstant((float)left + (float)right);
                     else if (leftExpression.Type == TypeSymbol.Double)
                         return new BoundConstant((double)left + (double)right);
                     else if (leftExpression.Type == TypeSymbol.String)
@@ -47,7 +47,7 @@ namespace Blaze.Binding
                     if (leftExpression.Type == TypeSymbol.Int)
                         return new BoundConstant((int)left - (int)right);
                     else if (leftExpression.Type == TypeSymbol.Float)
-                        return new BoundConstant(Convert.ToSingle(left) - Convert.ToSingle(right));
+                        return new BoundConstant((float)left - (float)right);
                     else if (leftExpression.Type == TypeSymbol.Double)
                         return new BoundConstant((double)left - (double)right);
                     break;
@@ -56,7 +56,7 @@ namespace Blaze.Binding
                     if (leftExpression.Type == TypeSymbol.Int)
                         return new BoundConstant((int)left * (int)right);
                     else if (leftExpression.Type == TypeSymbol.Float)
-                        return new BoundConstant(Convert.ToSingle(left) * Convert.ToSingle(right));
+                        return new BoundConstant((float)left * (float)right);
                     else if (leftExpression.Type == TypeSymbol.Double)
                         return new BoundConstant((double)left * (double)right);
                     break;
@@ -65,7 +65,7 @@ namespace Blaze.Binding
                     if (leftExpression.Type == TypeSymbol.Int)
                         return new BoundConstant((int)left / (int)right);
                     else if (leftExpression.Type == TypeSymbol.Float)
-                        return new BoundConstant(Convert.ToSingle(left) / Convert.ToSingle(right));
+                        return new BoundConstant((float)left / (float)right);
                     else if (leftExpression.Type == TypeSymbol.Double)
                         return new BoundConstant((double)left / (double)right);
                     break;
@@ -78,7 +78,7 @@ namespace Blaze.Binding
                     if (leftExpression.Type == TypeSymbol.Int)
                         return new BoundConstant((int)left < (int)right);
                     else if (leftExpression.Type == TypeSymbol.Float)
-                        return new BoundConstant(Convert.ToSingle(left) < Convert.ToSingle(right));
+                        return new BoundConstant((float)left < (float)right);
                     else if (leftExpression.Type == TypeSymbol.Double)
                         return new BoundConstant((double)left < (double)right);
                     break;
@@ -88,7 +88,7 @@ namespace Blaze.Binding
                     if (leftExpression.Type == TypeSymbol.Int)
                         return new BoundConstant((int)left <= (int)right);
                     else if (leftExpression.Type == TypeSymbol.Float)
-                        return new BoundConstant(Convert.ToSingle(left) <= Convert.ToSingle(right));
+                        return new BoundConstant((float)left <= (float)right);
                     else if (leftExpression.Type == TypeSymbol.Double)
                         return new BoundConstant((double)left <= (double)right);
                     break;
@@ -97,7 +97,7 @@ namespace Blaze.Binding
                     if (leftExpression.Type == TypeSymbol.Int)
                         return new BoundConstant((int)left > (int)right);
                     else if (leftExpression.Type == TypeSymbol.Float)
-                        return new BoundConstant(Convert.ToSingle(left) > Convert.ToSingle(right));
+                        return new BoundConstant((float)left > (float)right);
                     else if (leftExpression.Type == TypeSymbol.Double)
                         return new BoundConstant((double)left > (double)right);
                     break;
@@ -106,7 +106,7 @@ namespace Blaze.Binding
                     if (leftExpression.Type == TypeSymbol.Int)
                         return new BoundConstant((int)left >= (int)right);
                     else if (leftExpression.Type == TypeSymbol.Float)
-                        return new BoundConstant(Convert.ToSingle(left) >= Convert.ToSingle(right));
+                        return new BoundConstant((float)left >= (float)right);
                     else if (leftExpression.Type == TypeSymbol.Double)
                         return new BoundConstant((double)left >= (double)right);
                     break;

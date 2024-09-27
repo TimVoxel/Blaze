@@ -442,14 +442,16 @@ namespace Blaze.Binding
         private BoundStatement BindVariableDeclarationStatement(VariableDeclarationStatementSyntax syntax)
         {
             var initializer = BindExpression(syntax.Initializer);
+
             TypeSymbol? type = null;
             if (syntax.DeclarationNode is TypeClauseSyntax typeClause)
                 type = BindType(typeClause.Identifier.Text, typeClause.Identifier.Location);
 
+            
             //TODO: Add const variable declarations
             var variableType = type ?? initializer.Type;
-            var variable = BindVariable(syntax.Identifier, variableType, false, initializer.ConstantValue);
             var convertedInitializer = BindConversion(initializer, variableType, syntax.Initializer.Location);
+            var variable = BindVariable(syntax.Identifier, variableType, false, convertedInitializer.ConstantValue);  
             return new BoundVariableDeclarationStatement(variable, convertedInitializer);
         }
 
