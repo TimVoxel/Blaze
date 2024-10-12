@@ -643,13 +643,13 @@ namespace Blaze
         private ExpressionSyntax ParseIntegerLiteral() => ParseLiteral(SyntaxKind.IntegerLiteralToken);
         private ExpressionSyntax ParseFloatLiteral() => ParseLiteral(SyntaxKind.FloatLiteralToken);
         private ExpressionSyntax ParseDoubleLiteral() => ParseLiteral(SyntaxKind.DoubleLiteralToken);
-        private ExpressionSyntax ParseBooleanLiteral() => ParseLiteral(Current.Kind);
+        private ExpressionSyntax ParseBooleanLiteral() => ParseLiteral(Current.Kind, Current.Kind == SyntaxKind.TrueKeyword);
         private ExpressionSyntax ParseStringLiteral() => ParseLiteral(SyntaxKind.StringLiteralToken);
         
-        private ExpressionSyntax ParseLiteral(SyntaxKind kind)
+        private ExpressionSyntax ParseLiteral(SyntaxKind kind, object? value = null)
         {
             var token = TryConsume(kind);
-            return new LiteralExpressionSyntax(_syntaxTree, token);
+            return new LiteralExpressionSyntax(_syntaxTree, token, value ?? token.Value);
         }
 
         private SeparatedSyntaxList<ExpressionSyntax> ParseArguments()

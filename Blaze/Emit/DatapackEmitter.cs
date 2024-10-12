@@ -19,10 +19,12 @@ namespace Blaze.Emit
         private readonly FunctionEmittion _initFunction;
         private readonly FunctionEmittion _tickFunction;
         private readonly Dictionary<FunctionSymbol, FunctionEmittion> _usedBuiltIn = new Dictionary<FunctionSymbol, FunctionEmittion>();
-
+        
         private string? _contextName = null;
         private string TEMP => EmittionNameTranslator.TEMP;
         private string RETURN_TEMP_NAME => EmittionNameTranslator.RETURN_TEMP_NAME;
+        private string DEBUG_CHUNK_X => EmittionNameTranslator.DEBUG_CHUNK_X;
+        private string DEBUG_CHUNK_Z => EmittionNameTranslator.DEBUG_CHUNK_Z;
 
         private string Vars => _nameTranslator.Vars;
         private string Const => _nameTranslator.Const;
@@ -44,7 +46,13 @@ namespace Blaze.Emit
             _initFunction.AppendLine($"scoreboard objectives add {Vars} dummy");
             _initFunction.AppendLine($"scoreboard objectives add {Const} dummy");
             _initFunction.AppendLine($"scoreboard players set *-1 {Const} -1");
+
+            //Debug chunk setup
             _initFunction.AppendLine();
+            _initFunction.AppendLine($"forceload add {DEBUG_CHUNK_X} {DEBUG_CHUNK_Z}");
+            _initFunction.AppendLine($"kill @e[tag=debug,tag=blz]");
+            _initFunction.AppendLine($"summon item_display {DEBUG_CHUNK_X} 0 {DEBUG_CHUNK_Z} {{Tags:[\"blz\",\"debug\", \"first\"], UUID:{_nameTranslator.MathEntity1.TagValue}, item:{{ id:\"stone_button\",Count:1b,components:{{\"minecraft:custom_data\":{{greater:1,less:0}}}}}}}}");
+            _initFunction.AppendLine($"summon item_display {DEBUG_CHUNK_X} 0 {DEBUG_CHUNK_Z} {{Tags:[\"blz\",\"debug\", \"second\"], UUID:{_nameTranslator.MathEntity2.TagValue}, item:{{ id:\"stone_button\",Count:1b,components:{{\"minecraft:custom_data\":{{greater:0,less:1}}}}}}}}");
         }
 
         private FunctionEmittion GetOrCreateBuiltIn(FunctionSymbol function, out bool isCreated)
@@ -96,7 +104,7 @@ namespace Blaze.Emit
                         functionNamespaceEmittionBuilder.Add(emittion);
                 }
             }
-            
+
             var datapack = new Datapack(_configuration, functionNamespaceEmittionBuilder.ToImmutable(), _initFunction, _tickFunction);
             datapack.Build();
         }
@@ -562,14 +570,28 @@ namespace Blaze.Emit
         private void EmitLiteralAssignment(string varName, BoundLiteralExpression literal, FunctionEmittion emittion)
         {
             //int literal       -> scoreboard players set *v integers <value>
-            //string literal    -> data modify storage strings string <SOURCE> [<sourcePath>]
+            //string literal    -> data modify storage strings <name> set value "<value>"
             //bool literal      -> scoreboard players set *v bools <value>
+            //float litreal     -> data modify storage doubles <name> set value <value>f
+            //double litreal    -> data modify storage doubles <name> set value <value>d
 
             if (literal.Type == TypeSymbol.String)
             {
                 var value = (string)literal.Value;
                 value = value.Replace("\"", "\\\"");
                 var command = $"data modify storage {_nameTranslator.GetStorage(TypeSymbol.String)} \"{varName}\" set value \"{value}\"";
+                emittion.AppendLine(command);
+            }
+            else if (literal.Type == TypeSymbol.Float)
+            {
+                var value = (float)literal.Value;
+                var command = $"data modify storage {_nameTranslator.GetStorage(TypeSymbol.Float)} \"{varName}\" set value {value}f";
+                emittion.AppendLine(command);
+            }
+            else if (literal.Type == TypeSymbol.Double)
+            {
+                var value = (double)literal.Value;
+                var command = $"data modify storage {_nameTranslator.GetStorage(TypeSymbol.Double)} \"{varName}\" set value {value}d";
                 emittion.AppendLine(command);
             }
             else
@@ -608,16 +630,16 @@ namespace Blaze.Emit
         private void EmitVariableAssignment(string varName, string otherName, TypeSymbol type, FunctionEmittion emittion)
         {
             //int, bool literal -> scoreboard players operation *this vars = *other vars
-            //string literal    -> data modify storage strings *this set from storage strings *other
+            //string, float, double literal    -> data modify storage strings *this set from storage strings *other
             //named type        -> assign all the fields to the corresponding ones of the object we are copying
 
             if (varName == otherName)
                 return;
 
-            if (type == TypeSymbol.String || type == TypeSymbol.Object || type is EnumSymbol e && !e.IsIntEnum)
+            if (IsStorageType(type))
             {
                 var storage = _nameTranslator.GetStorage(type);
-                var command = $"data modify storage {storage} \"{varName}\" set from storage {storage} {otherName}";
+                var command = $"data modify storage {storage} \"{varName}\" set from storage {storage} \"{otherName}\"";
                 emittion.AppendLine(command);
             }
             else if (type == TypeSymbol.Int || type == TypeSymbol.Bool || type is EnumSymbol intI)
@@ -675,23 +697,64 @@ namespace Blaze.Emit
 
             emittion.AppendLine();
             emittion.AppendComment($"Emitting unary expression \"{unary}\" to \"{name}\"");
-            var expression = unary.Operand;
+            var operand = unary.Operand;
             var operatorKind = unary.Operator.OperatorKind;
 
             switch (operatorKind)
             {
                 case BoundUnaryOperatorKind.Identity:
-                    EmitAssignmentExpression(name, expression, emittion, current);
+                    EmitAssignmentExpression(name, operand, emittion, current);
                     break;
                 case BoundUnaryOperatorKind.Negation:
 
-                    var varName = EmitAssignmentExpression(name, expression, emittion, current);
-                    var command = $"scoreboard players operation {varName} {Vars} *= *-1 {Const}";
-                    emittion.AppendLine(command);
+                    var varName = EmitAssignmentExpression(name, operand, emittion, current);
+                    if (operand.Type == TypeSymbol.Int)
+                    {
+                        var command = $"scoreboard players operation {varName} {Vars} *= *-1 {Const}";
+                        emittion.AppendLine(command);
+                    }
+                    else
+                    {
+                        var storage = _nameTranslator.GetStorage(operand.Type);
+                        var stringStorage = _nameTranslator.GetStorage(TypeSymbol.String);
+
+                        emittion.AppendLine($"data modify storage {stringStorage} **macros.a set from storage {storage} {varName}");
+                        emittion.AppendLine($"data modify storage {stringStorage} \"**sign\" set string storage {storage} {varName} 0 1");
+                        emittion.AppendLine($"data modify storage {stringStorage} \"**last\" set string storage {storage} {varName} -1");
+                        emittion.AppendLine($"execute if data storage {stringStorage} {{ \"**sign\": \"-\"}} run data modify storage {stringStorage} **macros.a set string storage {stringStorage} **macros.a 1");
+
+                        var typeSuffix = operand.Type == TypeSymbol.Float ? "f" : "d";
+                        emittion.AppendLine($"execute if data storage {stringStorage} {{ \"**last\": \"{typeSuffix}\"}} run data modify storage {stringStorage} **macros.a set string storage {stringStorage} **macros.a 0 -1");
+
+                        emittion.AppendLine($"execute if data storage {stringStorage} {{ \"**sign\": \"-\"}} run data modify storage {stringStorage} **macros.sign set value \"\"");
+                        emittion.AppendLine($"execute unless data storage {stringStorage} {{ \"**sign\": \"-\"}} run data modify storage {stringStorage} **macros.sign set value \"-\"");
+
+                        FunctionEmittion macro;
+
+                        if (operand.Type == TypeSymbol.Float)
+                        {
+                            macro = GetOrCreateBuiltIn(BuiltInNamespace.Blaze.Math.NegateFloat, out bool isCreated);
+                            if (isCreated)
+                                macro.AppendMacro($"data modify storage {stringStorage} **macros.return set value $(sign)$(a)f");
+                        }
+                        else
+                        {
+                            macro = GetOrCreateBuiltIn(BuiltInNamespace.Blaze.Math.NegateDouble, out bool isCreated);
+                            if (isCreated)
+                                macro.AppendMacro($"data modify storage {stringStorage} **macros.return set value $(sign)$(a)d");
+                        }
+
+                        emittion.AppendLine($"function {_nameTranslator.GetCallLink(macro)} with storage {stringStorage} **macros");
+                        emittion.AppendLine($"data modify storage {storage} {name} set from storage {stringStorage} **macros.return");
+
+                        EmitCleanUp("**sign", TypeSymbol.String, emittion);
+                        EmitCleanUp("**last", TypeSymbol.String, emittion);
+                        EmitMacroCleanUp(emittion);
+                    }
                     break;
                 case BoundUnaryOperatorKind.LogicalNegation:
 
-                    var tempName = EmitAssignmentToTemp(expression, emittion, current);
+                    var tempName = EmitAssignmentToTemp(operand, emittion, current);
                     var command1 = $"execute if score {tempName} {Vars} matches 1 run scoreboard players set {name} {Vars} 0";
                     var command2 = $"execute if score {tempName} {Vars} matches 0 run scoreboard players set {name} {Vars} 1";
                     emittion.AppendLine(command1);
@@ -744,6 +807,10 @@ namespace Blaze.Emit
                     {
                         EmitIntBinaryOperation(name, emittion, left, right, operatorKind, current);
                     }
+                    else if (left.Type == TypeSymbol.Float || left.Type == TypeSymbol.Double)
+                    {
+                        EmitFloatingPointBinaryOperation(name, emittion, left, right, BoundBinaryOperatorKind.Addition, current);
+                    }
                     else
                     {
                         emittion.AppendLine("#String concatination is currently unsupported");
@@ -752,7 +819,14 @@ namespace Blaze.Emit
                 case BoundBinaryOperatorKind.Subtraction:
                 case BoundBinaryOperatorKind.Multiplication:
                 case BoundBinaryOperatorKind.Division:
-                    EmitIntBinaryOperation(name, emittion, left, right, operatorKind, current);
+                    if (left.Type == TypeSymbol.Int)
+                    {
+                        EmitIntBinaryOperation(name, emittion, left, right, operatorKind, current);
+                    }
+                    else
+                    {
+                        EmitFloatingPointBinaryOperation(name, emittion, left, right, operatorKind, current);
+                    }
                     break;
                 case BoundBinaryOperatorKind.LogicalMultiplication:
                     {
@@ -799,9 +873,13 @@ namespace Blaze.Emit
                             EmitCleanUp(rightName, right.Type, emittion);
                             EmitCleanUp(TEMP, TypeSymbol.Bool, emittion);
                         }
+                        else if (left.Type == TypeSymbol.Float || left.Type == TypeSymbol.Double)
+                        {
+                            EmitFloatingPointComparisonOperation(emittion, name, left, right, operatorKind, current);
+                        }
                         else
                         {
-                            EmitComparisonBinaryOperation(emittion, left, right, name, operatorKind, current);
+                            EmitIntComparisonOperation(emittion, left, right, name, operatorKind, current);
                         }
                     }
                     break;
@@ -819,7 +897,7 @@ namespace Blaze.Emit
                         }
                         else
                         {
-                            EmitComparisonBinaryOperation(emittion, left, right, name, operatorKind, current);
+                            EmitIntComparisonOperation(emittion, left, right, name, operatorKind, current);
                         }
                     }
                     break;
@@ -827,12 +905,19 @@ namespace Blaze.Emit
                 case BoundBinaryOperatorKind.LessOrEquals:
                 case BoundBinaryOperatorKind.Greater:
                 case BoundBinaryOperatorKind.GreaterOrEquals:
-                    EmitComparisonBinaryOperation(emittion, left, right, name, operatorKind, current);
+                    if (left.Type == TypeSymbol.Int)
+                    {
+                        EmitIntComparisonOperation(emittion, left, right, name, operatorKind, current);
+                    }
+                    else 
+                    {
+                        EmitFloatingPointComparisonOperation(emittion, name, left, right, operatorKind, current);
+                    }
                     break;
             }
         }
 
-        private void EmitComparisonBinaryOperation(FunctionEmittion emittion, BoundExpression left, BoundExpression right, string name, BoundBinaryOperatorKind operation, int index)
+        private void EmitIntComparisonOperation(FunctionEmittion emittion, BoundExpression left, BoundExpression right, string name, BoundBinaryOperatorKind operation, int index)
         {
             var leftName = string.Empty;
             var initialValue = operation == BoundBinaryOperatorKind.NotEquals ? 1 : 0;
@@ -908,9 +993,78 @@ namespace Blaze.Emit
             emittion.AppendLine(command2);
         }
 
-        private void EmitIntBinaryOperation(string name, FunctionEmittion emittion, BoundExpression left, BoundExpression right, BoundBinaryOperatorKind operation, int index)
+        private void EmitFloatingPointComparisonOperation(FunctionEmittion emittion, string name, BoundExpression left, BoundExpression right, BoundBinaryOperatorKind operatorKind, int current)
         {
-            var leftName = EmitAssignmentExpression(name, left, emittion, index);
+            var stringStorage = _nameTranslator.GetStorage(TypeSymbol.String);
+            var macro = GetOrCreateBuiltIn(BuiltInNamespace.Blaze.Math.PositionY, out bool isCreated);
+            if (isCreated)
+                macro.AppendMacro($"tp @s {DEBUG_CHUNK_X} $(a) {DEBUG_CHUNK_Z}");
+
+            var temp = EmitAssignmentToTemp(TEMP, left, emittion, current + 1);
+            emittion.AppendLine($"data modify storage {stringStorage} **macros.a set from storage {_nameTranslator.GetStorage(left.Type)} \"{temp}\"");
+            emittion.AppendLine($"execute as {_nameTranslator.MathEntity1} run function {_nameTranslator.GetCallLink(macro)} with storage {stringStorage} **macros");
+
+            temp = EmitAssignmentToTemp(TEMP, right, emittion, current + 1);
+            emittion.AppendLine($"data modify storage {stringStorage} **macros.a set from storage {_nameTranslator.GetStorage(right.Type)} \"{temp}\"");
+            emittion.AppendLine($"execute as {_nameTranslator.MathEntity2} run function {_nameTranslator.GetCallLink(macro)} with storage {stringStorage} **macros");
+            
+            switch (operatorKind)
+            {
+                case BoundBinaryOperatorKind.Equals:
+                    {
+                        emittion.AppendLine($"scoreboard players set {name} {Vars} 0");
+                        emittion.AppendLine($"execute as {_nameTranslator.MathEntity1} at @s if entity @e[type=item_display,tag=!first,tag=blz,tag=debug,distance=..0.0001] run scoreboard players set {name} {Vars} 1");
+                        break;
+                    }
+                case BoundBinaryOperatorKind.NotEquals:
+                    {
+                        emittion.AppendLine($"scoreboard players set {name} {Vars} 1");
+                        emittion.AppendLine($"execute as {_nameTranslator.MathEntity1} at @s if entity @e[type=item_display,tag=!first,tag=blz,tag=debug,distance=..0.0001] run scoreboard players set {name} {Vars} 0");
+                        break;
+                    }
+                case BoundBinaryOperatorKind.Greater:
+                    {
+                        emittion.AppendLine($"execute positioned {DEBUG_CHUNK_X} 19999999.9999 {DEBUG_CHUNK_Z} run tag @e[type=item_display,tag=blz,tag=debug,sort=nearest,limit=1] add .this");
+                        emittion.AppendLine($"execute store result score {name} {Vars} run data get entity @e[type=item_display,tag=blz,tag=debug,tag=.this,limit=1] item.components.\"minecraft:custom_data\".greater");
+                        emittion.AppendLine($"execute at @e[type=item_display,tag=blz,tag=debug,tag=.this,limit=1] if entity @e[type=item_display,tag=blz,tag=debug,tag=!.this,distance=..0.0001] run scoreboard players set {name} {Vars} 0");
+                        emittion.AppendLine($"tag @e[tag=.this] remove .this");
+                        break;
+                    }
+                case BoundBinaryOperatorKind.Less:
+                    {
+                        emittion.AppendLine($"execute positioned {DEBUG_CHUNK_X} 19999999.9999 {DEBUG_CHUNK_Z} run tag @e[type=item_display,tag=blz,tag=debug,sort=nearest,limit=1] add .this");
+                        emittion.AppendLine($"execute store result score {name} {Vars} run data get entity @e[type=item_display,tag=blz,tag=debug,tag=.this,limit=1] item.components.\"minecraft:custom_data\".less");
+                        emittion.AppendLine($"execute at @e[type=item_display,tag=blz,tag=debug,tag=.this,limit=1] if entity @e[type=item_display,tag=blz,tag=debug,tag=!.this,distance=..0.0001] run scoreboard players set {name} {Vars} 0");
+                        emittion.AppendLine($"tag @e[tag=.this] remove .this");
+                        break;
+                    }
+                case BoundBinaryOperatorKind.GreaterOrEquals:
+                    {
+                        emittion.AppendLine($"execute positioned {DEBUG_CHUNK_X} 19999999.9999 {DEBUG_CHUNK_Z} run tag @e[type=item_display,tag=blz,tag=debug,sort=nearest,limit=1] add .this");
+                        emittion.AppendLine($"execute store result score {name} {Vars} run data get entity @e[type=item_display,tag=blz,tag=debug,tag=.this,limit=1] item.components.\"minecraft:custom_data\".greater");
+                        emittion.AppendLine($"tag @e[tag=.this] remove .this");
+                        break;
+                    }
+                case BoundBinaryOperatorKind.LessOrEquals:
+                    {
+                        emittion.AppendLine($"execute positioned {DEBUG_CHUNK_X} 19999999.9999 {DEBUG_CHUNK_Z} run tag @e[type=item_display,tag=blz,tag=debug,sort=nearest,limit=1] add .this");
+                        emittion.AppendLine($"execute store result score {name} {Vars} run data get entity @e[type=item_display,tag=blz,tag=debug,tag=.this,limit=1] item.components.\"minecraft:custom_data\".less");
+                        emittion.AppendLine($"execute at @e[type=item_display,tag=blz,tag=debug,tag=.this,limit=1] if entity @e[type=item_display,tag=blz,tag=debug,tag=!.this,distance=..0.0001] run scoreboard players set {name} {Vars} 1");
+                        emittion.AppendLine($"tag @e[tag=.this] remove .this");
+                        break;
+                    }
+            }
+
+            EmitCleanUp(temp, left.Type, emittion);
+            if (left.Type != right.Type)
+                EmitCleanUp(temp, right.Type, emittion);
+
+            EmitMacroCleanUp(emittion);
+        }
+
+        private void EmitIntBinaryOperation(string name, FunctionEmittion emittion, BoundExpression left, BoundExpression right, BoundBinaryOperatorKind operation, int current)
+        {
+            var leftName = EmitAssignmentExpression(name, left, emittion, current);
             var rightName = string.Empty;
 
             if (right is BoundLiteralExpression l)
@@ -929,7 +1083,7 @@ namespace Blaze.Emit
                 }
                 else
                 {
-                    rightName = EmitAssignmentToTemp("rTemp", right, emittion, index + 1);
+                    rightName = EmitAssignmentToTemp("rTemp", right, emittion, current + 1);
                     EmitCleanUp(rightName, left.Type, emittion);
                 }
             }
@@ -939,7 +1093,7 @@ namespace Blaze.Emit
             }
             else
             {
-                rightName = EmitAssignmentToTemp("rTemp", right, emittion, index + 1);
+                rightName = EmitAssignmentToTemp("rTemp", right, emittion, current + 1);
                 EmitCleanUp(rightName, left.Type, emittion);
             }
            
@@ -954,6 +1108,119 @@ namespace Blaze.Emit
             var command = $"scoreboard players operation {leftName} {Vars} {operationSign} {rightName} {Vars}";
             emittion.AppendLine(command);
         }
+
+        private void EmitFloatingPointBinaryOperation(string name, FunctionEmittion emittion, BoundExpression left, BoundExpression right, BoundBinaryOperatorKind kind, int current)
+        {
+            var leftName = EmitAssignmentExpression(name, left, emittion, current);
+            var rightName = EmitAssignmentToTemp("rTemp", right, emittion, current + 1);
+            var storage = _nameTranslator.GetStorage(left.Type);
+
+            if (kind != BoundBinaryOperatorKind.Subtraction)
+            {
+                emittion.AppendLine($"data modify storage {_nameTranslator.GetStorage(TypeSymbol.String)} **macros.a set from storage {storage} \"{leftName}\"");
+                emittion.AppendLine($"data modify storage {_nameTranslator.GetStorage(TypeSymbol.String)} **macros.b set from storage {_nameTranslator.GetStorage(right.Type)} \"{rightName}\"");
+            }
+
+            FunctionEmittion macro;
+            var entity = _nameTranslator.MathEntity1.ToString();
+
+            switch (kind)
+            {
+                case BoundBinaryOperatorKind.Addition:
+                    {
+                        macro = GetOrCreateBuiltIn(BuiltInNamespace.Blaze.Math.Add, out bool isCreated);
+                        if (isCreated)
+                            macro.AppendMacro($"execute positioned ~ $(a) ~ run tp {entity} {DEBUG_CHUNK_X} ~$(b) {DEBUG_CHUNK_Z}");
+                        break;
+                    }
+                case BoundBinaryOperatorKind.Subtraction:
+                    {
+                        macro = GetOrCreateBuiltIn(BuiltInNamespace.Blaze.Math.Subtract, out bool isCreated);
+                        var stringStorage = _nameTranslator.GetStorage(TypeSymbol.String);
+                        var sub = macro.Children.FirstOrDefault(n => n.Name == "if_minus");
+
+                        if (sub == null)
+                        {
+                            sub = FunctionEmittion.CreateSub(macro, "if_minus");
+                            sub.AppendLine($"data modify storage {stringStorage} **macros.a set string storage {stringStorage} **macros.a 1");
+                            sub.AppendLine($"data modify storage {stringStorage} \"**last\" set string storage {stringStorage} **macros.a -1");
+                            sub.AppendLine($"execute if data storage {stringStorage} {{ \"**last\" : \"d\" }} run data modify storage {stringStorage} **macros.a set string storage {stringStorage} **macros.a 0 -1");
+                            sub.AppendLine($"execute if data storage {stringStorage} {{ \"**last\" : \"f\" }} run data modify storage {stringStorage} **macros.a set string storage {stringStorage} **macros.a 0 -1");
+                            sub.AppendLine($"data modify storage {stringStorage} **macros.polarity set value \"\"");
+                        }
+
+                        if (isCreated)
+                            macro.AppendMacro($"execute positioned ~ $(b) ~ run tp {entity} {DEBUG_CHUNK_X} ~$(polarity)$(a) {DEBUG_CHUNK_Z}");
+
+                        emittion.AppendLine($"data modify storage {stringStorage} **macros.b set from storage {storage} \"{leftName}\"");
+                        emittion.AppendLine($"data modify storage {stringStorage} **macros.a set from storage {_nameTranslator.GetStorage(right.Type)} \"{rightName}\"");
+                        emittion.AppendLine($"data modify storage {stringStorage} \"**pol\" set from storage {_nameTranslator.GetStorage(right.Type)} \"{rightName}\"");
+                        emittion.AppendLine($"data modify storage {stringStorage} \"**pol\" set string storage {stringStorage} \"**pol\" 0 1");
+
+                        emittion.AppendLine($"execute if data storage {stringStorage} {{ \"**pol\" : \"-\" }} run function {_nameTranslator.GetCallLink(sub)}");
+                        emittion.AppendLine($"execute unless data storage {stringStorage} {{ \"**pol\" : \"-\" }} run data modify storage {stringStorage} **macros.polarity set value \"-\"");
+            
+                        EmitDoubleConversion("**macros.a", "**macros.a", TypeSymbol.String, emittion, stringStorage);
+                        EmitCleanUp("**last", TypeSymbol.String, emittion);
+                        EmitCleanUp("**pol", TypeSymbol.String, emittion);
+                        break;
+                    }
+                case BoundBinaryOperatorKind.Multiplication:
+                    {
+                        macro = GetOrCreateBuiltIn(BuiltInNamespace.Blaze.Math.Multiply, out bool isCreated);
+                        
+                        if (isCreated)
+                        {
+                            macro.AppendMacro($"data modify storage {_nameTranslator.GetStorage(TypeSymbol.String)} {RETURN_TEMP_NAME} set value [0f, 0f, 0f,$(a)f, 0f, 1f, 0f, 0f, 0f, 0f, 1f, 0f, 0f, 0f, 0f, 1f]");
+                            macro.AppendMacro($"data modify entity {entity} transformation set value [0f, 0f, 0f, 1f, 0f, 1f, 0f, 0f, 0f, 0f, 1f, 0f, 0f, 0f, 0f,$(b)f]");
+                        }
+                        break;
+                    }
+                case BoundBinaryOperatorKind.Division:
+                    {
+                        macro = GetOrCreateBuiltIn(BuiltInNamespace.Blaze.Math.Divide, out bool isCreated);
+
+                        if (isCreated)
+                            macro.AppendMacro($"data modify entity {entity} transformation set value [0f, 0f, 0f,$(a)f, 0f, 1f, 0f, 0f, 0f, 0f, 1f, 0f, 0f, 0f, 0f,$(b)f]");
+                        break;
+                    }
+
+                default:
+                    throw new Exception($"Unexpected binary operation kind {kind}");
+            }
+
+            emittion.AppendLine($"function {_nameTranslator.GetCallLink(macro)} with storage {_nameTranslator.GetStorage(TypeSymbol.String)} **macros");
+
+            if (kind == BoundBinaryOperatorKind.Addition || kind == BoundBinaryOperatorKind.Subtraction)
+            {
+                emittion.AppendLine($"data modify storage {storage} {name} set from entity {_nameTranslator.MathEntity1.ToString()} Pos[1]");
+                emittion.AppendLine($"tp {entity} {DEBUG_CHUNK_X} 0 {DEBUG_CHUNK_Z}");
+
+                if (left.Type == TypeSymbol.Float)
+                    EmitFloatConversion(name, name, TypeSymbol.Float, emittion);
+
+            }
+            else if (kind == BoundBinaryOperatorKind.Multiplication)
+            {
+                emittion.AppendLine($"data modify storage {_nameTranslator.GetStorage(TypeSymbol.String)} {RETURN_TEMP_NAME}[-1] set from entity {entity} transformation.translation[0]");
+                emittion.AppendLine($"data modify entity {entity} transformation set from storage {_nameTranslator.GetStorage(TypeSymbol.String)} {RETURN_TEMP_NAME}");
+                emittion.AppendLine($"data modify storage {storage} {name} set from entity {entity} transformation.translation[0]");
+                EmitCleanUp(RETURN_TEMP_NAME, TypeSymbol.String, emittion);
+
+                if (left.Type == TypeSymbol.Double)
+                    EmitDoubleConversion(name, name, TypeSymbol.Double, emittion);
+            }
+            else if (kind == BoundBinaryOperatorKind.Division)
+            {
+                emittion.AppendLine($"data modify storage {storage} {name} set from entity {entity} transformation.translation[0]");
+
+                if (left.Type == TypeSymbol.Double)
+                    EmitDoubleConversion(name, name, TypeSymbol.Double, emittion);
+            }
+            
+            EmitMacroCleanUp(emittion);
+        }
+        
 
         private void EmitCallExpressionAssignment(string name, BoundCallExpression call, FunctionEmittion emittion, int current)
         {
@@ -1052,21 +1319,63 @@ namespace Blaze.Emit
                     }
                 }
             }
+            if (resultType == TypeSymbol.Float)
+            {
+                EmitFloatConversion(name, tempName, sourceType, emittion);
+            }
+            if (resultType == TypeSymbol.Double)
+            {
+                EmitDoubleConversion(name, tempName, sourceType, emittion);
+            }
             if (resultType == TypeSymbol.Object)
             {
-                string command;
-
                 if (sourceType == TypeSymbol.Int || sourceType == TypeSymbol.Bool)
                 {
-                    command = $"execute store result storage {_nameTranslator.GetStorage(TypeSymbol.Object)} \"{name}\" int 1 run scoreboard players get {tempName} {Vars}";
+                    emittion.AppendLine($"execute store result storage {_nameTranslator.GetStorage(TypeSymbol.Object)} \"{name}\" int 1 run scoreboard players get {tempName} {Vars}");
                 }
                 else
                 {
-                    command = $"data modify storage {_nameTranslator.GetStorage(TypeSymbol.Object)} \"{name}\" set from storage {_nameTranslator.GetStorage(TypeSymbol.String)} \"{tempName}\"";
+                    emittion.AppendLine($"data modify storage {_nameTranslator.GetStorage(TypeSymbol.Object)} \"{name}\" set from storage {_nameTranslator.GetStorage(TypeSymbol.String)} \"{tempName}\"");
                 }
-                emittion.AppendLine(command);
             }
             EmitCleanUp(tempName, sourceType, emittion);
+        }
+
+        private void EmitFloatConversion(string name, string otherName, TypeSymbol sourceType, FunctionEmittion emittion)
+        {
+            var macro = GetOrCreateBuiltIn(BuiltInNamespace.Blaze.Math.ToFloat, out bool isCreated);
+            var storage = _nameTranslator.GetStorage(TypeSymbol.Float);
+
+            if (isCreated)
+                macro.AppendMacro($"data modify storage {storage} {RETURN_TEMP_NAME} set value $(a)f");
+
+            if (sourceType == TypeSymbol.Int)
+                emittion.AppendLine($"execute store result storage {_nameTranslator.GetStorage(TypeSymbol.String)} **macros.a int 1 run scoreboard players get {otherName} {Vars}");
+            else
+                emittion.AppendLine($"data modify storage {_nameTranslator.GetStorage(TypeSymbol.String)} **macros.a set from storage {_nameTranslator.GetStorage(sourceType)} \"{otherName}\"");
+
+            emittion.AppendLine($"function {_nameTranslator.GetCallLink(macro)} with storage {_nameTranslator.GetStorage(TypeSymbol.String)} **macros");
+            emittion.AppendLine($"data modify storage {storage} {name} set from storage {storage} {RETURN_TEMP_NAME}");
+            EmitMacroCleanUp(emittion);
+        }
+
+        private void EmitDoubleConversion(string name, string sourceName, TypeSymbol sourceType, FunctionEmittion emittion, string? emittionStorage = null)
+        {
+            var macro = GetOrCreateBuiltIn(BuiltInNamespace.Blaze.Math.ToDouble, out bool isCreated);
+            var storage = _nameTranslator.GetStorage(TypeSymbol.Double);
+
+            if (isCreated)
+                macro.AppendMacro($"data modify storage {storage} {RETURN_TEMP_NAME} set value $(a)d");
+
+            if (sourceType == TypeSymbol.Int)
+                emittion.AppendLine($"execute store result storage {_nameTranslator.GetStorage(TypeSymbol.String)} **macros.a int 1 run scoreboard players get {sourceName} {Vars}");
+            else
+                emittion.AppendLine($"data modify storage {_nameTranslator.GetStorage(TypeSymbol.String)} **macros.a set from storage {_nameTranslator.GetStorage(sourceType)} \"{sourceName}\"");
+
+            var resultStorage = emittionStorage ?? storage;
+            emittion.AppendLine($"function {_nameTranslator.GetCallLink(macro)} with storage {_nameTranslator.GetStorage(TypeSymbol.String)} **macros");
+            emittion.AppendLine($"data modify storage {resultStorage} {name} set from storage {storage} {RETURN_TEMP_NAME}");
+            EmitMacroCleanUp(emittion);
         }
 
         private void EmitCleanUp(string name, TypeSymbol type, FunctionEmittion emittion)
@@ -1091,5 +1400,14 @@ namespace Blaze.Emit
         }
 
         private string EmitAssignmentToTemp(BoundExpression expression, FunctionEmittion emittion, int index) => EmitAssignmentToTemp(TEMP, expression, emittion, index);
+
+        private bool IsStorageType(TypeSymbol type)
+        {
+            return type == TypeSymbol.String ||
+                   type == TypeSymbol.Object ||
+                   type == TypeSymbol.Float ||
+                   type == TypeSymbol.Double ||
+                   type is EnumSymbol e && !e.IsIntEnum;
+        }
     }
 }

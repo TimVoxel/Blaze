@@ -9,12 +9,14 @@ namespace Blaze.Symbols
         protected NamespaceSymbol Symbol { get; }
 
         public static readonly MinecraftNamespace Minecraft = new MinecraftNamespace();
+        public static readonly BlazeNamespace Blaze = new BlazeNamespace();
 
         public static IEnumerable<NamespaceSymbol> GetAll() => GetAllWraps().Select(s => s.Symbol);
 
         private static IEnumerable<BuiltInNamespace> GetAllWraps()
         {
             yield return Minecraft;
+            yield return Blaze;
         }
 
         public BuiltInNamespace(string name)

@@ -20,8 +20,8 @@ namespace Blaze.Miscellaneuos
             _lastValue = 0;
             _locals.Push(new Dictionary<VariableSymbol, object?>());
 
-            foreach (var valuePair in program.Namespaces.First().Value.Functions)
-                _functions.Add(valuePair.Key, valuePair.Value);
+            ///foreach (var valuePair in program.Namespaces.First().Value.Functions)
+            ///    _functions.Add(valuePair.Key, valuePair.Value);
         }
 
         public object? Evaluate()

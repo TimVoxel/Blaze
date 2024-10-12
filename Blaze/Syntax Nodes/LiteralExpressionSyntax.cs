@@ -15,8 +15,6 @@ namespace Blaze.Syntax_Nodes
             Value = value;
         }
 
-        internal LiteralExpressionSyntax(SyntaxTree tree, SyntaxToken literalToken) : this(tree, literalToken, literalToken.Value) { }
-
         public override IEnumerable<SyntaxNode> GetChildren()
         {
             yield return LiteralToken;

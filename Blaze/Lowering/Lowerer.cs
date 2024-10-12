@@ -154,9 +154,9 @@ namespace Blaze.Lowering
 
             //Rewrite Yoda-code, for example "0 == a" turns into "a == 0"
             //This is needed to more easily apply emittion level optimisations
-            if (node.Left is BoundLiteralExpression)
+            if (node.Left is BoundLiteralExpression && node.Operator.OperatorKind == BoundBinaryOperatorKind.Equals || node.Operator.OperatorKind == BoundBinaryOperatorKind.Equals)
                 node = new BoundBinaryExpression(node.Right, node.Operator, node.Left);
-            if (node.Left is BoundVariableExpression v && v.Variable is EnumMemberSymbol)
+            if (node.Left is BoundVariableExpression v && v.Variable is EnumMemberSymbol && node.Operator.OperatorKind == BoundBinaryOperatorKind.Equals || node.Operator.OperatorKind == BoundBinaryOperatorKind.Equals)
                 node = new BoundBinaryExpression(node.Right, node.Operator, node.Left);
 
             return node;

@@ -2,20 +2,26 @@
 
 namespace Blaze.Emit.NameTranslation
 {
-    internal class EmittionNameTranslator
+    internal sealed class EmittionNameTranslator
     {
+        public const string DEBUG_CHUNK_X = "10000000";
+        public const string DEBUG_CHUNK_Z = "10000000";
         public const string TEMP = ".temp";
         public const string RETURN_TEMP_NAME = "return.value";
 
         private readonly Dictionary<Symbol, string> _emittionTranslations = new Dictionary<Symbol, string>();
         private readonly string _rootNamespace;
 
+        public UUID MathEntity2 { get; }
+        public UUID MathEntity1 { get; }
         public string Vars => $"{_rootNamespace}.vars";
         public string Const => "CONST";
 
         public EmittionNameTranslator(string rootNamespace)
         {
             _rootNamespace = rootNamespace;
+            MathEntity1 = new UUID(1068730519, 377069937, 1764794166, -1230438844);
+            MathEntity2 = new UUID(-1824770608, 1852200875, -1037488134, 520770809);
         }
 
         public string GetStorage(TypeSymbol type)
@@ -24,6 +30,10 @@ namespace Blaze.Emit.NameTranslation
                 return $"{_rootNamespace}:strings";
             else if (type == TypeSymbol.Object)
                 return $"{_rootNamespace}:objects";
+            else if (type == TypeSymbol.Float)
+                return $"{_rootNamespace}:floats";
+            else if (type == TypeSymbol.Double)
+                return $"{_rootNamespace}:doubles";
             else if (type is EnumSymbol)
                 return $"{_rootNamespace}:enums";
             else

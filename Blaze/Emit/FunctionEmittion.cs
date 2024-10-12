@@ -36,15 +36,14 @@ namespace Blaze.Emit
                 var previous = Symbol.Parent;
                 while (previous != null)
                 {
-                    if (previous.IsRoot)
+                    if (previous is NamespaceSymbol ns && ns.IsGlobal)
                         break;
                     stack.Push(previous);
                     previous = previous.Parent;
                 }
+
                 while (stack.Any())
-                {
                     builder.Append(stack.Pop().Name + "/");
-                }
 
                 builder.Append(Name);
                 _callName = builder.ToString();
@@ -104,6 +103,11 @@ namespace Blaze.Emit
                  
                 _ => throw new Exception($"Unexpected sub function kind {kind}")
             };
+            return CreateSub(parent, name);
+        }
+
+        public static FunctionEmittion CreateSub(FunctionEmittion parent, string name)
+        {
             var emittion = new FunctionEmittion(name, parent.Symbol, true);
             parent.Children.Add(emittion);
             return emittion;

@@ -119,13 +119,30 @@ namespace Blaze.Binding
             if (operand.ConstantValue == null)
                 return null;
 
-            return op.OperatorKind switch
+            switch (op.OperatorKind)
             {
-                BoundUnaryOperatorKind.Identity => new BoundConstant((int)operand.ConstantValue.Value),
-                BoundUnaryOperatorKind.Negation => new BoundConstant(-(int)operand.ConstantValue.Value),
-                BoundUnaryOperatorKind.LogicalNegation => new BoundConstant(!(bool)operand.ConstantValue.Value),
-                _ => throw new Exception($"Unexpected unary operator {op.OperatorKind}")
+                case BoundUnaryOperatorKind.Identity:
+                    if (operand.Type == TypeSymbol.Int)
+                        return new BoundConstant((int)operand.ConstantValue.Value);
+                    else if (operand.Type == TypeSymbol.Float)
+                        return new BoundConstant((float)operand.ConstantValue.Value);
+                    else if (operand.Type == TypeSymbol.Double)
+                        return new BoundConstant((double)operand.ConstantValue.Value);
+                    break;
+                case BoundUnaryOperatorKind.Negation:
+                    if (operand.Type == TypeSymbol.Int)
+                        return new BoundConstant(-(int)operand.ConstantValue.Value);
+                    else if (operand.Type == TypeSymbol.Float)
+                        return new BoundConstant(-(float)operand.ConstantValue.Value);
+                    else if (operand.Type == TypeSymbol.Double)
+                        return new BoundConstant(-(double)operand.ConstantValue.Value);
+                    break;
+                case BoundUnaryOperatorKind.LogicalNegation:
+                    return new BoundConstant(!(bool)operand.ConstantValue.Value);
+                default:
+                    throw new Exception($"Unexpected unary operator {op.OperatorKind}");
             };
+            return null;
         }
 
         public static BoundConstant? ComputeCast(BoundExpression expression, TypeSymbol type)
