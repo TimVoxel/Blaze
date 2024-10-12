@@ -5,7 +5,7 @@ using System.Text;
 namespace Blaze.Symbols
 {
     public class FunctionSymbol : Symbol, IMemberSymbol
-    {
+    { 
         private string? _addressName;
         public ImmutableArray<ParameterSymbol> Parameters { get; }
         public TypeSymbol ReturnType { get; }
@@ -14,6 +14,7 @@ namespace Blaze.Symbols
 
         public bool IsLoad { get; }
         public bool IsTick { get; }
+        public AccessModifier AccessModifier { get; } 
 
         public virtual string AddressName
         {
@@ -51,7 +52,7 @@ namespace Blaze.Symbols
 
         public override SymbolKind Kind => SymbolKind.Function;
 
-        public FunctionSymbol(string name, IMemberSymbol? parent, ImmutableArray<ParameterSymbol> parameters, TypeSymbol returnType, bool isLoad, bool isTick, FunctionDeclarationSyntax? declaration = null) : base(name)
+        public FunctionSymbol(string name, IMemberSymbol? parent, ImmutableArray<ParameterSymbol> parameters, TypeSymbol returnType, bool isLoad, bool isTick, AccessModifier accessModifier, FunctionDeclarationSyntax? declaration = null) : base(name)
         {
             Parent = parent;
             Parameters = parameters;
@@ -59,6 +60,7 @@ namespace Blaze.Symbols
             Declaration = declaration;
             IsLoad = isLoad;
             IsTick = isTick;
+            AccessModifier = accessModifier;
         }
 
         public string GetFullName()

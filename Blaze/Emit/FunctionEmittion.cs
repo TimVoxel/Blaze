@@ -84,12 +84,12 @@ namespace Blaze.Emit
 
         public static FunctionEmittion Init(NamespaceSymbol globalNamespace)
         {
-            FunctionSymbol init = new FunctionSymbol("init", globalNamespace, ImmutableArray<ParameterSymbol>.Empty, TypeSymbol.Void, true, false, null);
+            FunctionSymbol init = new FunctionSymbol("init", globalNamespace, ImmutableArray<ParameterSymbol>.Empty, TypeSymbol.Void, true, false, AccessModifier.Private, null);
             return new FunctionEmittion(init.Name, init, false);
         }
         public static FunctionEmittion Tick(NamespaceSymbol globalNamespace)
         {
-            FunctionSymbol tick = new FunctionSymbol("tick", globalNamespace, ImmutableArray<ParameterSymbol>.Empty, TypeSymbol.Void, false, true, null);
+            FunctionSymbol tick = new FunctionSymbol("tick", globalNamespace, ImmutableArray<ParameterSymbol>.Empty, TypeSymbol.Void, false, true, AccessModifier.Private, null);
             return new FunctionEmittion(tick.Name, tick, false);
         }
 

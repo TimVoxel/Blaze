@@ -39,6 +39,7 @@ namespace Blaze.Emit.NameTranslation
             else
                 return $"{_rootNamespace}:instances";
         }
+        private void Test() { }
 
         public string GetNamespaceFieldPath(NamespaceSymbol namespaceSymbol)
         {

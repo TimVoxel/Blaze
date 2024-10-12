@@ -320,7 +320,8 @@ namespace Blaze.Binding
                 }
             }
 
-            var function = new FunctionSymbol(identifierText, _namespace, parameters.ToImmutable(), returnType, isLoad, isTick, declaration);
+            //TODO: Add syntax for access modifier management
+            var function = new FunctionSymbol(identifierText, _namespace, parameters.ToImmutable(), returnType, isLoad, isTick, AccessModifier.Public, declaration);
 
             if (!_namespace.TryDeclareFunction(function))
                 _diagnostics.ReportFunctionAlreadyDeclared(declaration.Identifier.Location, function.Name);
@@ -772,6 +773,12 @@ namespace Blaze.Binding
             else
             {
                 _diagnostics.ReportInvalidCallIdentifier(expression.IdentifierExpression.Location, boundIdentifier.Kind);
+                return new BoundErrorExpression();
+            }    
+
+            if (function.AccessModifier == AccessModifier.Private)
+            {
+                _diagnostics.ReportFunctionIsPrivate(expression.Location, function.Name);
                 return new BoundErrorExpression();
             }    
 

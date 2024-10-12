@@ -8,7 +8,6 @@
         public EnumSymbol Difficulty { get; }
 
         public NamedTypeSymbol Pos { get; }
-
         public FieldSymbol DifficultyField { get; }
 
         public FunctionSymbol RunCommand { get; }

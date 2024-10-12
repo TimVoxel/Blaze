@@ -350,5 +350,11 @@ namespace Blaze.Diagnostics
             var message = $"{expressionKindName} is read-only and cannot be assigned to";
             Report(location, message);
         }
+
+        public void ReportFunctionIsPrivate(TextLocation location, string name)
+        {
+            string message = $"Function \"{name}\" is inaccessable due to its protection level";
+            Report(location, message);
+        }
     }
 }

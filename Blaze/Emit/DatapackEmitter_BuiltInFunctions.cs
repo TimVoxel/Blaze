@@ -37,6 +37,16 @@ namespace Blaze.Emit
                 EmitSetWeatherForTicks(call, emittion, current);
                 return true;
             }
+            if (call.Function == BuiltInNamespace.Minecraft.General.Weather.SetWeatherForDays)
+            {
+                EmitSetWeatherForDays(call, emittion, current);
+                return true;
+            }
+            if (call.Function == BuiltInNamespace.Minecraft.General.Weather.SetWeatherForSeconds)
+            {
+                EmitSetWeatherForSeconds(call, emittion, current);
+                return true;
+            }
             if (call.Function == BuiltInNamespace.Minecraft.Chat.Say)
             {
                 EmitSay(call, emittion);
