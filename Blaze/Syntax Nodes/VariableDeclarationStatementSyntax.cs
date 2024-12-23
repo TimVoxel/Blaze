@@ -4,7 +4,7 @@ namespace Blaze.Syntax_Nodes
 {
     public sealed class VariableDeclarationStatementSyntax : StatementSyntax {
 
-        public SyntaxNode DeclarationNode { get; private set; }
+        public SyntaxNode TypeNode { get; private set; }
         public SyntaxToken Identifier { get; private set; }
         public SyntaxToken EqualsToken { get; private set; }
         public ExpressionSyntax Initializer { get; private set; }
@@ -14,7 +14,7 @@ namespace Blaze.Syntax_Nodes
 
         internal VariableDeclarationStatementSyntax(SyntaxTree tree, SyntaxNode declarationNode, SyntaxToken identifier, SyntaxToken equalsToken, ExpressionSyntax initializer, SyntaxToken semicolon) : base(tree)
         {
-            DeclarationNode = declarationNode;
+            TypeNode = declarationNode;
             Identifier = identifier;
             EqualsToken = equalsToken;
             Initializer = initializer;
@@ -23,7 +23,7 @@ namespace Blaze.Syntax_Nodes
 
         public override IEnumerable<SyntaxNode> GetChildren()
         {
-            yield return DeclarationNode;
+            yield return TypeNode;
             yield return Identifier;
             yield return EqualsToken;
             yield return Initializer;

@@ -58,6 +58,7 @@ namespace Blaze
             _start = _position;
             _kind = SyntaxKind.IncorrectToken;
             _value = null;
+
             switch (Current)
             {
                 case '\0':
@@ -129,6 +130,12 @@ namespace Blaze
                     break;
                 case '}':
                     ConsumeOfKind(SyntaxKind.CloseBraceToken);
+                    break;
+                case '[':
+                    ConsumeOfKind(SyntaxKind.OpenSquareBracketToken);
+                    break;
+                case ']':
+                    ConsumeOfKind(SyntaxKind.CloseSquareBracketToken);
                     break;
                 case '!':
                     if (Next == '=')
@@ -267,6 +274,7 @@ namespace Blaze
             var span = new TextSpan(_position, 1);
             var location = new TextLocation(_text, span);
             _diagnostics.ReportStrayCharacter(location, Current);
+            _kind = SyntaxKind.IncorrectToken;
             _position++;
         }
 

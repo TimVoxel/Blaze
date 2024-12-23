@@ -1,4 +1,5 @@
 ﻿using System.Collections;
+using System.Runtime.CompilerServices;
 using System.Security.Cryptography;
 using System.Security.Cryptography.X509Certificates;
 using Blaze.Binding;
@@ -303,9 +304,9 @@ namespace Blaze.Diagnostics
             Report(location, message);
         }
 
-        public void ReportInvalidFieldIdentifier(TextLocation location, SyntaxKind kind)
+        public void ReportInvalidFieldInitializer(TextLocation location)
         {
-            string message = $"Expression of kind {kind} cannot be used as an identifier for a field";
+            string message = $"Field initializer should have a constant value";
             Report(location, message);
         }
 
@@ -355,6 +356,29 @@ namespace Blaze.Diagnostics
         {
             string message = $"Function \"{name}\" is inaccessable due to its protection level";
             Report(location, message);
+        }
+
+        public void ReportInstantiationOfAbstractClass(TextLocation location, string name)
+        {
+            string message = $"Cannot create an instance of abstract type \"{name}\"";
+            Report(location, message);
+        }
+
+        public void ReportInstantiationWithoutConstructor(TextLocation location, string name)
+        {
+            string message = $"Type \"{name}\" does not have an accessible constructor";
+            Report(location, message);
+        }
+
+        public void ReportExpectedType(TextLocation location, BoundNodeKind kind)
+        {
+            string message = $"Expected type, got {kind}";
+            Report(location, message);
+        }
+
+        public void ReportInfo(TextLocation location, string text)
+        {
+            Report(location, text);
         }
     }
 }

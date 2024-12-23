@@ -59,6 +59,13 @@ namespace Blaze.Binding
             if (from is EnumSymbol e && to == TypeSymbol.String)
                 return Explicit;
            
+            if (from is NamedTypeSymbol namedFrom && to is NamedTypeSymbol namedTo) {
+                if (namedFrom.Base != null && namedFrom.Base.Equals(namedTo))
+                    return Implicit;
+                if (namedTo.Base != null && namedTo.Base.Equals(namedFrom))
+                    return Explicit;
+            }
+
             /*
             // string -> int or bool
             if (from == TypeSymbol.String)        

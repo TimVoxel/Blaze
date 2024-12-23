@@ -671,8 +671,8 @@ namespace Blaze.Emit
             emittion.AppendComment($"Emitting object creation of type {objectCreationExpression.NamedType.Name}, stored in reference variable {varName}");
 
             var constructor = objectCreationExpression.NamedType.Constructor;
+            Debug.Assert(constructor != null);
             var setParameters = EmitFunctionParametersAssignment(constructor.Parameters, objectCreationExpression.Arguments, emittion);
-
             Debug.Assert(constructor.FunctionBody != null);
 
             //We do this so that the constructor block knows the "this" instance name
@@ -1285,60 +1285,67 @@ namespace Blaze.Emit
             emittion.AppendComment($"Assigning a conversion from {conversion.Expression.Type} to {conversion.Type} to variable \"{name}\"");
             var resultType = conversion.Type;
             var sourceType = conversion.Expression.Type;
-            var tempName = EmitAssignmentToTemp(conversion.Expression, emittion, current);
 
-            if (resultType == TypeSymbol.String)
+            if (sourceType is NamedTypeSymbol && resultType is NamedTypeSymbol)
             {
-                var stringsStorage = _nameTranslator.GetStorage(TypeSymbol.String);
-                var tempPath = "TEMP.*temp1";
+                EmitAssignmentExpression(name, conversion.Expression, emittion, current);
+            }
+            else
+            {
+                var tempName = EmitAssignmentToTemp(conversion.Expression, emittion, current);
+                if (resultType == TypeSymbol.String)
+                {
+                    var stringsStorage = _nameTranslator.GetStorage(TypeSymbol.String);
+                    var tempPath = "TEMP.*temp1";
 
-                if (sourceType == TypeSymbol.Int || sourceType == TypeSymbol.Bool)
-                {
-                    var command1 = $"execute store result storage {stringsStorage} \"{tempPath}\" int 1 run scoreboard players get {tempName} {Vars}";
-                    var command2 = $"data modify storage {stringsStorage} \"{name}\" set string storage {stringsStorage} \"{tempPath}\"";
-                    emittion.AppendLine(command1);
-                    emittion.AppendLine(command2);
-                    EmitCleanUp(tempPath, resultType, emittion);
-                }
-                else if (sourceType is EnumSymbol enumSymbol)
-                {
-                    if (enumSymbol.IsIntEnum)
+                    if (sourceType == TypeSymbol.Int || sourceType == TypeSymbol.Bool)
                     {
-                        foreach (var enumMember in enumSymbol.Members)
+                        var command1 = $"execute store result storage {stringsStorage} \"{tempPath}\" int 1 run scoreboard players get {tempName} {Vars}";
+                        var command2 = $"data modify storage {stringsStorage} \"{name}\" set string storage {stringsStorage} \"{tempPath}\"";
+                        emittion.AppendLine(command1);
+                        emittion.AppendLine(command2);
+                        EmitCleanUp(tempPath, resultType, emittion);
+                    }
+                    else if (sourceType is EnumSymbol enumSymbol)
+                    {
+                        if (enumSymbol.IsIntEnum)
                         {
-                            var intMember = (IntEnumMemberSymbol) enumMember;
-                            var command = $"execute if score {tempName} {Vars} matches {intMember.UnderlyingValue} run data modify storage {stringsStorage} \"{name}\" set value \"{enumMember.Name}\"";
+                            foreach (var enumMember in enumSymbol.Members)
+                            {
+                                var intMember = (IntEnumMemberSymbol)enumMember;
+                                var command = $"execute if score {tempName} {Vars} matches {intMember.UnderlyingValue} run data modify storage {stringsStorage} \"{name}\" set value \"{enumMember.Name}\"";
+                                emittion.AppendLine(command);
+                            }
+                        }
+                        else
+                        {
+                            var enumStorage = _nameTranslator.GetStorage(enumSymbol);
+                            var command = $"data modify storage {stringsStorage} \"{name}\" set from storage {enumStorage} \"{tempName}\"";
                             emittion.AppendLine(command);
                         }
                     }
+                }
+                if (resultType == TypeSymbol.Float)
+                {
+                    EmitFloatConversion(name, tempName, sourceType, emittion);
+                }
+                if (resultType == TypeSymbol.Double)
+                {
+                    EmitDoubleConversion(name, tempName, sourceType, emittion);
+                }
+                if (resultType == TypeSymbol.Object)
+                {
+                    if (sourceType == TypeSymbol.Int || sourceType == TypeSymbol.Bool)
+                    {
+                        emittion.AppendLine($"execute store result storage {_nameTranslator.GetStorage(TypeSymbol.Object)} \"{name}\" int 1 run scoreboard players get {tempName} {Vars}");
+                    }
                     else
                     {
-                        var enumStorage = _nameTranslator.GetStorage(enumSymbol);
-                        var command = $"data modify storage {stringsStorage} \"{name}\" set from storage {enumStorage} \"{tempName}\"";
-                        emittion.AppendLine(command);
+                        emittion.AppendLine($"data modify storage {_nameTranslator.GetStorage(TypeSymbol.Object)} \"{name}\" set from storage {_nameTranslator.GetStorage(TypeSymbol.String)} \"{tempName}\"");
                     }
                 }
+                EmitCleanUp(tempName, sourceType, emittion);
             }
-            if (resultType == TypeSymbol.Float)
-            {
-                EmitFloatConversion(name, tempName, sourceType, emittion);
-            }
-            if (resultType == TypeSymbol.Double)
-            {
-                EmitDoubleConversion(name, tempName, sourceType, emittion);
-            }
-            if (resultType == TypeSymbol.Object)
-            {
-                if (sourceType == TypeSymbol.Int || sourceType == TypeSymbol.Bool)
-                {
-                    emittion.AppendLine($"execute store result storage {_nameTranslator.GetStorage(TypeSymbol.Object)} \"{name}\" int 1 run scoreboard players get {tempName} {Vars}");
-                }
-                else
-                {
-                    emittion.AppendLine($"data modify storage {_nameTranslator.GetStorage(TypeSymbol.Object)} \"{name}\" set from storage {_nameTranslator.GetStorage(TypeSymbol.String)} \"{tempName}\"");
-                }
-            }
-            EmitCleanUp(tempName, sourceType, emittion);
         }
 
         private void EmitFloatConversion(string name, string otherName, TypeSymbol sourceType, FunctionEmittion emittion)

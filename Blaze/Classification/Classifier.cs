@@ -14,9 +14,9 @@ namespace Blaze.Classification
             return result.ToImmutable();
         }
 
-        private static void ClassifyNode(SyntaxNode? node, TextSpan span, ImmutableArray<ClassifiedSpan>.Builder result)
+        private static void ClassifyNode(SyntaxNode node, TextSpan span, ImmutableArray<ClassifiedSpan>.Builder result)
         {
-            if (node == null || !node.FullSpan.OverlapsWith(span))
+            if (!node.FullSpan.OverlapsWith(span))
                 return;
 
             if (node is SyntaxToken token)

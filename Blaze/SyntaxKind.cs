@@ -17,6 +17,8 @@
         CloseParenToken,
         OpenBraceToken,
         CloseBraceToken,
+        OpenSquareBracketToken,
+        CloseSquareBracketToken,
         ExclamationSignToken,
         DoubleAmpersandToken,
         DoublePipeToken,
@@ -91,6 +93,9 @@
         CallExpression,
         MemberAccessExpression,
         ObjectCreationExpression,
+        ArrayCreationExpression,
+        ArrayAccessExpression,
+        ArrayTypeExpression,
 
         //Statements
         BlockStatement,

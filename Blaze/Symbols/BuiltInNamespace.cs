@@ -44,13 +44,15 @@ namespace Blaze.Symbols
             return function;
         }
 
-        protected NamedTypeSymbol Class(string name, ConstructorSymbol constructor) 
+        protected NamedTypeSymbol Class(string name, ConstructorSymbol? constructor, NamedTypeSymbol? baseType = null, bool isAbstract = false) 
         {
-            var classSymbol = new NamedTypeSymbol(name, Symbol, constructor);
+            var classSymbol = new NamedTypeSymbol(name, baseType, Symbol, constructor, isAbstract);
             Symbol.Members.Add(classSymbol);
             return classSymbol;
         }
 
+        protected NamedTypeSymbol AbstractClass(string name, NamedTypeSymbol? baseType = null) => Class(name, null, baseType, true);
+        
         protected EnumSymbol Enum(string name, bool isInt)
         {
             var enumSymbol = new EnumSymbol(Symbol, name, isInt);
@@ -110,6 +112,9 @@ namespace Blaze.Symbols
             foreach (var field in fields)
             {
                 var param = parametersInOrder[i];
+                if (field.Type != param.Type)
+                    throw new Exception($"Field {field.Name} and param {param.Name} do not share the same type");
+
                 var boundThisExpression = new BoundThisExpression(type);
                 var fieldExpression = new BoundFieldAccessExpression(boundThisExpression, field);
                 var paramExpression = new BoundVariableExpression(param);

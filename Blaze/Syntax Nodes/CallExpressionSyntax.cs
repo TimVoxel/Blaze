@@ -4,7 +4,7 @@ namespace Blaze.Syntax_Nodes
 {
     public sealed class CallExpressionSyntax : ExpressionSyntax
     {
-        public ExpressionSyntax IdentifierExpression { get; }
+        public ExpressionSyntax Identifier { get; }
         public SyntaxToken OpenParen { get; }
         public SeparatedSyntaxList<ExpressionSyntax> Arguments { get; }
         public SyntaxToken CloseParen { get; }
@@ -13,7 +13,7 @@ namespace Blaze.Syntax_Nodes
 
         internal CallExpressionSyntax(SyntaxTree tree, ExpressionSyntax identifierExpression, SyntaxToken openParen, SeparatedSyntaxList<ExpressionSyntax> arguments, SyntaxToken closeParen) : base(tree)
         {
-            IdentifierExpression = identifierExpression;
+            Identifier = identifierExpression;
             OpenParen = openParen;
             Arguments = arguments;
             CloseParen = closeParen;
@@ -21,7 +21,7 @@ namespace Blaze.Syntax_Nodes
 
         public override IEnumerable<SyntaxNode> GetChildren()
         {
-            yield return IdentifierExpression;
+            yield return Identifier;
             yield return OpenParen;
             foreach (SyntaxNode node in Arguments.GetWithSeparators())
                 yield return node;

@@ -2,6 +2,7 @@
 
 namespace Blaze.Syntax_Nodes
 {
+
     public sealed class AssignmentExpressionSyntax : ExpressionSyntax
     {
         public ExpressionSyntax Left { get; }

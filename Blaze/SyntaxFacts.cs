@@ -226,6 +226,8 @@ namespace Blaze
                 SyntaxKind.DotToken => ".",
                 SyntaxKind.OpenBraceToken => "{",
                 SyntaxKind.CloseBraceToken => "}",
+                SyntaxKind.OpenSquareBracketToken => "[",
+                SyntaxKind.CloseSquareBracketToken => "]",
                 SyntaxKind.PlusToken => "+",
                 SyntaxKind.MinusToken => "-",
                 SyntaxKind.StarToken => "*",

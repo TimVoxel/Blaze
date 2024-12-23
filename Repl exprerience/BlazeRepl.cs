@@ -11,6 +11,7 @@ namespace ReplExperience
         private Compilation? _previous;
         private bool _showTree;
         private bool _showProgram;
+        private bool _showTokens;
         private Dictionary<VariableSymbol, object?> _variables = new Dictionary<VariableSymbol, object?>();
         
         private static string SubmissionsDirectory
@@ -89,6 +90,18 @@ namespace ReplExperience
         {
             var syntaxTree = SyntaxTree.Parse(text);
             var compilation = Compilation.CreateScript(syntaxTree);
+
+            if (_showTokens)
+            {
+                var tokens = SyntaxTree.ParseTokens(text);
+                foreach (var token in tokens)
+                {
+                    Console.ForegroundColor = ConsoleColor.Cyan;
+                    Console.Write($"{token.Text}");
+                    Console.ForegroundColor = ConsoleColor.Green;
+                    Console.Write($"\t\t{token.Kind}\n");
+                }
+            }
 
             if (_showTree)
                 syntaxTree.Root.WriteTo(Console.Out);
@@ -170,6 +183,14 @@ namespace ReplExperience
             Console.WriteLine(_showProgram ? "Showing bound trees" : "Not showing bound trees");
         }
 
+        [MetaCommand("showTokens", "Prints all tokens")]
+        private void EvaluateShowTokens()
+        {
+            _showTokens = !_showTokens;
+            Console.WriteLine(_showTokens ? "Showing token list" : "Not showing token list");
+        }
+
+
         [MetaCommand("clear", "Clears the console")]
         private void EvaluateClear()
         {
@@ -198,6 +219,7 @@ namespace ReplExperience
             string text = File.ReadAllText(path);
             EvaluateSubmission(text);
         }
+
 
         [MetaCommand("listSymbols", "Lists all defined symbols")]
         private void EvaluateLs()

@@ -8,6 +8,7 @@ using Blaze.SyntaxTokens;
 using Blaze.Text;
 using System.Collections.Immutable;
 using System.Diagnostics;
+using System.Runtime.InteropServices;
 
 namespace Blaze.Binding
 {
@@ -293,7 +294,7 @@ namespace Blaze.Binding
             foreach (var parameterSyntax in declaration.Parameters)
             {
                 var name = parameterSyntax.Identifier.Text;
-                var type = BindType(parameterSyntax.Type.Identifier.Text, parameterSyntax.Type.Location);
+                var type = BindTypeClause(parameterSyntax.Type);
 
                 if (type == null)
                     continue;
@@ -309,8 +310,8 @@ namespace Blaze.Binding
                 returnType = TypeSymbol.Void;
             else
             {
-                var identifier = declaration.ReturnTypeClause.Identifier;
-                returnType = BindType(identifier.Text, identifier.Location);
+                var identifier = declaration.ReturnTypeClause.Expression;
+                returnType = BindTypeClause(declaration.ReturnTypeClause);
 
                 if (returnType == null)
                     returnType = TypeSymbol.Void;
@@ -332,9 +333,28 @@ namespace Blaze.Binding
             var identifierText = fieldDeclaration.Identifier.Text;
             var initializer = BindExpression(fieldDeclaration.Initializer);
 
+            bool isAllowedInitializer(BoundExpression expression)
+            {
+                if (expression is BoundObjectCreationExpression objectCreation)
+                {
+                    foreach (var argument in objectCreation.Arguments)
+                        if (!isAllowedInitializer(argument))
+                            return false;
+
+                    return true;
+                }
+                else return expression.ConstantValue != null;
+            }
+
+            if (!isAllowedInitializer(initializer))
+            {
+                _diagnostics.ReportInvalidFieldInitializer(fieldDeclaration.Initializer.Location);
+                return;
+            }
+
             TypeSymbol? type = null;
             if (fieldDeclaration.DeclarationNode is TypeClauseSyntax typeClause)
-                type = BindType(typeClause.Identifier.Text, typeClause.Identifier.Location);
+                type = BindTypeClause(typeClause);
 
             var variableType = type ?? initializer.Type;
 
@@ -444,16 +464,34 @@ namespace Blaze.Binding
         {
             var initializer = BindExpression(syntax.Initializer);
 
-            TypeSymbol? type = null;
-            if (syntax.DeclarationNode is TypeClauseSyntax typeClause)
-                type = BindType(typeClause.Identifier.Text, typeClause.Identifier.Location);
+            TypeSymbol? specifiedType = null;
 
-            
+            if (syntax.TypeNode is TypeClauseSyntax typeClause)
+                specifiedType = BindTypeClause(typeClause);
+
             //TODO: Add const variable declarations
-            var variableType = type ?? initializer.Type;
+            var variableType = specifiedType ?? initializer.Type;
             var convertedInitializer = BindConversion(initializer, variableType, syntax.Initializer.Location);
             var variable = BindVariable(syntax.Identifier, variableType, false, convertedInitializer.ConstantValue);  
             return new BoundVariableDeclarationStatement(variable, convertedInitializer);
+        }
+
+        private TypeSymbol? BindTypeClause(TypeClauseSyntax typeClause)
+        {
+            var boundTypeClause = BindExpression(typeClause.Expression);
+
+            if (boundTypeClause is BoundErrorExpression)
+                return null;
+
+            if (boundTypeClause is BoundTypeExpression)
+            {
+                return boundTypeClause.Type;
+            }
+            else
+            {
+                _diagnostics.ReportExpectedType(typeClause.Expression.Location, boundTypeClause.Kind);
+                return null;
+            }            
         }
 
         private BoundStatement BindExpressionStatement(ExpressionStatementSyntax syntax)
@@ -660,23 +698,11 @@ namespace Blaze.Binding
                 return new BoundErrorExpression();
             }
 
-            if (_function == null && !(boundExpression is BoundTypeExpression))
-            {
-                _diagnostics.ReportInvalidFieldIdentifier(expression.Location, expression.Kind);
-                return new BoundErrorExpression();
-            }
-
             return boundExpression;
         }
 
         private BoundExpression BindMemberAccessExpression(MemberAccessExpressionSyntax expression, LookupOptions lookupOptions)
         {
-            if (_function == null)
-            {
-                _diagnostics.ReportInvalidFieldIdentifier(expression.Location, expression.Kind);
-                return new BoundErrorExpression();
-            }
-
             if (!expression.AccessedExpression.CanBeAccessed())
             {
                 _diagnostics.ReportInvalidMemberAccessLeftKind(expression.AccessedExpression.Location, expression.AccessedExpression.Kind);
@@ -718,6 +744,17 @@ namespace Blaze.Binding
                 _diagnostics.ReportUndefinedMemberOfType(expression.MemberIdentifier.Location, namedType.Name, memberName);
                 return new BoundErrorExpression();                
             }
+            else if (boundAccessed.Type is EnumSymbol enumType)
+            {
+                //Enum types -> Enum members
+                var member = enumType.TryLookup(memberName);
+                if (member == null)
+                {
+                    _diagnostics.ReportUndefinedEnumMember(expression.MemberIdentifier.Location, enumType.Name, memberName);
+                    return new BoundErrorExpression();
+                }
+                return new BoundVariableExpression(member);
+            }
             else if (boundAccessed is BoundNamespaceExpression namespaceExpression)
             {
                 //Use standard namespace symbol binding for this one,
@@ -732,17 +769,6 @@ namespace Blaze.Binding
                 }
                 return boundSymbolExression;
             }
-            else if (boundAccessed is BoundEnumExpression enumExpression)
-            {
-                //Enum types -> Enum members
-                var member = enumExpression.EnumSymbol.TryLookup(memberName);
-                if (member == null)
-                {
-                    _diagnostics.ReportUndefinedEnumMember(expression.MemberIdentifier.Location, enumExpression.EnumSymbol.Name, memberName);
-                    return new BoundErrorExpression();
-                }
-                return new BoundVariableExpression(member);
-            }
             else
             {
                 _diagnostics.ReportInvalidMemberAccess(expression.AccessedExpression.Location, boundAccessed.Type.Name);
@@ -752,13 +778,7 @@ namespace Blaze.Binding
 
         private BoundExpression BindCallExpression(CallExpressionSyntax expression)
         {
-            if (_function == null)
-            {
-                _diagnostics.ReportInvalidFieldIdentifier(expression.Location, expression.Kind);
-                return new BoundErrorExpression();
-            }
-
-            var boundIdentifier = BindExpression(expression.IdentifierExpression, true, LookupOptions.PrioritizeFunctions);
+            var boundIdentifier = BindExpression(expression.Identifier, true, LookupOptions.PrioritizeFunctions);
             FunctionSymbol function;
 
             if (boundIdentifier is BoundErrorExpression errorExpression)
@@ -772,7 +792,7 @@ namespace Blaze.Binding
                 function = methodAccessExpression.Method;
             else
             {
-                _diagnostics.ReportInvalidCallIdentifier(expression.IdentifierExpression.Location, boundIdentifier.Kind);
+                _diagnostics.ReportInvalidCallIdentifier(expression.Identifier.Location, boundIdentifier.Kind);
                 return new BoundErrorExpression();
             }    
 
@@ -807,6 +827,16 @@ namespace Blaze.Binding
 
             if (typeExpression.Type is NamedTypeSymbol namedTypeSymbol)
             {
+                if (namedTypeSymbol.IsAbstract)
+                {
+                    _diagnostics.ReportInstantiationOfAbstractClass(syntax.Location, namedTypeSymbol.Name);
+                    return new BoundErrorExpression();
+                }
+                if (namedTypeSymbol.Constructor == null)
+                {
+                    _diagnostics.ReportInstantiationWithoutConstructor(syntax.Location, namedTypeSymbol.Name);
+                    return new BoundErrorExpression();
+                }
                 if (namedTypeSymbol.Constructor.Parameters.Length != syntax.Arguments.Count)
                 {
                     _diagnostics.ReportWrongConstructorArgumentCount(syntax.Location, namedTypeSymbol.Name, namedTypeSymbol.Constructor.Parameters.Length, syntax.Arguments.Count);
@@ -992,8 +1022,8 @@ namespace Blaze.Binding
             if (symbol is EnumMemberSymbol enumSymbol)
                 return new BoundVariableExpression(enumSymbol);
 
-            if (symbol is EnumSymbol en)
-                return new BoundEnumExpression(en);
+            //if (symbol is EnumSymbol en)
+            //    return new BoundEnumExpression(en);
 
             if (symbol is TypeSymbol type)
                 return new BoundTypeExpression(type);
@@ -1167,7 +1197,7 @@ namespace Blaze.Binding
                 if (!TryLookupNamespace(name, out ns, previous))
                     return false;
             }
-            return true;
+            return ns != null;
         }
     }
 }

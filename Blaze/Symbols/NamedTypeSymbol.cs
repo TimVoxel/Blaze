@@ -6,22 +6,32 @@ namespace Blaze.Symbols
     {
         public List<IMemberSymbol> Members { get; }
         public IMemberSymbol Parent { get; }
-        public ConstructorSymbol Constructor { get; }
+        public ConstructorSymbol? Constructor { get; }
+        public NamedTypeSymbol? Base { get; }
+
+        public bool IsAbstract { get; }
 
         public IEnumerable<FunctionSymbol> Methods => Members.OfType<FunctionSymbol>();
         public IEnumerable<FieldSymbol> Fields => Members.OfType<FieldSymbol>();
         
         public override SymbolKind Kind => SymbolKind.NamedType;
 
-        public NamedTypeSymbol(string name, NamespaceSymbol parent, ConstructorSymbol constructor) : base(name)
+        public NamedTypeSymbol(string name, NamedTypeSymbol? baseType, NamespaceSymbol parent, ConstructorSymbol? constructor, bool isAbstract) : base(name)
         {
             Members = new List<IMemberSymbol>();
             Parent = parent;
             Constructor = constructor;
+            Base = baseType;
+            IsAbstract = isAbstract;
         }
 
         public T? TryLookup<T>(string name) where T : IMemberSymbol
-            => Members.OfType<T>().FirstOrDefault(m => m.Name == name);
+        {
+            T? result = Members.OfType<T>().FirstOrDefault(m => m.Name == name);
+            if (result == null && Base != null)
+                return Base.TryLookup<T>(name);
+            return result;
+        }
 
         public string GetFullName()
         {

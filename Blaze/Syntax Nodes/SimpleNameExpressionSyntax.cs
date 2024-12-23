@@ -4,7 +4,7 @@ namespace Blaze.Syntax_Nodes
 {
     public sealed class SimpleNameExpressionSyntax : ExpressionSyntax
     {
-        public SyntaxToken IdentifierToken { get; private set; }
+        public SyntaxToken IdentifierToken { get; }
 
         public override SyntaxKind Kind => SyntaxKind.SimpleNameExpression;
 

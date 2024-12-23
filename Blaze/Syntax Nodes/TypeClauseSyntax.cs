@@ -1,21 +1,19 @@
-﻿using Blaze.SyntaxTokens;
-
-namespace Blaze.Syntax_Nodes
+﻿namespace Blaze.Syntax_Nodes
 {
-    public sealed class TypeClauseSyntax : SyntaxNode
+    public class TypeClauseSyntax : SyntaxNode
     {
-        public SyntaxToken Identifier { get; private set; }
+        public ExpressionSyntax Expression { get; private set; }
 
         public override SyntaxKind Kind => SyntaxKind.TypeClause;
 
-        internal TypeClauseSyntax(SyntaxTree tree, SyntaxToken identifier) : base(tree)
+        internal TypeClauseSyntax(SyntaxTree tree, ExpressionSyntax expression) : base(tree)
         {
-            Identifier = identifier;
+            Expression = expression;
         }
 
         public override IEnumerable<SyntaxNode> GetChildren()
         {
-            yield return Identifier;
+            yield return Expression;
         }
     }
 }
