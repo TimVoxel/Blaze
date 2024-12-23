@@ -346,6 +346,9 @@ namespace Blaze.Binding
                 else return expression.ConstantValue != null;
             }
 
+            if (initializer is BoundErrorExpression)
+                return;
+
             if (!isAllowedInitializer(initializer))
             {
                 _diagnostics.ReportInvalidFieldInitializer(fieldDeclaration.Initializer.Location);
