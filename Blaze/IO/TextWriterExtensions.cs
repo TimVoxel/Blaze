@@ -49,7 +49,7 @@ namespace Blaze.IO
 
         public static void WriteDiagnostics(this TextWriter writer, ImmutableArray<Diagnostic> diagnostics)
         {
-            foreach (Diagnostic diagnostic in diagnostics.Where(d => d.Location.Text == null))
+            foreach (var diagnostic in diagnostics.Where(d => d.Location.Text == null))
             {
                 writer.SetForeground(ConsoleColor.Red);
                 writer.Write(diagnostic.Message);
@@ -57,46 +57,55 @@ namespace Blaze.IO
                 writer.ResetColor();
             } 
 
-            foreach (Diagnostic diagnostic in diagnostics.Where(d => d.Location.Text != null).
+            foreach (var diagnostic in diagnostics.Where(d => d.Location.Text != null).
                                                           OrderBy(d => d.Location.FileName).
                                                           ThenBy(d => d.Location.Span.Start).
                                                           ThenBy(d => d.Location.Span.Length))
             {
-                SourceText text = diagnostic.Location.Text;
-                string fileName = diagnostic.Location.FileName;
-                int startLine = diagnostic.Location.StartLine + 1;
-                int startCharacter = diagnostic.Location.StartCharacter + 1;
-                int endLine = diagnostic.Location.EndLine + 1;
-                int endCharacter = diagnostic.Location.EndCharacter + 1;
-                TextSpan span = diagnostic.Location.Span;
+                var text = diagnostic.Location.Text;
+                var fileName = diagnostic.Location.FileName;
+                var source = diagnostic.Source.DiagnosticsSourceName;
+                var startLine = diagnostic.Location.StartLine + 1;
+                var startCharacter = diagnostic.Location.StartCharacter + 1;
+                var endLine = diagnostic.Location.EndLine + 1;
+                var endCharacter = diagnostic.Location.EndCharacter + 1;
+                var span = diagnostic.Location.Span;
 
-                int lineIndex = text.GetLineIndex(span.Start);
-                TextLine line = text.Lines[lineIndex];
-                int lineNumber = lineIndex + 1;
-                int character = span.Start - text.Lines[lineIndex].Start + 1;
+                var lineIndex = text.GetLineIndex(span.Start);
+                var line = text.Lines[lineIndex];
+                var lineNumber = lineIndex + 1;
+                var character = span.Start - text.Lines[lineIndex].Start + 1;
 
                 Console.WriteLine();
                 Console.ForegroundColor = ConsoleColor.DarkGray;
-                Console.Write($"{fileName}({startLine},{startCharacter},{endLine},{endCharacter}): ");
+                Console.Write($"{source}: {fileName}(from {startLine},{startCharacter} to {endLine},{endCharacter}): ");
                 Console.WriteLine(diagnostic);
                 Console.ResetColor();
 
-                TextSpan prefixSpan = TextSpan.FromBounds(line.Start, span.Start);
-                TextSpan suffixSpan = TextSpan.FromBounds(span.End, line.End);
-
-                string prefix = text.ToString(prefixSpan);
-                string error = text.ToString(span);
-                string suffix = text.ToString(suffixSpan);
-
                 Console.Write("    ");
-                Console.Write(prefix);
 
-                Console.ForegroundColor = ConsoleColor.Red;
-                Console.Write(error);
-                Console.ResetColor();
+                if (startLine == endLine)
+                {
+                    var prefixSpan = TextSpan.FromBounds(line.Start, span.Start);
+                    var suffixSpan = TextSpan.FromBounds(span.End, line.End);
+                    var prefix = text.ToString(prefixSpan);
+                    var error = text.ToString(span);
+                    var suffix = text.ToString(suffixSpan);
+                    
+                    Console.Write(prefix);
 
-                Console.Write(suffix);
-                Console.WriteLine();
+                    Console.ForegroundColor = ConsoleColor.Red;
+                    Console.Write(error);
+                    Console.ResetColor();
+
+                    Console.Write(suffix);
+                    Console.WriteLine();
+                }
+                else
+                {
+                    Console.ForegroundColor = ConsoleColor.Red;
+                    Console.WriteLine($"{line}...");
+                }
             }
             Console.WriteLine();
         }

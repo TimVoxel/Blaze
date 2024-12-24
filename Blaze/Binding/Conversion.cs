@@ -26,6 +26,10 @@ namespace Blaze.Binding
             if (from == to)
                 return Identity;
 
+            if (from is ArrayTypeSymbol fromArrayType && to is ArrayTypeSymbol toArrayType &&
+                fromArrayType.Type == toArrayType.Type && fromArrayType.Rank == toArrayType.Rank)
+                    return Identity;
+
             // any -> object
             if (from != TypeSymbol.Void && to == TypeSymbol.Object)
                 return Implicit;

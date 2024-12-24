@@ -1,5 +1,4 @@
 ﻿using Blaze.Binding;
-using Blaze.Diagnostics;
 using System.Collections.Immutable;
 
 namespace Blaze.Lowering
@@ -185,15 +184,19 @@ namespace Blaze.Lowering
                 case BoundNodeKind.IncrementExpression:
                     return RewriteIncrementExpression((BoundIncrementExpression)node);
                 case BoundNodeKind.ObjectCreationExpression:
-                    return RewriteNewExpression((BoundObjectCreationExpression)node);
+                    return RewriteObjectCreationExpression((BoundObjectCreationExpression)node);
+                case BoundNodeKind.ArrayCreationExpression:
+                    return RewriteArrayCreationExpression((BoundArrayCreationExpression)node);
                 case BoundNodeKind.FieldAccessExpression:
                     return RewriteFieldAccessExpression((BoundFieldAccessExpression)node);
                 case BoundNodeKind.FunctionExpression:
                     return RewriteFunctionExpression((BoundFunctionExpression)node);
                 case BoundNodeKind.MethodAccessExpression:
                     return RewriteMethodAccessExpression((BoundMethodAccessExpression)node);
+                case BoundNodeKind.ArrayAccessExpression:
+                    return RewriteArrayAccessExpression((BoundArrayAccessExpression)node);
                 case BoundNodeKind.NamespaceExpression:
-                    return RewriteNamespaceExpression((BoundNamespaceExpression)node); 
+                    return RewriteNamespaceExpression((BoundNamespaceExpression)node);
                 default:
                     throw new Exception($"Unexpected node {node.Kind}");
             }
@@ -235,12 +238,20 @@ namespace Blaze.Lowering
             return new BoundConversionExpression(node.Type, expression);
         }
 
-        protected virtual BoundExpression RewriteNewExpression(BoundObjectCreationExpression node)
+        protected virtual BoundExpression RewriteObjectCreationExpression(BoundObjectCreationExpression node)
         {
             var builder = RewriteArguments(node.Arguments);
             if (builder == null)
                 return node;
             return new BoundObjectCreationExpression(node.NamedType, builder.MoveToImmutable());
+        }
+
+        private BoundExpression RewriteArrayCreationExpression(BoundArrayCreationExpression node)
+        {
+            var builder = RewriteArguments(node.Dimensions);
+            if (builder == null)
+                return node;
+            return new BoundArrayCreationExpression(node.ArrayType, builder.MoveToImmutable());
         }
 
         protected virtual BoundExpression RewriteErrorExpression(BoundErrorExpression node) => node;
@@ -295,9 +306,42 @@ namespace Blaze.Lowering
         {
             var identifier = RewriteExpression(node.Identifier);
             var builder = RewriteArguments(node.Arguments);
+            
             if (builder == null)
-                return node;
-            return new BoundCallExpression(identifier, node.Function, builder.MoveToImmutable());
+            {
+                if (identifier == node.Identifier)
+                    return node;
+
+                return new BoundCallExpression(identifier, node.Function, node.Arguments);
+            }
+            else
+            {
+                if (identifier == node.Identifier)
+                    return new BoundCallExpression(node.Identifier, node.Function, builder.ToImmutable());
+
+                return new BoundCallExpression(identifier, node.Function, builder.ToImmutable());
+            }
+        }
+
+        private BoundExpression RewriteArrayAccessExpression(BoundArrayAccessExpression node)
+        {
+            var identifier = RewriteExpression(node.Identifier);
+            var builder = RewriteArguments(node.Arguments);
+
+            if (builder == null)
+            {
+                if (identifier == node.Identifier)
+                    return node;
+
+                return new BoundArrayAccessExpression(node.Type, identifier, node.Arguments);
+            }
+            else
+            {
+                if (identifier == node.Identifier)
+                    return new BoundArrayAccessExpression(node.Type, node.Identifier, builder.ToImmutable());
+
+                return new BoundArrayAccessExpression(node.Type, identifier, builder.ToImmutable());
+            }
         }
 
         private ImmutableArray<BoundExpression>.Builder? RewriteArguments(ImmutableArray<BoundExpression> arguments)

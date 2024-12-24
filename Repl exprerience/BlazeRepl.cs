@@ -121,7 +121,10 @@ namespace ReplExperience
                 SaveSubmission(text);
             }
             else
+            {
                 Console.Out.WriteDiagnostics(result.Diagnostics);
+            }
+                
         }
 
         private void LoadSubmissions()

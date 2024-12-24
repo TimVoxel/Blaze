@@ -18,12 +18,14 @@
         MethodCallExpression,
         ConversionExpression,
         ObjectCreationExpression,
+        ArrayCreationExpression,
         TypeExpression,
         EnumExpression,
         NamespaceExpression,
         FunctionExpression,
         FieldAccessExpression,
         MethodAccessExpression,
+        ArrayAccessExpression,
         ThisExpression,
 
         //Statements

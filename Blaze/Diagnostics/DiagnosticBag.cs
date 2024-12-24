@@ -1,7 +1,4 @@
 ﻿using System.Collections;
-using System.Runtime.CompilerServices;
-using System.Security.Cryptography;
-using System.Security.Cryptography.X509Certificates;
 using Blaze.Binding;
 using Blaze.Symbols;
 using Blaze.Text;
@@ -11,15 +8,21 @@ namespace Blaze.Diagnostics
     internal sealed class DiagnosticBag : IEnumerable<Diagnostic>
     {
         private List<Diagnostic> _diagnostics = new List<Diagnostic>();
+        private IDiagnosticsSource _source;
 
         public IEnumerator<Diagnostic> GetEnumerator() => _diagnostics.GetEnumerator();
         IEnumerator IEnumerable.GetEnumerator() => GetEnumerator();
+
+        public DiagnosticBag(IDiagnosticsSource source)
+        {
+            _source = source;
+        }
 
         public void AddRange(IEnumerable<Diagnostic> diagnostics) => _diagnostics.AddRange(diagnostics);
 
         private void Report(TextLocation location, string message)
         {
-            Diagnostic diagnostic = new Diagnostic(location, message);
+            Diagnostic diagnostic = new Diagnostic(location, message, _source);
             _diagnostics.Add(diagnostic);
         }
 
@@ -121,19 +124,25 @@ namespace Blaze.Diagnostics
 
         public void ReportUndefinedClass(TextLocation location, string text)
         {
-            string message = $"Class {text} doesn't exist";
+            string message = $"Class \"{text}\" doesn't exist";
             Report(location, message);
         }
 
         public void ReportWrongArgumentCount(TextLocation location, string name, int expectedCount, int actualCount)
         {
-            string message = $"Function {name} requires {expectedCount} arguments, but {actualCount} were given";
+            string message = $"Function \"{name}\" requires {expectedCount} arguments, but {actualCount} were given";
             Report(location, message);
         }
 
         public void ReportWrongConstructorArgumentCount(TextLocation location, string name, int expectedCount, int actualCount)
         {
-            string message = $"Constructor of class {name} requires {expectedCount} arguments, but {actualCount} were given";
+            string message = $"Constructor of class \"{name}\" requires {expectedCount} arguments, but {actualCount} were given";
+            Report(location, message);
+        }
+
+        public void ReportWrongArrayAccessArgumentCount(TextLocation location, int expectedCount, int actualCount)
+        {
+            string message = $"Array instance has a rank of {expectedCount}, but {actualCount} index arguments were given";
             Report(location, message);
         }
 
@@ -268,9 +277,15 @@ namespace Blaze.Diagnostics
             Report(location, message);
         }
 
-        public void ReportInvalidObjectCreationIdentifier(TextLocation location, BoundNodeKind kind)
+        public void ReportInvalidObjectCreationTypeIdentifier(TextLocation location, BoundNodeKind kind)
         {
             string message = $"Expression of kind {kind} cannot be used as an identifier for a type";
+            Report(location, message);
+        }
+
+        public void ReportInvalidArrayCreationTypeIdentifier(TextLocation location, BoundNodeKind kind)
+        {
+            string message = $"Expression of kind {kind} cannot be used as a type for an array.";
             Report(location, message);
         }
 
@@ -379,6 +394,24 @@ namespace Blaze.Diagnostics
         public void ReportInfo(TextLocation location, string text)
         {
             Report(location, text);
+        }
+
+        public void ReportArrayAccessForNonArrayType(TextLocation location, TypeSymbol type)
+        {
+            string message = $"Expression of type \"{type}\" cannot be accessed, expected an array type";
+            Report(location, message);
+        }
+
+        public void ReportNoArraySizeSpecified(TextLocation location)
+        {
+            string message = $"Array creation must have array size specified";
+            Report(location, message);
+        }
+
+        public void ReportInceptingArrayTypes(TextLocation location, ArrayTypeSymbol arrayType)
+        {
+            string message = $"Cannot create an array type of an array type \"{arrayType}\"";
+            Report(location, message);
         }
     }
 }

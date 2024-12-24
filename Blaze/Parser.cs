@@ -6,10 +6,10 @@ using System.Collections.Immutable;
 
 namespace Blaze
 {
-    internal class Parser
+    internal class Parser : IDiagnosticsSource
     {
         private readonly ImmutableArray<SyntaxToken> _tokens;
-        private readonly DiagnosticBag _diagnostics = new DiagnosticBag();
+        private readonly DiagnosticBag _diagnostics;
         private readonly SyntaxTree _syntaxTree;
 
         private int _position;
@@ -17,10 +17,12 @@ namespace Blaze
         private SyntaxToken Current => Peek(0);
         private SyntaxToken Next => Peek(1);
         public DiagnosticBag Diagnostics => _diagnostics;
+        public string DiagnosticsSourceName => "Parser";
 
         public Parser(SyntaxTree syntaxTree)
         {
             _syntaxTree = syntaxTree;
+            _diagnostics = new DiagnosticBag(this);
 
             var tokens = new List<SyntaxToken>();
             var incorrectTokens = new List<SyntaxToken>();
@@ -334,15 +336,13 @@ namespace Blaze
                     return ParseExpressionStatement();
                 default:
                     {
-                        ExpressionSyntax expression = ParseExpression();
+                        var expression = ParseExpression();
 
-                        if (Current.Kind == SyntaxKind.SemicolonToken)
-                        {
-                            var semicolon = TryConsume(SyntaxKind.SemicolonToken);
-                            return new ExpressionStatementSyntax(_syntaxTree, expression, semicolon);
-                        }
-                        else
+                        if (Current.Kind == SyntaxKind.IdentifierToken)
                             return ParseVariableDeclarationStatement(expression);
+
+                        var semicolon = TryConsume(SyntaxKind.SemicolonToken);
+                        return new ExpressionStatementSyntax(_syntaxTree, expression, semicolon);
                     } 
             }
         }
@@ -661,8 +661,7 @@ namespace Blaze
         private ExpressionSyntax ParseObjectOrArrayCreationExpression()
         {
             var keyword = TryConsume(SyntaxKind.NewKeyword);
-
-            ExpressionSyntax identifier = ParseSimpleNameExpression();
+            var identifier = ParseSimpleNameExpression();
 
             while (Current.Kind != SyntaxKind.EndOfFileToken)
             {
@@ -673,8 +672,7 @@ namespace Blaze
                     identifier = ParseSimpleNameExpression();
                     break;
                 }
-                else
-                    break;
+                else break;
             }
 
             if (Current.Kind == SyntaxKind.OpenSquareBracketToken)
@@ -693,32 +691,9 @@ namespace Blaze
         private ExpressionSyntax ParseArrayCreationExpression(SyntaxToken keyword, ExpressionSyntax identifier)
         {
             var openSquareBracket = TryConsume(SyntaxKind.OpenSquareBracketToken);
-            var arguments = ImmutableArray.CreateBuilder<SyntaxNode>();
-            var done = false;
-
-            if (Current.Kind == SyntaxKind.CommaToken)
-            {
-                while (Current.Kind == SyntaxKind.CommaToken)
-                    arguments.Add(TryConsume(SyntaxKind.CommaToken));
-            }
-            else
-            {
-                while (!done && Current.Kind != SyntaxKind.CloseSquareBracketToken && Current.Kind != SyntaxKind.EndOfFileToken)
-                {
-                    arguments.Add(ParseExpression());
-
-                    if (Current.Kind == SyntaxKind.CommaToken)
-                    {
-                        var comma = TryConsume(SyntaxKind.CommaToken);
-                        arguments.Add(comma);
-                    }
-                    else
-                        done = true;
-                }
-            }
-            
+            var arguments = ParseArguments(SyntaxKind.CloseSquareBracketToken);
             var closeSquareBracket = TryConsume(SyntaxKind.CloseSquareBracketToken);
-            return new ArrayCreationExpressionSyntax(_syntaxTree, keyword, identifier, openSquareBracket, arguments.ToImmutable(), closeSquareBracket);
+            return new ArrayCreationExpressionSyntax(_syntaxTree, keyword, identifier, openSquareBracket, arguments, closeSquareBracket);
         }
 
         private ExpressionSyntax ParseIntegerLiteral() => ParseLiteral(SyntaxKind.IntegerLiteralToken);

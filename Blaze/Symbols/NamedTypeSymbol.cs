@@ -16,7 +16,7 @@ namespace Blaze.Symbols
         
         public override SymbolKind Kind => SymbolKind.NamedType;
 
-        public NamedTypeSymbol(string name, NamedTypeSymbol? baseType, NamespaceSymbol parent, ConstructorSymbol? constructor, bool isAbstract) : base(name)
+        public NamedTypeSymbol(string name, NamedTypeSymbol? baseType, IMemberSymbol parent, ConstructorSymbol? constructor, bool isAbstract) : base(name)
         {
             Members = new List<IMemberSymbol>();
             Parent = parent;

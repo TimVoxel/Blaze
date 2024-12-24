@@ -8,24 +8,24 @@ using Blaze.SyntaxTokens;
 using Blaze.Text;
 using System.Collections.Immutable;
 using System.Diagnostics;
-using System.Runtime.InteropServices;
 
 namespace Blaze.Binding
 {
     //TODO: Add better lookup to avoid duplicating name errors
 
-    internal sealed class Binder
+    internal sealed class Binder : IDiagnosticsSource
     {
-        private readonly DiagnosticBag _diagnostics = new DiagnosticBag();
+        private readonly DiagnosticBag _diagnostics;
         private readonly FunctionSymbol? _function;
         private readonly NamespaceSymbol _globalNamespace;
         private readonly NamespaceSymbol _namespace;
-
+       
         private Stack<(BoundLabel breakLabel, BoundLabel continueLabel)> _loopStack = new Stack<(BoundLabel breakLabel, BoundLabel continueLabel)>();
         private int _labelCounter = 0;
 
         private BoundScope _scope;
         public DiagnosticBag Diagnostics => _diagnostics;
+        public string DiagnosticsSourceName => "Binder";
 
         public Binder(BoundScope? parentScope, FunctionSymbol? function, NamespaceSymbol globalNamespace, NamespaceSymbol thisNamespace)
         {
@@ -33,6 +33,7 @@ namespace Blaze.Binding
             _function = function;
             _namespace = thisNamespace;
             _globalNamespace = globalNamespace;
+            _diagnostics = new DiagnosticBag(this);
 
             if (_function != null)
                 foreach (var parameter in _function.Parameters)
@@ -470,7 +471,10 @@ namespace Blaze.Binding
             TypeSymbol? specifiedType = null;
 
             if (syntax.TypeNode is TypeClauseSyntax typeClause)
+            {
                 specifiedType = BindTypeClause(typeClause);
+                //_diagnostics.ReportInfo(typeClause.Location, "HELO!");
+            }   
 
             //TODO: Add const variable declarations
             var variableType = specifiedType ?? initializer.Type;
@@ -640,11 +644,15 @@ namespace Blaze.Binding
                 SyntaxKind.SimpleNameExpression => BindSimpleNameExpression((SimpleNameExpressionSyntax)expression, options),
                 SyntaxKind.CallExpression => BindCallExpression((CallExpressionSyntax)expression),
                 SyntaxKind.MemberAccessExpression => BindMemberAccessExpression((MemberAccessExpressionSyntax)expression, options),
-    
-                _ => throw new Exception($"Unexpected syntax {expression.Kind}"),
-            } ;
-        }
 
+                SyntaxKind.ArrayTypeExpression => BindArrayTypeExpression((ArrayTypeExpressionSyntax)expression),
+                SyntaxKind.ArrayAccessExpression => BindArrayAccessExpression((ArrayAccessExpressionSyntax)expression),
+                SyntaxKind.ArrayCreationExpression => BindArrayCreationExpression((ArrayCreationExpressionSyntax)expression),
+
+                _ => throw new Exception($"Unexpected syntax {expression.Kind}"),
+            };
+        }
+        
         private BoundExpression BindExpression(ExpressionSyntax expression, TypeSymbol desiredType) => BindConversion(expression, desiredType);
 
         private BoundExpression BindLiteralExpression(LiteralExpressionSyntax expression)
@@ -797,7 +805,7 @@ namespace Blaze.Binding
             {
                 _diagnostics.ReportInvalidCallIdentifier(expression.Identifier.Location, boundIdentifier.Kind);
                 return new BoundErrorExpression();
-            }    
+            }
 
             if (function.AccessModifier == AccessModifier.Private)
             {
@@ -824,7 +832,7 @@ namespace Blaze.Binding
 
             if (!(boundIdentifier is BoundTypeExpression typeExpression))
             {
-                _diagnostics.ReportInvalidObjectCreationIdentifier(syntax.Identifier.Location, boundIdentifier.Kind);
+                _diagnostics.ReportInvalidObjectCreationTypeIdentifier(syntax.Identifier.Location, boundIdentifier.Kind);
                 return new BoundErrorExpression();
             }
 
@@ -850,6 +858,107 @@ namespace Blaze.Binding
                 return new BoundObjectCreationExpression(namedTypeSymbol, arguments);
             }
             else throw new Exception("Value type in object creation expression");
+        }
+
+        private BoundExpression BindArrayTypeExpression(ArrayTypeExpressionSyntax expression)
+        {
+            var boundIdentifier = BindExpression(expression.Identifier);
+
+            if (boundIdentifier is BoundErrorExpression)
+                return boundIdentifier;
+
+            if (!(boundIdentifier is BoundTypeExpression typeExpression))
+            {
+                _diagnostics.ReportInvalidArrayCreationTypeIdentifier(expression.Identifier.Location, boundIdentifier.Kind);
+                return new BoundErrorExpression();
+            }
+
+            if (typeExpression.Type is ArrayTypeSymbol at)
+            {
+                _diagnostics.ReportInceptingArrayTypes(expression.Identifier.Location, at);
+                return new BoundErrorExpression();
+            }
+
+            var rank = expression.RankSpecifiers.Length + 1;
+            var arrayType = new ArrayTypeSymbol(typeExpression.Type, rank);
+            return new BoundTypeExpression(arrayType);
+        }
+
+        private BoundExpression BindArrayAccessExpression(ArrayAccessExpressionSyntax expression)
+        {
+            var boundIdentifier = BindExpression(expression.Identifier, false, LookupOptions.PrioritizeVariables);
+
+            if (boundIdentifier is BoundErrorExpression)
+                return boundIdentifier;
+
+            if (boundIdentifier.Type is ArrayTypeSymbol arrayType)
+            {
+                if (expression.Arguments.Count > arrayType.Rank)
+                {
+                    _diagnostics.ReportWrongArrayAccessArgumentCount(expression.Location, arrayType.Rank, expression.Arguments.Count);
+                    return new BoundErrorExpression();
+                }
+
+                var rankDifference = arrayType.Rank - expression.Arguments.Count;
+                TypeSymbol accessType;
+
+                if (rankDifference == 0)
+                    accessType = arrayType.Type;
+                else
+                    accessType = new ArrayTypeSymbol(arrayType.Type, rankDifference);
+
+                var boundArguments = ImmutableArray.CreateBuilder<BoundExpression>();
+
+                foreach (var argument in expression.Arguments)
+                    boundArguments.Add(BindExpression(argument));
+
+                for (int i = 0; i < expression.Arguments.Count; i++)
+                {
+                    var argumentLocation = expression.Arguments[i].Location;
+                    boundArguments[i] = BindConversion(boundArguments[i], TypeSymbol.Int, argumentLocation);
+                }
+
+                return new BoundArrayAccessExpression(accessType, boundIdentifier, boundArguments.ToImmutable());
+            }
+            else
+            {
+                _diagnostics.ReportArrayAccessForNonArrayType(expression.Identifier.Location, boundIdentifier.Type);
+                return new BoundErrorExpression();
+            }
+        }
+
+        private BoundExpression BindArrayCreationExpression(ArrayCreationExpressionSyntax expression)
+        {
+            var boundIdentifier = BindExpression(expression.Identifier, false, LookupOptions.PrioritizeNamedTypes);
+
+            if (boundIdentifier is BoundErrorExpression)
+                return boundIdentifier;
+
+            if (!(boundIdentifier is BoundTypeExpression typeExpression))
+            {
+                _diagnostics.ReportInvalidArrayCreationTypeIdentifier(expression.Identifier.Location, boundIdentifier.Kind);
+                return new BoundErrorExpression();
+            }
+
+            if (expression.Arguments.Count == 0)
+            {
+                _diagnostics.ReportNoArraySizeSpecified(expression.Location);
+                return new BoundErrorExpression();
+            }
+
+            var boundArguments = ImmutableArray.CreateBuilder<BoundExpression>();
+
+            foreach (var argument in expression.Arguments)
+                boundArguments.Add(BindExpression(argument));
+
+            for (int i = 0; i < expression.Arguments.Count; i++)
+            {
+                var argumentLocation = expression.Arguments[i].Location;
+                boundArguments[i] = BindConversion(boundArguments[i], TypeSymbol.Int, argumentLocation);
+            }
+
+            var arrayType = new ArrayTypeSymbol(typeExpression.Type, boundArguments.Count);
+            return new BoundArrayCreationExpression(arrayType, boundArguments.ToImmutable());
         }
 
         private ImmutableArray<BoundExpression> BindArguments(SeparatedSyntaxList<ExpressionSyntax> arguments, ImmutableArray<ParameterSymbol> parameters)
@@ -982,27 +1091,6 @@ namespace Blaze.Binding
                 _diagnostics.ReportVariableAlreadyDeclared(identifier.Location, name);
 
             return variable;
-        }
-
-        private TypeSymbol? BindType(string name, TextLocation location)
-        {
-            var type = LookupType(name);
-
-            if (type == null)
-                _diagnostics.ReportUndefinedType(location, name);
-
-            return type;
-        }
-
-        private TypeSymbol? LookupType(string name)
-        {
-            TypeSymbol? type = TypeSymbol.Lookup(name);
-            if (type == null)
-                type = _namespace.TryLookup<NamedTypeSymbol>(name);
-            if (type == null)
-                type = _namespace.TryLookup<EnumSymbol>(name);
-
-            return type;
         }
 
         private BoundExpression? BindSymbolExpression(string name, NamespaceSymbol context, LookupOptions options)

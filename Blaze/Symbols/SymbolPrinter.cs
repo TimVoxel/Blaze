@@ -23,10 +23,16 @@ namespace Blaze.Symbols
                     WriteNamespace((NamespaceSymbol)symbol, writer);
                     break;
                 case SymbolKind.NamedType:
-                    WriteClass((NamedTypeSymbol)symbol, writer);
+                    WriteNamedType((NamedTypeSymbol)symbol, writer);
+                    break;
+                case SymbolKind.ArrayType:
+                    WriteArrayType((ArrayTypeSymbol)symbol, writer);
                     break;
                 case SymbolKind.Field:
                     WriteField((FieldSymbol)symbol, writer);
+                    break;
+                case SymbolKind.ArrayInstance:
+                    WriteVariable((VariableSymbol) symbol, writer);
                     break;
                 case SymbolKind.Enum:
                     WriteEnum((EnumSymbol)symbol, writer);
@@ -62,10 +68,18 @@ namespace Blaze.Symbols
             writer.WriteIdentifier(symbol.GetFullName());
         }
 
-        private static void WriteClass(NamedTypeSymbol symbol, TextWriter writer)
+        private static void WriteNamedType(NamedTypeSymbol symbol, TextWriter writer)
         {
-            writer.WriteKeyword("class ");
             writer.WriteIdentifier(symbol.GetFullName());
+        }
+
+        private static void WriteArrayType(ArrayTypeSymbol symbol, TextWriter writer)
+        {
+            writer.WriteIdentifier(symbol.Name);
+            writer.WritePunctuation("[");
+            for (int i = 0; i < symbol.Rank - 1; i++)
+                writer.WritePunctuation(",");
+            writer.WritePunctuation("]");
         }
 
         private static void WriteFunction(FunctionSymbol symbol, TextWriter writer)

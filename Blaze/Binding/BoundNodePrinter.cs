@@ -46,6 +46,9 @@ namespace Blaze.Binding
                 case BoundNodeKind.ObjectCreationExpression:
                     WriteObjectCreationExpression((BoundObjectCreationExpression)node,writer);
                     break;
+                case BoundNodeKind.ArrayCreationExpression:
+                    WriteArrayCreationExpression((BoundArrayCreationExpression)node, writer);
+                    break;
                 case BoundNodeKind.FieldAccessExpression:
                     WriteFieldAccessExpression((BoundFieldAccessExpression)node, writer);
                     break;
@@ -54,6 +57,9 @@ namespace Blaze.Binding
                     break;
                 case BoundNodeKind.MethodAccessExpression:
                     WriteMethodAccessExpression((BoundMethodAccessExpression)node, writer);
+                    break;
+                case BoundNodeKind.ArrayAccessExpression:
+                    WriteArrayAccessExpression((BoundArrayAccessExpression)node, writer);
                     break;
                 case BoundNodeKind.NamespaceExpression:
                     WriteNamespaceExpression((BoundNamespaceExpression)node, writer);
@@ -385,6 +391,25 @@ namespace Blaze.Binding
             writer.WritePunctuation(".");
             writer.WriteIdentifier(node.Method.Name);
         }
+
+        private static void WriteArrayCreationExpression(BoundArrayCreationExpression node, IndentedTextWriter writer)
+        {
+            writer.WriteKeyword("new ");
+            node.ArrayType.Type.WriteTo(writer);
+            writer.WritePunctuation("[");
+            WriteArguments(node.Dimensions, writer);
+            writer.WritePunctuation("]");
+        }
+
+
+        private static void WriteArrayAccessExpression(BoundArrayAccessExpression node, IndentedTextWriter writer)
+        {
+            node.Identifier.WriteTo(writer);
+            writer.WritePunctuation("[");
+            WriteArguments(node.Arguments, writer);
+            writer.WritePunctuation("]");
+        }
+
 
         private static void WriteFieldAccessExpression(BoundFieldAccessExpression node, IndentedTextWriter writer)
         {

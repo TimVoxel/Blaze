@@ -7,17 +7,18 @@ using System.Collections.Immutable;
 
 namespace Blaze
 {
-    internal class Lexer
+    internal class Lexer : IDiagnosticsSource
     {
         private readonly SyntaxTree _syntaxTree;
         private readonly SourceText _text;
-        private readonly DiagnosticBag _diagnostics = new DiagnosticBag();
+        private readonly DiagnosticBag _diagnostics;
 
         private ImmutableArray<Trivia>.Builder _triviaBuilder = ImmutableArray.CreateBuilder<Trivia>();
         private int _position;
         private int _start;
         private SyntaxKind _kind;
         private object? _value;
+        public string DiagnosticsSourceName => "Lexer";
         
         private char Current => Peek(0);
         private char Next => Peek(1);
@@ -28,6 +29,7 @@ namespace Blaze
         {
             _text = syntaxTree.Text;
             _syntaxTree = syntaxTree;
+            _diagnostics = new DiagnosticBag(this);
         }
 
         public SyntaxToken Lex()

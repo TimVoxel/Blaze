@@ -6,16 +6,16 @@ namespace Blaze.Syntax_Nodes
     {
         public ExpressionSyntax Identifier { get; }
         public SyntaxToken OpenSquareBracketToken { get; }
-        public SeparatedSyntaxList<ExpressionSyntax> IndexExpressions { get; }
+        public SeparatedSyntaxList<ExpressionSyntax> Arguments { get; }
         public SyntaxToken CloseSquareBracketToken { get; }
 
         public override SyntaxKind Kind => SyntaxKind.ArrayAccessExpression;
 
-        public ArrayAccessExpressionSyntax(SyntaxTree tree, ExpressionSyntax identifier, SyntaxToken openSquareBracketToken, SeparatedSyntaxList<ExpressionSyntax> indexExpressions, SyntaxToken closeSquareBracketToken) : base(tree)
+        public ArrayAccessExpressionSyntax(SyntaxTree tree, ExpressionSyntax identifier, SyntaxToken openSquareBracketToken, SeparatedSyntaxList<ExpressionSyntax> arguments, SyntaxToken closeSquareBracketToken) : base(tree)
         {
             Identifier = identifier;
             OpenSquareBracketToken = openSquareBracketToken;
-            IndexExpressions = indexExpressions;
+            Arguments = arguments;
             CloseSquareBracketToken = closeSquareBracketToken;
         }
 
@@ -23,7 +23,7 @@ namespace Blaze.Syntax_Nodes
         {
             yield return Identifier;
             yield return OpenSquareBracketToken;
-            foreach (var node in IndexExpressions.GetWithSeparators())
+            foreach (var node in Arguments.GetWithSeparators())
                 yield return node;
             yield return CloseSquareBracketToken;
         }

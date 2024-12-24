@@ -9,7 +9,9 @@
         Parameter,
         Namespace,
         NamedType,
+        ArrayType,
         Constructor,
+        ArrayInstance,
         Field,
         Enum,
         EnumMember
