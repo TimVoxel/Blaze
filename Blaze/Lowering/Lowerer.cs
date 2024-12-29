@@ -1,5 +1,6 @@
 ﻿using Blaze.Binding;
 using Blaze.Symbols;
+using Mono.Cecil.Cil;
 using System.Collections.Immutable;
 namespace Blaze.Lowering
 {
@@ -72,7 +73,7 @@ namespace Blaze.Lowering
             //      let upperBound = final;
             //      while (a <= upperBound) {
             //          ...
-            //          a = a - 1;
+            //          a = a + 1;
             //      }
             //  
             //than rewrite that
@@ -89,7 +90,6 @@ namespace Blaze.Lowering
             var upperBoundExpression = new BoundVariableExpression(upperBound);
 
             var condition = new BoundBinaryExpression(variableExpression, op, upperBoundExpression);
-            //var continueLabelStatement = new BoundLabelStatement(node.ContinueLabel);
             var increment = new BoundExpressionStatement(new BoundAssignmentExpression(variableExpression, new BoundBinaryExpression(variableExpression, plusOp, new BoundLiteralExpression(1))));
 
             var whileBlock = new BoundBlockStatement(ImmutableArray.Create(node.Body, increment));

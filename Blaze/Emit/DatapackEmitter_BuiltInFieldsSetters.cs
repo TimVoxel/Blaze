@@ -40,7 +40,6 @@ namespace Blaze.Emit
             else
             {
                 var macroFunctionSymbol = BuiltInNamespace.Minecraft.General.Gamerules.SetGamerule;
-                Debug.Assert(macroFunctionSymbol != null);
                 var macro = GetOrCreateBuiltIn(macroFunctionSymbol, out bool isCreated);
 
                 var command1 = $"data modify storage {_nameTranslator.GetStorage(TypeSymbol.String)} **macros.rule set value \"{field.Name}\"";

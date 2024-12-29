@@ -2,8 +2,12 @@
 using Blaze.Diagnostics;
 using Blaze.Emit.NameTranslation;
 using Blaze.Symbols;
+using Mono.CompilerServices.SymbolWriter;
 using System.Collections.Immutable;
 using System.Diagnostics;
+using System.Net.WebSockets;
+using System.Reflection.PortableExecutable;
+using System.Runtime.InteropServices;
 using System.Text;
 
 namespace Blaze.Emit
@@ -19,13 +23,14 @@ namespace Blaze.Emit
         private readonly FunctionEmittion _initFunction;
         private readonly FunctionEmittion _tickFunction;
         private readonly Dictionary<FunctionSymbol, FunctionEmittion> _usedBuiltIn = new Dictionary<FunctionSymbol, FunctionEmittion>();
-        
+
+        private readonly List<FunctionSymbol> _fabricatedMacroFunctions = new List<FunctionSymbol>();
+
         private string? _contextName = null;
         private string TEMP => EmittionNameTranslator.TEMP;
         private string RETURN_TEMP_NAME => EmittionNameTranslator.RETURN_TEMP_NAME;
         private string DEBUG_CHUNK_X => EmittionNameTranslator.DEBUG_CHUNK_X;
         private string DEBUG_CHUNK_Z => EmittionNameTranslator.DEBUG_CHUNK_Z;
-
         private string Vars => _nameTranslator.Vars;
         private string Const => _nameTranslator.Const;
 
@@ -357,7 +362,7 @@ namespace Blaze.Emit
             }
             
             var desiredReturnName = (returnExpression.Type is NamedTypeSymbol && _contextName != null) ? _contextName : EmittionNameTranslator.RETURN_TEMP_NAME;
-            var returnName = EmitAssignmentToTemp(desiredReturnName, returnExpression, emittion, 0, false);
+            var returnName = EmitAssignmentExpression(desiredReturnName, returnExpression, emittion, 0);
             EmitCleanUp();
 
             if (returnExpression.Type == TypeSymbol.Int || returnExpression.Type == TypeSymbol.Bool || returnExpression.Type is EnumSymbol e && e.IsIntEnum)
@@ -439,7 +444,7 @@ namespace Blaze.Emit
                 }    
             }    
 
-            var leftName = GetNameOfAssignableExpression(left);
+            var leftName = GetNameOfAssignableExpression(left, emittion, current);
             return EmitAssignmentExpression(leftName, right, emittion, current);
         }
         
@@ -481,13 +486,21 @@ namespace Blaze.Emit
             {
                 EmitObjectCreationAssignment(name, objectCreation, emittion, current);
             }
+            else if (right is BoundArrayCreationExpression arrayCreation)
+            {
+                EmitArrayCreationAssignment(name, arrayCreation, emittion, current);
+            }
             else if (right is BoundFieldAccessExpression fieldExpression)
             {
                 if (!TryEmitBuiltInFieldGetter(name, fieldExpression, emittion, current))
                 {
-                    var otherName = GetNameOfAssignableExpression(fieldExpression);
+                    var otherName = GetNameOfAssignableExpression(fieldExpression, emittion, current);
                     EmitVariableAssignment(name, otherName, right.Type, emittion);
                 }
+            }
+            else if (right is BoundArrayAccessExpression arrayAccessExpression)
+            {
+                EmitArrayAccessAssignment(name, arrayAccessExpression, emittion, current);
             }
             else
             {
@@ -496,75 +509,91 @@ namespace Blaze.Emit
             return name;
         }
 
-        private string GetNameOfAssignableExpression(BoundExpression left)
+        private string GetNameOfAssignableExpression(BoundExpression left, FunctionEmittion? emittion = null, int? tempIndex = null)
         {
             if (left is BoundVariableExpression v)
             {
                 return _nameTranslator.GetVariableName(v.Variable);
             }
-            else if (left is BoundFieldAccessExpression fa)
-            {
-                var fieldName = fa.Field.Name;
-                var leftAssociativeOrder = new Stack<BoundExpression>();
+            
+            var leftAssociativeOrder = new Stack<BoundExpression>();
+            leftAssociativeOrder.Push(left);
 
-                var previous = fa.Instance;
-                while (true)
-                {
-                    leftAssociativeOrder.Push(previous);
-
-                    if (previous is BoundFieldAccessExpression fieldAccess)
-                        previous = fieldAccess.Instance;
-                    else if (previous is BoundCallExpression call)
-                        previous = call.Identifier;
-                    else if (previous is BoundMethodAccessExpression methodAccess)
-                        previous = methodAccess.Instance;
-                    else
-                        break;
-                }
-
-                //We use '.' in between the names
-                //Scoreboards allow us to do that, and storages have built-in nesting functionality
-
-                var nameBuilder = new StringBuilder();
-
-                while (leftAssociativeOrder.Any())
-                {
-                    var current = leftAssociativeOrder.Pop();
-
-                    //Some of the stuff we added might be side products
-                    //like BoundMethodAccessExpression, that can be just skipped
-
-                    if (current is BoundVariableExpression variableExpression)
-                    {
-                        if (nameBuilder.Length == 0)
-                            nameBuilder.Append(_nameTranslator.GetVariableName(variableExpression.Variable));
-                        else
-                            nameBuilder.Append(variableExpression.Variable.Name);
-                    }
-                    else if (current is BoundThisExpression thisExpression)
-                    {
-                        nameBuilder.Append(_contextName);
-                    }
-                    else if (current is BoundNamespaceExpression namespaceExpression)
-                    {
-                        //TODO: add Field initialization in init function
-
-                        nameBuilder.Append(_nameTranslator.GetNamespaceFieldPath(namespaceExpression.Namespace));
-                    }
-                    else if (current is BoundFieldAccessExpression fieldAccess)
-                    {
-                        nameBuilder.Append($".{fieldAccess.Field.Name}");
-                    }
-                    
-                    //FunctionExpression -> do nothing
-                    //MethodAccessExpression -> do nothing
-                }
-
-                nameBuilder.Append($".{fieldName}");
-                return nameBuilder.ToString();
-            }
+            /*
+            if (left is BoundFieldAccessExpression fa)
+                leftAssociativeOrder.Push(fa);
+            else if (left is BoundArrayAccessExpression aa)
+                leftAssociativeOrder.Push(aa);
             else
                 throw new Exception($"Unexpected bound expression kind {left.Kind}");
+            */
+
+            while (true)
+            {
+                var current = leftAssociativeOrder.Peek();
+
+                if (current is BoundFieldAccessExpression fieldAccess)
+                    leftAssociativeOrder.Push(fieldAccess.Instance);
+                else if (current is BoundCallExpression call)
+                    leftAssociativeOrder.Push(call.Identifier);
+                else if (current is BoundMethodAccessExpression methodAccess)
+                    leftAssociativeOrder.Push(methodAccess.Instance);
+                else if (current is BoundArrayAccessExpression arrayAccess)
+                    leftAssociativeOrder.Push(arrayAccess.Identifier);
+                else
+                    break;
+            }
+
+            //We use '.' in between the names
+            //Scoreboards allow us to do that, and storages have built-in nesting functionality
+
+            var nameBuilder = new StringBuilder();
+
+            while (leftAssociativeOrder.Any())
+            {
+                var current = leftAssociativeOrder.Pop();
+
+                //Some of the stuff we added might be side products
+                //like BoundMethodAccessExpression, that can be just skipped
+
+                if (current is BoundVariableExpression variableExpression)
+                {
+                    if (nameBuilder.Length == 0)
+                        nameBuilder.Append(_nameTranslator.GetVariableName(variableExpression.Variable));
+                    else
+                        nameBuilder.Append(variableExpression.Variable.Name);
+                }
+                else if (current is BoundThisExpression thisExpression)
+                {
+                    nameBuilder.Append(_contextName);
+                }
+                else if (current is BoundNamespaceExpression namespaceExpression)
+                {
+                    nameBuilder.Append(_nameTranslator.GetNamespaceFieldPath(namespaceExpression.Namespace));
+                }
+                else if (current is BoundFieldAccessExpression fieldAccess)
+                {
+                    nameBuilder.Append($".{fieldAccess.Field.Name}");
+                }
+                else if (current is BoundArrayAccessExpression arrayAccess)
+                {
+                    if (tempIndex == null || emittion == null)
+                        throw new Exception("Array access outside of a function");
+
+                    //TODO: Allow non-constant array access in a more civilised implementation
+                    foreach (var argument in arrayAccess.Arguments)
+                    {
+                        if (argument.ConstantValue == null)
+                            throw new Exception("Non-consant array access  is not supported with the current implementation");
+
+                        nameBuilder.Append($"[{argument.ConstantValue.Value}]");
+                    }
+                }
+                    
+                //FunctionExpression -> do nothing
+                //MethodAccessExpression -> do nothing
+            }
+            return nameBuilder.ToString();
         }
 
         private void EmitLiteralAssignment(string varName, BoundLiteralExpression literal, FunctionEmittion emittion)
@@ -627,6 +656,65 @@ namespace Blaze.Emit
                 EmitVariableAssignment(varName, _nameTranslator.GetVariableName(otherVar), otherVar.Type, emittion);
         }
 
+        private void EmitArrayAccessAssignment(string name, BoundArrayAccessExpression arrayAccessExpression, FunctionEmittion emittion, int current)
+        {
+            //if all the arguments have constant values, just add [a][b][c]... to the accessed name
+            //Otherwise, create a macro (or get an existing one) for the corresponding rank of the array
+            //Set its arguments (and the name to access) to the corresponding values and copy the return value to the desired location
+
+            emittion.AppendComment($"Emitting array access to {name}, stored in variable \"*array\"\r\n");
+
+            var rank = arrayAccessExpression.Arguments.Length;
+            var macroName = $"array_access_rank{rank}";
+
+            var accessedName = GetNameOfAssignableExpression(arrayAccessExpression.Identifier, emittion, current);
+
+            var fabricatedAccessor = _fabricatedMacroFunctions.FirstOrDefault(f => f.Name == macroName);
+
+            if (fabricatedAccessor == null)
+            {
+                fabricatedAccessor = new FunctionSymbol(macroName, BuiltInNamespace.Blaze.Fabricated.Symbol, ImmutableArray<ParameterSymbol>.Empty, TypeSymbol.Object, false, false, AccessModifier.Private, null);
+                BuiltInNamespace.Blaze.Fabricated.Symbol.Members.Add(fabricatedAccessor);
+                _fabricatedMacroFunctions.Add(fabricatedAccessor);
+            }
+
+            var accessorEmittion = GetOrCreateBuiltIn(fabricatedAccessor, out bool isCreated);
+            var macroStorage = _nameTranslator.GetStorage(TypeSymbol.String);
+
+            //var command1 = $"data modify storage {_nameTranslator.GetStorage(TypeSymbol.String)} **macros.rule set value \"{field.Name}\"";
+            //var command2 = $"execute store result storage {_nameTranslator.GetStorage(TypeSymbol.String)} **macros.value int 1 run scoreboard players get {rightName} {Vars}";
+            //var command3 = ";
+
+            //if (isCreated)
+            //    macro.AppendMacro("gamerule $(rule) $(value)");
+
+            if (isCreated)
+            {
+                var accessRankBuilder = new StringBuilder();
+        
+                for (int i = 0; i < rank; i++)
+                    accessRankBuilder.Append($"[$({"a" + i.ToString()})]");
+
+                accessorEmittion.AppendMacro($"data modify storage {macroStorage} \"{RETURN_TEMP_NAME}\" set from storage {_nameTranslator.MainStorage} $(name){accessRankBuilder.ToString()}");
+            }
+
+            emittion.AppendLine($"data modify storage {macroStorage} **macros.name set value \"{accessedName}\"");
+
+            for (int i = 0; i < rank; i++)
+            {
+                var argumentName = $"**macros.a{i.ToString()}";
+                var tempName = EmitAssignmentToTemp(arrayAccessExpression.Arguments[i], emittion, current + i);
+                emittion.AppendLine($"execute store result storage {macroStorage} **macros.{"a" + i.ToString()} int 1 run scoreboard players get {tempName} {Vars}");
+                EmitCleanUp(tempName, TypeSymbol.Int, emittion);
+            }
+
+            emittion.AppendLine($"function {_nameTranslator.GetCallLink(accessorEmittion)} with storage {macroStorage} **macros");
+            EmitVariableAssignment(name, RETURN_TEMP_NAME, TypeSymbol.String, emittion);
+            EmitMacroCleanUp(emittion);
+
+            emittion.AppendLine();
+        }
+
         private void EmitVariableAssignment(string varName, string otherName, TypeSymbol type, FunctionEmittion emittion)
         {
             //int, bool literal -> scoreboard players operation *this vars = *other vars
@@ -636,13 +724,13 @@ namespace Blaze.Emit
             if (varName == otherName)
                 return;
 
-            if (IsStorageType(type))
+            if (IsStorageType(type) || type is ArrayTypeSymbol)
             {
                 var storage = _nameTranslator.GetStorage(type);
                 var command = $"data modify storage {storage} \"{varName}\" set from storage {storage} \"{otherName}\"";
                 emittion.AppendLine(command);
             }
-            else if (type == TypeSymbol.Int || type == TypeSymbol.Bool || type is EnumSymbol intI)
+            else if (type == TypeSymbol.Int || type == TypeSymbol.Bool || type is EnumSymbol intE)
             {
                 var command = $"scoreboard players operation {varName} {Vars} = {otherName} {Vars}";
                 emittion.AppendLine(command);
@@ -682,6 +770,106 @@ namespace Blaze.Emit
             _contextName = currentContextName;
 
             EmitFunctionParameterCleanUp(setParameters, emittion);
+        }
+
+        private void EmitArrayCreationAssignment(string name, BoundArrayCreationExpression arrayCreationExpression, FunctionEmittion emittion, int current)
+        {
+            //in a for loop, append a default value to a tempI list
+            //in a for loop, append result of that to a temp[i-1] list
+            //if i == 0, don't use a temp list: use the desired name
+            //Remove all the temp lists
+
+            emittion.AppendComment($"Emitting array creation of type {arrayCreationExpression.ArrayType}, stored in variable \"{name}\"");
+
+            var defaultValue = GetEmittionDefaultValue(arrayCreationExpression.ArrayType.Type);
+            var storage = _nameTranslator.GetStorage(arrayCreationExpression.ArrayType.Type);
+            var previous = string.Empty;
+            var usedTemps = new HashSet<string>();
+
+            for (int i = arrayCreationExpression.Dimensions.Length - 1; i >= 0; i--)
+            {
+                string arrayName;
+                if (i == 0)
+                    arrayName = name;
+                else
+                {
+                    arrayName = $"**rank{current + i}";
+                    usedTemps.Add(arrayName);
+                }
+
+                string assignmentCommand;
+
+                if (i == arrayCreationExpression.Dimensions.Length - 1)
+                {
+                    if (arrayCreationExpression.Dimensions[i] is BoundLiteralExpression literal)
+                    {
+                        var initializerBuilder = new StringBuilder();
+                        var dimension = (int)literal.Value;
+
+                        initializerBuilder.Append("[");
+
+                        for (int j = 0; j < dimension; j++)
+                        {
+                            initializerBuilder.Append($"{defaultValue}");
+
+                            if (j != dimension - 1)
+                                initializerBuilder.Append($", ");
+                        }
+                        initializerBuilder.Append("]");
+                        assignmentCommand = $"data modify storage {storage} \"{arrayName}\" set value {initializerBuilder.ToString()}";
+
+                        emittion.AppendLine(assignmentCommand);
+                        previous = arrayName;
+                        continue;
+                    }
+                    else   
+                        assignmentCommand = $"data modify storage {storage} \"{arrayName}\" append value {defaultValue}";
+                }
+                else
+                    assignmentCommand = $"data modify storage {storage} \"{arrayName}\" append from storage {storage} {previous}";
+
+                emittion.AppendLine($"data modify storage {storage} \"{arrayName}\" set value []");
+                
+                var subFunction = FunctionEmittion.CreateSub(emittion, SubFunctionKind.Loop);
+                var callCommand = $"function {_nameTranslator.GetCallLink(subFunction)}";
+
+                var iterator = EmitAssignmentToTemp(".iter", new BoundLiteralExpression(0), emittion, current + i);
+                var upperBound = EmitAssignmentToTemp(".upperBound", arrayCreationExpression.Dimensions[i], emittion, current + i);
+                emittion.AppendLine(callCommand);
+                
+                if (previous != string.Empty)
+                    emittion.AppendLine($"data remove storage {storage} \"{previous}\"");
+
+                subFunction.AppendLine(assignmentCommand);
+                subFunction.AppendLine($"scoreboard players add {iterator} {Vars} 1");
+                subFunction.AppendLine($"execute if score {iterator} {Vars} < {upperBound} {Vars} run {callCommand}");
+                
+                previous = arrayName;
+                EmitCleanUp(iterator, TypeSymbol.Int, emittion);
+                EmitCleanUp(upperBound, TypeSymbol.Int, emittion);
+            }
+        }
+
+        private string GetEmittionDefaultValue(TypeSymbol type)
+        {
+            if (type is NamedTypeSymbol)
+                return "{}";
+            if (type is EnumSymbol e)
+                return "{}";
+            if (type == TypeSymbol.Object)
+                return "0";
+            else if (type == TypeSymbol.Int)
+                return "0";
+            else if (type == TypeSymbol.Float)
+                return "0.0f";
+            else if (type == TypeSymbol.Double)
+                return "0.0d";
+            else if (type == TypeSymbol.Bool)
+                return "0";
+            else if (type == TypeSymbol.String)
+                return "\"\"";
+
+            return "{}";
         }
 
         private void EmitUnaryExpressionAssignment(string name, BoundUnaryExpression unary, FunctionEmittion emittion, int current)

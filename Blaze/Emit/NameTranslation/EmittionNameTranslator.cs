@@ -2,6 +2,16 @@
 
 namespace Blaze.Emit.NameTranslation
 {
+    internal enum StorageType
+    {
+        Strings, 
+        Objects,
+        Floats,
+        Doubles,
+        Enums, 
+        Instances,
+    }
+
     internal sealed class EmittionNameTranslator
     {
         public const string DEBUG_CHUNK_X = "10000000";
@@ -15,7 +25,9 @@ namespace Blaze.Emit.NameTranslation
         public UUID MathEntity2 { get; }
         public UUID MathEntity1 { get; }
         public string Vars => $"{_rootNamespace}.vars";
+        public string MainStorage => $"{_rootNamespace}:main";
         public string Const => "CONST";
+
 
         public EmittionNameTranslator(string rootNamespace)
         {
@@ -26,6 +38,8 @@ namespace Blaze.Emit.NameTranslation
 
         public string GetStorage(TypeSymbol type)
         {
+            return MainStorage;
+            /*
             if (type == TypeSymbol.String)
                 return $"{_rootNamespace}:strings";
             else if (type == TypeSymbol.Object)
@@ -38,8 +52,25 @@ namespace Blaze.Emit.NameTranslation
                 return $"{_rootNamespace}:enums";
             else
                 return $"{_rootNamespace}:instances";
+            */
         }
-        private void Test() { }
+        
+        public string GetStorage(StorageType type)
+        {
+            return MainStorage;
+            /*switch (type) 
+            {
+                case StorageType.Strings:
+                    return $"{_rootNamespace}:strings";
+                case StorageType.Objects:
+                    return $"{_rootNamespace}:objects";
+                case StorageType.Doubles:
+                case StorageType.Floats:
+                case StorageType.Instances:
+                case StorageTypes
+            }*/
+        }
+
 
         public string GetNamespaceFieldPath(NamespaceSymbol namespaceSymbol)
         {

@@ -344,6 +344,14 @@ namespace Blaze.Binding
 
                     return true;
                 }
+                if (expression is BoundArrayCreationExpression arrayCreation)
+                {
+                    foreach (var argument in arrayCreation.Dimensions)
+                        if (argument.ConstantValue == null)
+                            return false;
+
+                    return true;
+                }
                 else return expression.ConstantValue != null;
             }
 
@@ -1000,7 +1008,7 @@ namespace Blaze.Binding
                     return new BoundErrorExpression();
                 }
             }
-            else 
+            else if (!(boundLeft is BoundArrayAccessExpression))
             {
                 if (boundLeft.Kind != BoundNodeKind.ErrorExpression)
                     _diagnostics.ReportInvalidLeftHandAssignmentExpression(expression.Left.Location, expression.Left.Kind);

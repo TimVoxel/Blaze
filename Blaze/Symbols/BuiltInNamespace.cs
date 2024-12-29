@@ -6,7 +6,7 @@ namespace Blaze.Symbols
 {
     internal abstract class BuiltInNamespace
     {
-        protected NamespaceSymbol Symbol { get; }
+        public NamespaceSymbol Symbol { get; }
 
         public static readonly MinecraftNamespace Minecraft = new MinecraftNamespace();
         public static readonly BlazeNamespace Blaze = new BlazeNamespace();
