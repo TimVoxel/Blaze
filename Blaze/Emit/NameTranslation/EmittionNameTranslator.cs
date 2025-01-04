@@ -1,4 +1,5 @@
-﻿using Blaze.Symbols;
+﻿using Blaze.Emit.Nodes;
+using Blaze.Symbols;
 
 namespace Blaze.Emit.NameTranslation
 {
@@ -27,7 +28,6 @@ namespace Blaze.Emit.NameTranslation
         public string Vars => $"{_rootNamespace}.vars";
         public string MainStorage => $"{_rootNamespace}:main";
         public string Const => "CONST";
-
 
         public EmittionNameTranslator(string rootNamespace)
         {
@@ -86,8 +86,8 @@ namespace Blaze.Emit.NameTranslation
                 return name;
             }
         }
-
-        public string GetCallLink(FunctionEmittion emittion)
+        
+        public string GetCallLink(MinecraftFunction emittion)
         {
             return $"{_rootNamespace}:{emittion.CallName}";
         }
