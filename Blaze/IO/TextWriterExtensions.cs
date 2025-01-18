@@ -157,6 +157,13 @@ namespace Blaze.IO
             writer.ResetColor();
         }
 
+        public static void WriteTrivia(this TextWriter writer, string text)
+        {
+            writer.SetForeground(ConsoleColor.Green);
+            writer.Write(text);
+            writer.ResetColor();
+        }
+
         public static void WriteLabel(this TextWriter writer, string text)
         {
             writer.SetForeground(ConsoleColor.DarkGray);

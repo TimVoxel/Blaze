@@ -541,10 +541,12 @@ namespace Blaze.Binding
         {
             var lowerBound = BindExpression(syntax.LowerBound, TypeSymbol.Int);
             var upperBound = BindExpression(syntax.UpperBound, TypeSymbol.Int);
+            
             var previous = _scope;
             _scope = new BoundScope(previous);
 
             var variable = BindVariable(syntax.Identifier, TypeSymbol.Int, false);
+
             var body = BindLoopBody(syntax.Body, out BoundLabel breakLabel, out BoundLabel continueLabel);
             _scope = previous;
             return new BoundForStatement(variable, lowerBound, upperBound, body, breakLabel, continueLabel);

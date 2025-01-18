@@ -40,9 +40,17 @@ namespace Blaze.Symbols
                 case SymbolKind.EnumMember:
                     WriteEnumMember((EnumMemberSymbol)symbol, writer);
                     break;
+                case SymbolKind.EmittionVariable:
+                    WriteEmittionVariable((EmittionVariableSymbol)symbol, writer);
+                    break;
                 default:
                     throw new Exception($"Unexpected symbol kind {symbol.Kind}");
             }
+        }
+
+        private static void WriteEmittionVariable(EmittionVariableSymbol emittionVariableSymbol, TextWriter writer)
+        {
+            writer.WriteIdentifier(emittionVariableSymbol.SaveName);
         }
 
         private static void WriteEnumMember(EnumMemberSymbol symbol, TextWriter writer)

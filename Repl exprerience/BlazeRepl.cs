@@ -9,16 +9,19 @@ namespace ReplExperience
     {
         private static bool _loadingSubmissions;
         private Compilation? _previous;
+
         private bool _showTree;
         private bool _showProgram;
         private bool _showTokens;
+        private bool _showEmittion;
+
         private Dictionary<VariableSymbol, object?> _variables = new Dictionary<VariableSymbol, object?>();
         
         private static string SubmissionsDirectory
         {
             get
             {
-                string localAppData = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
+                var localAppData = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
                 return Path.Combine(localAppData, "Blaze", "Submissions");
             }
         }
@@ -90,7 +93,7 @@ namespace ReplExperience
         {
             var syntaxTree = SyntaxTree.Parse(text);
             var compilation = Compilation.CreateScript(syntaxTree);
-
+    
             if (_showTokens)
             {
                 var tokens = SyntaxTree.ParseTokens(text);
@@ -117,6 +120,9 @@ namespace ReplExperience
                 _previous = compilation;
                 if (result.Value != null)
                     Console.WriteLine(result.Value);
+
+                if (_showEmittion)
+                    compilation.EmitDatapack(Console.Out);
 
                 SaveSubmission(text);
             }
@@ -146,7 +152,8 @@ namespace ReplExperience
             foreach (var file in files)
             {
                 var text = File.ReadAllText(file);
-                EvaluateSubmission(text); 
+                _submissionHistory.Add(text);
+                //EvaluateSubmission(text); 
             }
 
             _loadingSubmissions = false;
@@ -193,6 +200,12 @@ namespace ReplExperience
             Console.WriteLine(_showTokens ? "Showing token list" : "Not showing token list");
         }
 
+        [MetaCommand("showEmittion", "Prints the datapack emittion structure")]
+        private void EvaluateShowEmittion()
+        {
+            _showEmittion = !_showEmittion;
+            Console.WriteLine(_showEmittion ? "Showing emittion" : "Not showing emittion");
+        }
 
         [MetaCommand("clear", "Clears the console")]
         private void EvaluateClear()

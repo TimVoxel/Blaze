@@ -6,10 +6,12 @@
         Namespace,
         MinecraftFunction,
 
+        EmptyTrivia,
         LineBreakTrivia,
         CommentTrivia,
 
         ScoreboardCommand,
+        TextBlock,
 
         //Temporary
         TextCommand,

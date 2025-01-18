@@ -1,6 +1,6 @@
 ﻿namespace Blaze.Emit.Nodes
 {
-    public sealed class CleanUpMarkerEmittionNode : TextEmittionNode
+    public sealed class CleanUpMarker : TextEmittionNode
     {
         public override EmittionNodeKind Kind => EmittionNodeKind.CleanUpMarker;
         public override bool IsCleanUp => false;

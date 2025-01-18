@@ -51,6 +51,28 @@ namespace Blaze.Symbols
             return classSymbol;
         }
 
+        protected NamedTypeSymbol Class(string name, NamedTypeSymbol? baseType, bool isAbstract, params (string name, TypeSymbol type)[] fields)
+        {
+            ParameterSymbol[] parameters = new ParameterSymbol[fields.Length];
+            for (int i = 0; i < fields.Length; i++)
+            {
+                var tuple = fields[i];
+                parameters[i] = Parameter(tuple.name, tuple.type);
+            }
+
+            var constructor = Constructor(parameters);
+            var result = Class(name, constructor, baseType, isAbstract);
+            
+            for (int i = 0; i < fields.Length; i++)
+            {
+                var tuple = fields[i]; 
+                AddField(result, tuple.name, tuple.type);
+            }
+
+            constructor.FunctionBody = AssignFieldsBlock(result, parameters);
+            return result;
+        }
+
         protected NamedTypeSymbol AbstractClass(string name, NamedTypeSymbol? baseType = null) => Class(name, null, baseType, true);
         
         protected EnumSymbol Enum(string name, bool isInt)
@@ -80,14 +102,14 @@ namespace Blaze.Symbols
             return constructor;
         }
 
-        protected FieldSymbol Field(NamedTypeSymbol parent, string name, TypeSymbol type)
+        protected FieldSymbol AddField(NamedTypeSymbol parent, string name, TypeSymbol type)
         {
             var field = new FieldSymbol(name, parent, type);
             parent.Members.Add(field);
             return field;
         }
 
-        protected FieldSymbol Field(NamespaceSymbol parent, string name, TypeSymbol type)
+        protected FieldSymbol AddField(NamespaceSymbol parent, string name, TypeSymbol type)
         {
             var field = new FieldSymbol(name, parent, type);
             parent.Members.Add(field);

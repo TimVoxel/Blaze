@@ -14,6 +14,10 @@
         ArrayInstance,
         Field,
         Enum,
-        EnumMember
+        EnumMember,
+
+        EmittionVariable,
+        EmittionFunction,
+        EmittionNamespace
     }
 }

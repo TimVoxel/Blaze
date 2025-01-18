@@ -26,15 +26,10 @@ namespace Blaze.Binding
 
         public VariableSymbol? TryLookupVariable(string name)
         {
-            VariableSymbol? variable = null;
-
-            if (_variables != null && _variables.TryGetValue(name, out variable))
+            if (_variables != null && _variables.TryGetValue(name, out var variable))
                 return variable;
 
-            if (Parent != null)
-                return Parent.TryLookupVariable(name);
-
-            return variable;
+            return Parent?.TryLookupVariable(name);
         }
 
         public ImmutableArray<VariableSymbol> GetDeclaredVariables()

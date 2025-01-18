@@ -1,13 +1,7 @@
 ﻿namespace Blaze.Emit.Nodes
 {
     public class TextTriviaNode : TextEmittionNode
-    {
-        public enum TriviaKind
-        {
-            Comment,
-            LineBreak
-        }
-        
+    {   
         public override bool IsSingleLine => true;
         public override string Text { get; }
         public override EmittionNodeKind Kind { get; }
@@ -21,6 +15,7 @@
 
         public static TextTriviaNode Comment(string text) => new TextTriviaNode(EmittionNodeKind.CommentTrivia, $"#{text}");
         public static TextTriviaNode LineBreak() => new TextTriviaNode(EmittionNodeKind.LineBreakTrivia, string.Empty);
+        public static TextTriviaNode Empty() => new TextTriviaNode(EmittionNodeKind.EmptyTrivia, string.Empty);
     }
 
     /*

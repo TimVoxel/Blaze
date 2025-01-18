@@ -87,7 +87,7 @@ namespace Blaze.Emit.NameTranslation
             }
         }
         
-        public string GetCallLink(MinecraftFunction emittion)
+        public string GetCallLink(MinecraftFunction.Builder emittion)
         {
             return $"{_rootNamespace}:{emittion.CallName}";
         }

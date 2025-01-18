@@ -1,6 +1,7 @@
 ﻿using Blaze.Binding;
 using Blaze.Diagnostics;
 using Blaze.Emit;
+using Blaze.Emit.Nodes;
 using Blaze.Lowering;
 using Blaze.Miscellaneuos;
 using Blaze.Symbols;
@@ -25,12 +26,19 @@ namespace Blaze
         }
 
         public ImmutableArray<SyntaxTree> SyntaxTrees { get; private set; }
-        public CompilationConfiguration? Configuration { get; }
+        public CompilationConfiguration Configuration { get; }
         
+
         private Compilation(CompilationConfiguration? configuration, params SyntaxTree[] trees)
         {
             SyntaxTrees = trees.ToImmutableArray();
-            Configuration = configuration;
+            Configuration = configuration ??
+                new CompilationConfiguration(
+                        "script",
+                        "scr",
+                        1, 
+                        ImmutableArray<string>.Empty
+                    );
         }
 
         public static Compilation Create(CompilationConfiguration configuration, params SyntaxTree[] syntaxTrees) => new Compilation(configuration, syntaxTrees);
@@ -66,7 +74,7 @@ namespace Blaze
         }
 
         private BoundProgram GetProgram() => Binder.BindProgram(GlobalScope);
- 
+        
         public EvaluationResult Evaluate(Dictionary<VariableSymbol, object?> variables)
         {
             var parseDiagnostics = SyntaxTrees.SelectMany(st => st.Diagnostics);
@@ -87,15 +95,12 @@ namespace Blaze
             return new EvaluationResult(ImmutableArray<Diagnostic>.Empty, value);
         }
 
-
         public void EmitTree(TextWriter writer)
         {
             var program = GetProgram();
 
             foreach (var ns in program.Namespaces.Values)
-            {
                 ns.WriteTo(writer);
-            }
         }
 
         public void EmitTree(FunctionSymbol function, TextWriter writer)
@@ -118,6 +123,14 @@ namespace Blaze
         {
             var program = GetProgram();
             return DatapackEmitter.Emit(program, Configuration);
+        }
+
+        public void EmitDatapack(TextWriter writer)
+        {
+            var program = GetProgram();
+            var datapackBuilder = new DatapackBuilder(program, Configuration);
+            var datapack = datapackBuilder.BuildDatapack();
+            datapack.WriteTo(writer);   
         }
 
         private void EmitControlFlowGraph(BoundProgram program)

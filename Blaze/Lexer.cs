@@ -299,8 +299,10 @@ namespace Blaze
             while (char.IsDigit(Current))
                 _position++;
 
-            if (Current == '.' || Current == 'f' || Current == 'F')
+            if ((Current == '.' && Next != '.') || Current == 'f' || Current == 'F')
+            {   
                 ReadFloatOrDoubleLiteral();
+            } 
             else
                 ReadIntegerLiteral();
         }
@@ -319,6 +321,7 @@ namespace Blaze
 
         private void ReadFloatOrDoubleLiteral()
         {
+
             if (Current == '.')
                 _position++;
 

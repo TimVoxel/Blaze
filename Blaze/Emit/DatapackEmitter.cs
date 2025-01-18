@@ -136,25 +136,42 @@ namespace Blaze.Emit
             var functionFile = Path.Combine(targetDirectory, emittion.Name + ".mcfunction");
             using (var streamWriter = new StreamWriter(functionFile))
             {
-                foreach (var node in emittion.Content.Where(n => !n.IsCleanUp))
-                {
-                    streamWriter.WriteLine(node.Text);
-
-                    if (node is CleanUpMarkerEmittionNode)
-                        foreach (var cleanUpNode in emittion.Content.Where(n => n.IsCleanUp))
-                            streamWriter.WriteLine(cleanUpNode.Text);
-                }
-
-                /*if (!string.IsNullOrEmpty(emittion.CleanUp))
-                {
-                    streamWriter.WriteLine("#Clean up commands");
-                    streamWriter.Write(emittion.CleanUp);
-                }*/
+                foreach (var node in emittion.Content)
+                    EmitTextNode(streamWriter, node);
             }
 
             if (emittion.SubFunctions != null)
                 foreach (var child in emittion.SubFunctions)
                     GenerateFunction(targetDirectory, child);
+        }
+
+        private void EmitTextNode(StreamWriter writer, TextEmittionNode node)
+        {
+            switch (node.Kind)
+            {
+                case EmittionNodeKind.EmptyTrivia:
+                    break;
+                case EmittionNodeKind.TextBlock:
+                    {
+                        var textBlock = (TextBlockEmittionNode)node;
+                        foreach (var subNode in textBlock.Lines)
+                            EmitTextNode(writer, subNode);
+
+                        break;
+                    }
+                case EmittionNodeKind.CleanUpMarker:
+                    {
+                        //if (node is CleanUpMarkerEmittionNode)
+                       //     foreach (var cleanUpNode in emittion.Content.Where(n => n.IsCleanUp))
+                       //         streamWriter.WriteLine(cleanUpNode.Text);
+
+                        //do stuff
+                        break;
+                    }
+                default:
+                    writer.WriteLine(node.Text);
+                    break;
+            }
         }
 
         private void WriteMcMeta(TextWriter textWriter)

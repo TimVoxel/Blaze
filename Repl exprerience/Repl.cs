@@ -8,7 +8,7 @@ namespace ReplExperience
     internal abstract class Repl
     {
         private readonly List<MetaCommand> _metaCommands = new List<MetaCommand>();
-        private readonly List<string> _submissionHistory = new List<string>();
+        protected readonly List<string> _submissionHistory = new List<string>();
         private int _submissionHistoryIndex;
         
         private bool _done; 
@@ -306,9 +306,10 @@ namespace ReplExperience
 
             _document.Clear();
 
-            string historyItem = _submissionHistory[_submissionHistoryIndex];
-            string[] lines = historyItem.Split(Environment.NewLine);
-            foreach (string line in lines)
+            var historyItem = _submissionHistory[_submissionHistoryIndex];
+            var lines = historyItem.Split(Environment.NewLine);
+
+            foreach (var line in lines)
                 _document.Add(line);
 
             ShouldRender?.Invoke();
@@ -328,13 +329,13 @@ namespace ReplExperience
 
         private void HandleBackspace(SubmissionView view)
         {
-            int start = view.CurrentCharacter;
+            var start = view.CurrentCharacter;
             if (start == 0)
             {
                 if (view.CurrentLine == 0) return;
 
-                string currentLine = _document[view.CurrentLine];
-                string previous = _document[view.CurrentLine - 1];
+                var currentLine = _document[view.CurrentLine];
+                var previous = _document[view.CurrentLine - 1];
                 _document.RemoveAt(view.CurrentLine);
                 view.CurrentLine--;
                 _document[view.CurrentLine] = previous + currentLine;
@@ -343,10 +344,10 @@ namespace ReplExperience
             }
             else
             {
-                int lineIndex = view.CurrentLine;
-                string line = _document[lineIndex];
-                string before = line.Substring(0, start - 1);
-                string after = line.Substring(start);
+                var lineIndex = view.CurrentLine;
+                var line = _document[lineIndex];
+                var before = line.Substring(0, start - 1);
+                var after = line.Substring(start);
                 _document[lineIndex] = before + after;
                 ShouldRender?.Invoke();
                 view.CurrentCharacter--;
@@ -355,14 +356,14 @@ namespace ReplExperience
 
         private void HandleDelete(SubmissionView view)
         {
-            int lineIndex = view.CurrentLine;
-            string line = _document[lineIndex];
-            int start = view.CurrentCharacter;
+            var lineIndex = view.CurrentLine;
+            var line = _document[lineIndex];
+            var start = view.CurrentCharacter;
             if (start >= line.Length)
                 return;
 
-            string before = line.Substring(0, start);
-            string after = line.Substring(start + 1);
+            var before = line.Substring(0, start);
+            var after = line.Substring(start + 1);
             _document[lineIndex] = before + after;
             ShouldRender?.Invoke();
             view.CurrentCharacter--;
@@ -370,7 +371,7 @@ namespace ReplExperience
 
         private void HandleEnter(SubmissionView view)
         {
-            string submissionText = string.Join(Environment.NewLine, _document);
+            var submissionText = string.Join(Environment.NewLine, _document);
             if (submissionText.StartsWith("#"))
             {
                 _done = true;
@@ -381,10 +382,10 @@ namespace ReplExperience
 
         private void InsertLine(SubmissionView view)
         {
-            string remainer = _document[view.CurrentLine].Substring(view.CurrentCharacter);
+            var remainer = _document[view.CurrentLine].Substring(view.CurrentCharacter);
             _document[view.CurrentLine] = _document[view.CurrentLine].Substring(0, view.CurrentCharacter);
 
-            int lineIndex = view.CurrentLine + 1;
+            var lineIndex = view.CurrentLine + 1;
             _document.Insert(lineIndex, remainer);
             ShouldRender?.Invoke();
             view.CurrentCharacter = 0;
