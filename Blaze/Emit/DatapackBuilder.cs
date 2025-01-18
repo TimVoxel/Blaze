@@ -293,6 +293,12 @@ namespace Blaze.Emit
             if (function.IsTick)
                 _tickFunction.AddCommand($"function {_nameTranslator.GetCallLink(function)}");
 
+            if (function.ReturnType is NamedTypeSymbol)
+                functionBuilder.Content.Add(Block(
+                        Comment("This function returns a named type so we clear the return value first"),
+                        new TextCommand($"data remove storage {_nameTranslator.MainStorage} {_returnValue.SaveName}", false)
+                    ));
+
             var body = GetStatement(functionBuilder, bodyBlock);
             functionBuilder.Content.Add(body);
 

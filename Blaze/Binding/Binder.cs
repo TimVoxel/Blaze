@@ -316,10 +316,6 @@ namespace Blaze.Binding
 
                 if (returnType == null)
                     returnType = TypeSymbol.Void;
-                else if (returnType is NamedTypeSymbol)
-                {
-                    _diagnostics.ReportReturningNamedType(declaration.ReturnTypeClause.Location);
-                }
             }
 
             //TODO: Add syntax for access modifier management
