@@ -17,7 +17,7 @@
         public EmittionVariableSymbol(string name, TypeSymbol type, EmittionVariableLocation? location = null) : base(name, type, false, null)
         {
             Location = location ?? (
-                    type == TypeSymbol.Int || type == TypeSymbol.Bool
+                    type == TypeSymbol.Int || type == TypeSymbol.Bool || type is EnumSymbol e && e.IsIntEnum
                         ? EmittionVariableLocation.Scoreboard
                         : EmittionVariableLocation.Storage
                 );

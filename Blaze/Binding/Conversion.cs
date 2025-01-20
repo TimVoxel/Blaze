@@ -39,7 +39,8 @@ namespace Blaze.Binding
                 return Explicit;
 
             // int, float, double, bool -> string
-            if (from == TypeSymbol.Int || from == TypeSymbol.Bool)
+            if (from == TypeSymbol.Int || from == TypeSymbol.Bool ||
+                from == TypeSymbol.Float || from == TypeSymbol.Double)
                 if (to == TypeSymbol.String)
                     return Explicit;
 
