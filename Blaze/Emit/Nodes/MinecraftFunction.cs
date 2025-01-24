@@ -59,8 +59,9 @@ namespace Blaze.Emit.Nodes
             private int _elseCount = 0;
             
             public string Name { get; }
-            public List<TextEmittionNode> Content { get; } = new List<TextEmittionNode>();
-            public List<Builder> SubFunctions { get; } = new List<Builder>();
+            public ImmutableArray<TextEmittionNode>.Builder Content { get; } = ImmutableArray.CreateBuilder<TextEmittionNode>();
+            public ImmutableArray<Builder>.Builder SubFunctions { get; } = ImmutableArray.CreateBuilder<Builder>();
+            public ImmutableArray<EmittionVariableSymbol>.Builder Locals { get; } = ImmutableArray.CreateBuilder<EmittionVariableSymbol>();
             public FunctionSymbol Function { get; }
             public SubFunctionKind? SubFunctionKind { get; }
 
@@ -71,6 +72,12 @@ namespace Blaze.Emit.Nodes
                 SubFunctionKind = kind;
             }
 
+            public void AddLocal(EmittionVariableSymbol emittionVariableSymbol)
+            {
+                if (!Locals.Contains(emittionVariableSymbol))
+                    Locals.Add(emittionVariableSymbol);
+            }
+
             public MinecraftFunction ToFunction()
             {
                 var subBuilder = ImmutableArray.CreateBuilder<MinecraftFunction>();
@@ -78,7 +85,7 @@ namespace Blaze.Emit.Nodes
                 foreach (var builder in SubFunctions)
                     subBuilder.Add(builder.ToFunction());
 
-                return new MinecraftFunction(Name, Function, SubFunctionKind, Content.ToImmutableArray(), subBuilder.ToImmutable());
+                return new MinecraftFunction(Name, Function, SubFunctionKind, Content.ToImmutable(), subBuilder.ToImmutable(), Locals.ToImmutable());
             }
 
             public Builder CreateSub(SubFunctionKind kind)
@@ -126,6 +133,8 @@ namespace Blaze.Emit.Nodes
 
         public ImmutableArray<TextEmittionNode> Content { get; }
         public ImmutableArray<MinecraftFunction> SubFunctions { get; }
+        public ImmutableArray<EmittionVariableSymbol> Locals { get; } 
+
         //public ImmutableArray<EmittionVariableSymbol> Variables { get; }
 
         public override EmittionNodeKind Kind => EmittionNodeKind.MinecraftFunction;
@@ -175,11 +184,12 @@ namespace Blaze.Emit.Nodes
             }
         }
 
-        public MinecraftFunction(string name, IMemberSymbol symbol, SubFunctionKind? subFunctionKind, ImmutableArray<TextEmittionNode> content, ImmutableArray<MinecraftFunction> sub) : base(symbol, name)
+        private MinecraftFunction(string name, IMemberSymbol symbol, SubFunctionKind? subFunctionKind, ImmutableArray<TextEmittionNode> content, ImmutableArray<MinecraftFunction> sub, ImmutableArray<EmittionVariableSymbol> locals) : base(symbol, name)
         {
             SubFunctionKind = subFunctionKind;
             Content = content;
             SubFunctions = sub;
+            Locals = locals;
             //Variables = new List<EmittionVariableSymbol>();
         }
 
