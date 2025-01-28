@@ -243,10 +243,10 @@ namespace Blaze.Binding
              
         private void BindFunctionDeclaration(FunctionDeclarationSyntax declaration)
         {
-            var identifierText = declaration.Identifier.Text;
+            var functionName = declaration.Identifier.Text;
 
-            if (identifierText.ToLower() != identifierText)
-                _diagnostics.ReportUpperCaseInFunctionName(declaration.Identifier.Location, identifierText);
+            if (functionName.ToLower() != functionName)
+                _diagnostics.ReportUpperCaseInFunctionName(declaration.Identifier.Location, functionName);
 
             var isTick = false;
             var isLoad = false;
@@ -303,7 +303,7 @@ namespace Blaze.Binding
                 if (!seenParameterNames.Add(name))
                     _diagnostics.ReportParameterAlreadyDeclared(parameterSyntax.Location, name);
                 else
-                    parameters.Add(new ParameterSymbol(name, type));
+                    parameters.Add(new ParameterSymbol(name, type, functionName.GetHashCode()));
             }
 
             TypeSymbol? returnType;
@@ -319,7 +319,7 @@ namespace Blaze.Binding
             }
 
             //TODO: Add syntax for access modifier management
-            var function = new FunctionSymbol(identifierText, _namespace, parameters.ToImmutable(), returnType, isLoad, isTick, AccessModifier.Public, declaration);
+            var function = new FunctionSymbol(functionName, _namespace, parameters.ToImmutable(), returnType, isLoad, isTick, AccessModifier.Public, declaration);
 
             if (!_namespace.TryDeclareFunction(function))
                 _diagnostics.ReportFunctionAlreadyDeclared(declaration.Identifier.Location, function.Name);

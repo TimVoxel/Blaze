@@ -152,6 +152,6 @@ namespace Blaze.Symbols
 
 
         protected ParameterSymbol Parameter(string name, TypeSymbol type)
-            => new ParameterSymbol(name, type);
+            => new ParameterSymbol(name, type, name.GetHashCode());
     }
 }

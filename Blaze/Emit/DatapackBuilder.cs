@@ -20,12 +20,12 @@ namespace Blaze.Emit
 
         private readonly List<FunctionSymbol> _fabricatedMacroFunctions = new List<FunctionSymbol>();
         private readonly Dictionary<FunctionSymbol, MinecraftFunction.Builder> _usedBuiltIn = new Dictionary<FunctionSymbol, MinecraftFunction.Builder>();
-        private readonly Dictionary<string, EmittionVariableSymbol> _variables = new Dictionary<string, EmittionVariableSymbol>();
-
-        private readonly EmittionVariableSymbol _macro = new EmittionVariableSymbol("*macros", TypeSymbol.Object);
-        private readonly EmittionVariableSymbol _returnValue = new EmittionVariableSymbol("*return.value", TypeSymbol.Object);
-
+      
+        private readonly EmittionVariableSymbol _macro = new EmittionVariableSymbol("*macros", TypeSymbol.Object, true, null);
+        private readonly EmittionVariableSymbol _returnValue = new EmittionVariableSymbol("*return.value", TypeSymbol.Object, false, null);
+        
         private EmittionVariableSymbol? _thisSymbol = null;
+        private int _scopeIndex = 0;
 
         private string Vars => _nameTranslator.Vars;
         private string Const => _nameTranslator.Const;
@@ -90,29 +90,45 @@ namespace Blaze.Emit
             _initFunction.AddCommand($"summon item_display {DEBUG_CHUNK_X} 0 {DEBUG_CHUNK_Z} {{Tags:[\"blz\",\"debug\", \"second\"], UUID:{_nameTranslator.MathEntity2.TagValue}, item:{{ id:\"stone_button\",Count:1b,components:{{\"minecraft:custom_data\":{{greater:0,less:1}}}}}}}}");
         }
 
-
-        private EmittionVariableSymbol ToEmittionVariable(VariableSymbol variable)
+        private string GetEmittionName(VariableSymbol variable)
         {
-            if (!_variables.TryGetValue(variable.Name, out var emittionVariable))
+            if (variable is ParameterSymbol p)
+            {
+                return $"*{p.FunctionHash:X8}{variable.Name}";
+            }   
+            else
+            {
+                if (_scopeIndex - 1 == 0)
+                    return variable.Name;
+                else 
+                    return $"{variable.Name}{_scopeIndex - 1}";
+            }
+        }
+
+        private EmittionVariableSymbol ToEmittionVariable(MinecraftFunction.Builder functionBuilder, VariableSymbol variable, bool makeTemp)
+        {
+            var name = GetEmittionName(variable);
+            var emittionVariable = functionBuilder.Locals.FirstOrDefault(v => v.Name == name);
+
+            if (emittionVariable == null)
             {
                 EmittionVariableLocation? location = null;
 
                 if (variable.Type is ArrayTypeSymbol)
                     location = EmittionVariableLocation.Storage;
 
-                emittionVariable = new EmittionVariableSymbol(variable.Name, variable.Type, location);
-                _variables.Add(emittionVariable.Name, emittionVariable);
-                return emittionVariable;
+                emittionVariable = new EmittionVariableSymbol(name, variable.Type, makeTemp, location);
+                functionBuilder.AddLocal(emittionVariable);
             }
             return emittionVariable;
         }
 
-        private EmittionVariableSymbol ToEmittionVariable(MinecraftFunction.Builder functionBuilder, BoundExpression left, out TextEmittionNode? setupNode, int tempIndex)
+        private EmittionVariableSymbol ToEmittionVariable(MinecraftFunction.Builder functionBuilder, BoundExpression left, out TextEmittionNode? setupNode, int tempIndex, bool makeTemp)
         {
             setupNode = null;
 
             if (left is BoundVariableExpression v)
-                return ToEmittionVariable(v.Variable);
+                return ToEmittionVariable(functionBuilder, v.Variable, makeTemp);
 
             var leftAssociativeOrder = new Stack<BoundExpression>();
             leftAssociativeOrder.Push(left);
@@ -140,7 +156,7 @@ namespace Blaze.Emit
             var nameBuilder = new StringBuilder();
             EmittionVariableLocation? location = null;
             ImmutableArray<TextEmittionNode>.Builder? setupBuilder = null;
-
+            
             while (leftAssociativeOrder.Any())
             {
                 var current = leftAssociativeOrder.Pop();
@@ -150,7 +166,8 @@ namespace Blaze.Emit
 
                 if (current is BoundVariableExpression variableExpression)
                 {
-                    nameBuilder.Append(variableExpression.Variable.Name);
+                    var varName = GetEmittionName(variableExpression.Variable);
+                    nameBuilder.Append(varName);
                 }
                 else if (current is BoundThisExpression thisExpression)
                 {
@@ -178,10 +195,18 @@ namespace Blaze.Emit
 
                     foreach (var argument in arrayAccess.Arguments)
                     {
-                        if (argument.ConstantValue == null)
-                            throw new Exception("Non-consant array access  is not supported with the current implementation");
+                        if (argument.ConstantValue != null)
+                        {
+                            nameBuilder.Append($"[{argument.ConstantValue.Value}]");
+                        }
+                        else
+                        {
+                            continue; 
 
-                        nameBuilder.Append($"[{argument.ConstantValue.Value}]");
+                           // if (setupBuilder == null)
+                           //     setupBuilder = ImmutableArray.CreateBuilder<TextEmittionNode>();
+
+                        }
                     }
                 }
                 else if (current is BoundCallExpression call)
@@ -211,11 +236,12 @@ namespace Blaze.Emit
                 setupNode = new TextBlockEmittionNode(setupBuilder.ToImmutable());
 
             var name = nameBuilder.ToString();
+            var emittionVariable = functionBuilder.Locals.FirstOrDefault(v => v.Name == name);
 
-            if (!_variables.TryGetValue(name, out var emittionVariable))
+            if (emittionVariable == null)
             {
-                emittionVariable = new EmittionVariableSymbol(name, left.Type, location);
-                _variables.Add(name, emittionVariable);
+                emittionVariable = new EmittionVariableSymbol(name, left.Type, makeTemp, location);
+                functionBuilder.Locals.Add(emittionVariable);
             }
             return emittionVariable;
         }
@@ -284,12 +310,12 @@ namespace Blaze.Emit
                     continue;
 
                 var fieldAccess = new BoundFieldAccessExpression(ns, field);
-                var name = ToEmittionVariable(_initFunction, fieldAccess, out var setupNode, 0);
+                var emittionField = ToEmittionVariable(_initFunction, fieldAccess, out var setupNode, 0, false);
 
                 if (setupNode != null)
                     _initFunction.Content.Add(setupNode);
 
-                _initFunction.Content.Add(GetAssignment(_initFunction, name, field.Initializer, 0));
+                _initFunction.Content.Add(GetAssignment(_initFunction, emittionField, field.Initializer, 0));
             }
 
             foreach (var function in boundNamespace.Functions)
@@ -327,7 +353,7 @@ namespace Blaze.Emit
             var body = GetStatement(functionBuilder, bodyBlock);
             functionBuilder.Content.Add(body);
 
-            if (functionBuilder.Locals.Any() && functionBuilder.Content.FirstOrDefault(n => n.IsCleanUp) == null)
+            if (functionBuilder.Function.ReturnType == TypeSymbol.Void)
                 functionBuilder.Content.Add(GetCleanUp(functionBuilder));
 
             return functionBuilder.ToFunction();
@@ -336,10 +362,12 @@ namespace Blaze.Emit
         private TextEmittionNode GetCleanUp(MinecraftFunction.Builder functionBuilder)
         {
             var builder = ImmutableArray.CreateBuilder<TextEmittionNode>();
-            builder.Add(Comment("Clean up"));
 
             foreach (var local in functionBuilder.Locals)
             {
+                if (!local.IsTemp)
+                    continue;
+
                 switch (local.Location)
                 {
                     case EmittionVariableLocation.Scoreboard:
@@ -352,7 +380,15 @@ namespace Blaze.Emit
                         throw new Exception($"Unexpected variable location {local.Location}");
                 }
             }
-            return new TextBlockEmittionNode(builder.ToImmutable(), true);
+            if (builder.Any())
+            {
+                builder.Insert(0, Comment("Clean up"));
+                return new TextBlockEmittionNode(builder.ToImmutable(), true);
+            }
+            else 
+            {
+                return TextTriviaNode.Empty();
+            }
         }
 
         private TextEmittionNode GetStatement(MinecraftFunction.Builder functionBuilder, BoundStatement node)
@@ -388,15 +424,19 @@ namespace Blaze.Emit
         {
             var builder = ImmutableArray.CreateBuilder<TextEmittionNode>();
 
+            _scopeIndex++;
+
             foreach (var statement in node.Statements)
                 builder.Add(GetStatement(functionBuilder, statement));
+
+            _scopeIndex--;
 
             return new TextBlockEmittionNode(builder.ToImmutable());
         }
 
         private TextEmittionNode GetVariableDeclarationStatement(MinecraftFunction.Builder functionBuilder, BoundVariableDeclarationStatement node)
         {
-            var variable = ToEmittionVariable(node.Variable);
+            var variable = ToEmittionVariable(functionBuilder, node.Variable, false);
             return GetAssignment(functionBuilder, variable, node.Initializer, 0);
         }
 
@@ -412,8 +452,7 @@ namespace Blaze.Emit
             var textBody = GetStatement(subFunction, node.Body);
             subFunction.Content.Add(textBody);
 
-            var temp = Temp(TypeSymbol.Bool, 0);
-            functionBuilder.AddLocal(temp);
+            var temp = Temp(functionBuilder, TypeSymbol.Bool, 0);
             var tempAssignment = GetAssignment(functionBuilder, temp, node.Condition, 0);
 
             functionBuilder.AddLocal(temp);
@@ -447,8 +486,7 @@ namespace Blaze.Emit
             //body
 
             var subFunction = functionBuilder.CreateSub(SubFunctionKind.Loop);
-            var temp = Temp(TypeSymbol.Bool, 0);
-            functionBuilder.AddLocal(temp);
+            var temp = Temp(functionBuilder, TypeSymbol.Bool, 0);
 
             var callCommand = new TextCommand($"function {_nameTranslator.GetCallLink(subFunction)}", false);
 
@@ -473,8 +511,7 @@ namespace Blaze.Emit
             //execute if <.temp> run function <subfunction>
 
             var subFunction = functionBuilder.CreateSub(SubFunctionKind.Loop);
-            var temp = Temp(TypeSymbol.Bool, 0);
-            functionBuilder.AddLocal(temp);
+            var temp = Temp(functionBuilder, TypeSymbol.Bool, 0);
 
             var callCommand = new TextCommand($"function {_nameTranslator.GetCallLink(subFunction)}", false);
 
@@ -552,7 +589,7 @@ namespace Blaze.Emit
                 return node;
 
             return Block(
-                        GetFunctionParametersAssignment(functionBuilder, call.Function.Parameters, call.Arguments),
+                        GetArgumentAssignment(functionBuilder, call.Function, call.Function.Parameters, call.Arguments),
                         new TextCommand($"function {_nameTranslator.GetCallLink(call.Function)}", false)
                     );
         }
@@ -579,7 +616,7 @@ namespace Blaze.Emit
                     return node;
             }
 
-            var leftVariable = ToEmittionVariable(functionBuilder, left, out var setupNode, tempIndex);
+            var leftVariable = ToEmittionVariable(functionBuilder, left, out var setupNode, tempIndex, false);
 
             return Block(
                     setupNode ?? TextTriviaNode.Empty(),
@@ -601,7 +638,7 @@ namespace Blaze.Emit
             }
             else if (expression is BoundAssignmentExpression a)
             {
-                var leftVariable = ToEmittionVariable(functionBuilder, a.Left, out var setupNode, tempIndex);
+                var leftVariable = ToEmittionVariable(functionBuilder, a.Left, out var setupNode, tempIndex, false);
                 
                 return Block(
                         setupNode ?? TextTriviaNode.Empty(),
@@ -640,7 +677,7 @@ namespace Blaze.Emit
                 if (node != null)
                     return node;
 
-                var rightSymbol = ToEmittionVariable(functionBuilder, fieldExpression, out var setupNode, tempIndex);
+                var rightSymbol = ToEmittionVariable(functionBuilder, fieldExpression, out var setupNode, tempIndex, false);
 
                 emittionNode = Block(
                         setupNode ?? TextTriviaNode.Empty(), 
@@ -717,7 +754,7 @@ namespace Blaze.Emit
             }
             else
             {
-                var rightVariable = ToEmittionVariable(variable.Variable);
+                var rightVariable = ToEmittionVariable(functionBuilder, variable.Variable, false);
                 return GetVariableAssignment(functionBuilder, symbol, rightVariable);
             }
         }
@@ -767,7 +804,7 @@ namespace Blaze.Emit
 
             var rank = arrayAccessExpression.Arguments.Length;
             var macroFunctionName = $"array_access_rank{rank}";
-            var accessed = ToEmittionVariable(functionBuilder, arrayAccessExpression.Identifier, out var setupNode, tempIndex);
+            var accessed = ToEmittionVariable(functionBuilder, arrayAccessExpression.Identifier, out var setupNode, tempIndex, false);
 
             if (setupNode != null)
                 builder.Add(setupNode);
@@ -806,10 +843,8 @@ namespace Blaze.Emit
 
             for (int i = 0; i < rank; i++)
             {
-                var argumentSymbol = new EmittionVariableSymbol($"{_macro.Name}.a{i.ToString()}", TypeSymbol.Object);
-
-                var temp = Temp(TypeSymbol.Int, tempIndex + i);
-                functionBuilder.AddLocal(temp);
+                var argumentSymbol = Macro($"a{i.ToString()}");
+                var temp = Temp(functionBuilder, TypeSymbol.Int, tempIndex + i);
 
                 builder.Add(GetAssignment(functionBuilder, temp, arrayAccessExpression.Arguments[i], tempIndex + i));
                 builder.Add(new TextCommand($"execute store result storage {_nameTranslator.MainStorage} {argumentSymbol.SaveName} int 1 run scoreboard players get {temp.SaveName} {Vars}", false));
@@ -839,7 +874,7 @@ namespace Blaze.Emit
             _thisSymbol = symbol;
             
             var node = Block(
-                    GetFunctionParametersAssignment(functionBuilder, constructor.Parameters, objectCreationExpression.Arguments),
+                    GetArgumentAssignment(functionBuilder, constructor, constructor.Parameters, objectCreationExpression.Arguments),
                     Comment($"Emitting object creation of type {objectCreationExpression.NamedType.Name}, stored in variable \"{symbol.SaveName}\""),
                     GetStatement(functionBuilder, constructor.FunctionBody)
                 ); 
@@ -867,10 +902,8 @@ namespace Blaze.Emit
                 if (i == 0)
                     arraySymbol = symbol;
                 else
-                {
-                    arraySymbol = new EmittionVariableSymbol($"*rank{tempIndex + i}", TypeSymbol.Object);
-                }
-
+                    arraySymbol = new EmittionVariableSymbol($"*rank{tempIndex + i}", TypeSymbol.Object, true);
+                
                 TextCommand assignmentCommand;
 
                 if (i == arrayCreationExpression.Dimensions.Length - 1)
@@ -906,10 +939,8 @@ namespace Blaze.Emit
                 var subFunction = functionBuilder.CreateSub(SubFunctionKind.Loop);
                 var callCommand = new TextCommand($"function {_nameTranslator.GetCallLink(subFunction)}", false);
                 
-                var tempIter = Temp(TypeSymbol.Int, tempIndex + i, "iter");
-                var tempUpperBound = Temp(TypeSymbol.Int, tempIndex + i, "upperBound");
-                functionBuilder.AddLocal(tempIter);
-                functionBuilder.AddLocal(tempUpperBound);
+                var tempIter = Temp(functionBuilder, TypeSymbol.Int, tempIndex + i, "iter");
+                var tempUpperBound = Temp(functionBuilder, TypeSymbol.Int, tempIndex + i, "upperBound");
 
                 builder.Add(GetAssignment(functionBuilder, tempIter, new BoundLiteralExpression(0), tempIndex + i));
                 builder.Add(GetAssignment(functionBuilder, tempUpperBound, arrayCreationExpression.Dimensions[i], tempIndex + i));
@@ -987,8 +1018,8 @@ namespace Blaze.Emit
                         var macroA = Macro("a");
                         var macroSign = Macro("sign");
                         var macroReturn = Macro("return");
-                        var sign = new EmittionVariableSymbol($"*sign", TypeSymbol.Object);
-                        var last = new EmittionVariableSymbol($"*last", TypeSymbol.Object);
+                        var sign = new EmittionVariableSymbol($"*sign", TypeSymbol.Object, true);
+                        var last = new EmittionVariableSymbol($"*last", TypeSymbol.Object, true);
 
                         functionBuilder.AddLocal(_macro);
                         functionBuilder.AddLocal(sign);
@@ -1028,8 +1059,7 @@ namespace Blaze.Emit
                     }
                 case BoundUnaryOperatorKind.LogicalNegation:
 
-                    var temp = Temp(operand.Type, current);
-                    functionBuilder.AddLocal(temp);
+                    var temp = Temp(functionBuilder, operand.Type, current);
 
                     return Block(
                             LineBreak(),
@@ -1081,10 +1111,8 @@ namespace Blaze.Emit
                     }
                 case BoundBinaryOperatorKind.LogicalMultiplication:
                     {
-                        var leftSymbol = Temp(left.Type, tempIndex + 1, $"lbTemp");
-                        var rightSymbol = Temp(right.Type, tempIndex + 1, $"rbTemp");
-                        functionBuilder.AddLocal(leftSymbol);
-                        functionBuilder.AddLocal(rightSymbol);
+                        var leftSymbol = Temp(functionBuilder, left.Type, tempIndex + 1, $"lbTemp");
+                        var rightSymbol = Temp(functionBuilder, right.Type, tempIndex + 1, $"rbTemp");
 
                         return Block(
                                 LineBreak(),
@@ -1097,10 +1125,8 @@ namespace Blaze.Emit
                     }
                 case BoundBinaryOperatorKind.LogicalAddition:
                     {
-                        var leftSymbol = Temp(left.Type, tempIndex + 1, $"lbTemp");
-                        var rightSymbol = Temp(right.Type, tempIndex + 1, $"rbTemp");
-                        functionBuilder.AddLocal(leftSymbol);
-                        functionBuilder.AddLocal(rightSymbol);
+                        var leftSymbol = Temp(functionBuilder, left.Type, tempIndex + 1, $"lbTemp");
+                        var rightSymbol = Temp(functionBuilder, right.Type, tempIndex + 1, $"rbTemp");
 
                         return Block(
                                 LineBreak(),
@@ -1116,10 +1142,8 @@ namespace Blaze.Emit
                     {
                         if (left.Type == TypeSymbol.String || left.Type == TypeSymbol.Object || left.Type is EnumSymbol e && !e.IsIntEnum)
                         {
-                            var leftSymbol = Temp(left.Type, tempIndex + 1, $"lbTemp");
-                            var rightSymbol = Temp(right.Type, tempIndex + 1, $"rbTemp");
-                            functionBuilder.AddLocal(leftSymbol);
-                            functionBuilder.AddLocal(rightSymbol);
+                            var leftSymbol = Temp(functionBuilder, left.Type, tempIndex + 1, $"lbTemp");
+                            var rightSymbol = Temp(functionBuilder, right.Type, tempIndex + 1, $"rbTemp");
 
                             return Block(
                                     LineBreak(),
@@ -1144,10 +1168,8 @@ namespace Blaze.Emit
                     {
                         if (left.Type == TypeSymbol.String || left.Type == TypeSymbol.Object || left.Type is EnumSymbol e && !e.IsIntEnum)
                         {
-                            var leftSymbol = Temp(left.Type, tempIndex + 1, $"lbTemp");
-                            var rightSymbol = Temp(right.Type, tempIndex + 1, $"rbTemp");
-                            functionBuilder.AddLocal(leftSymbol);
-                            functionBuilder.AddLocal(rightSymbol);
+                            var leftSymbol = Temp(functionBuilder, left.Type, tempIndex + 1, $"lbTemp");
+                            var rightSymbol = Temp(functionBuilder, right.Type, tempIndex + 1, $"rbTemp");
 
                             return Block(
                                     LineBreak(),
@@ -1189,8 +1211,7 @@ namespace Blaze.Emit
 
             EmittionVariableSymbol AddAssignRightTemp()
             {
-                rightSymbol = Temp(right.Type, tempIndex + 1, "rTemp");
-                functionBuilder.AddLocal(rightSymbol);
+                rightSymbol = Temp(functionBuilder, right.Type, tempIndex + 1, "rTemp");
                 var rightAssignment = GetAssignment(functionBuilder, rightSymbol, right, tempIndex + 1);
                 textNodeBuilder.Add(rightAssignment);
                 return rightSymbol;
@@ -1219,7 +1240,7 @@ namespace Blaze.Emit
             }
             else if (right is BoundVariableExpression v)
             {
-                rightSymbol = ToEmittionVariable(v.Variable);
+                rightSymbol = ToEmittionVariable(functionBuilder, v.Variable, false);
             }
             else
             {
@@ -1261,12 +1282,11 @@ namespace Blaze.Emit
                     return new TextCommand($"scoreboard players set {symbol.SaveName} {Vars} {result}", false);
                 }
 
-                leftSymbol = ToEmittionVariable(v.Variable);
+                leftSymbol = ToEmittionVariable(functionBuilder, v.Variable, false);
             }
             else
             {
-                leftSymbol = Temp(left.Type, tempIndex + 1, "lTemp");
-                functionBuilder.AddLocal(leftSymbol);
+                leftSymbol = Temp(functionBuilder, left.Type, tempIndex + 1, "lTemp");
                 builder.Add(GetAssignment(functionBuilder, leftSymbol, left, tempIndex + 1));
             }
 
@@ -1301,12 +1321,11 @@ namespace Blaze.Emit
                         return new TextBlockEmittionNode(builder.ToImmutable());
                     }
 
-                    rightSymbol = ToEmittionVariable(vr.Variable);
+                    rightSymbol = ToEmittionVariable(functionBuilder, vr.Variable, false);
                 }
                 else
                 {
-                    rightSymbol = Temp(right.Type, tempIndex + 1, "rTemp");
-                    functionBuilder.AddLocal(rightSymbol);
+                    rightSymbol = Temp(functionBuilder, right.Type, tempIndex + 1, "rTemp");
                     builder.Add(GetAssignment(functionBuilder, rightSymbol, right, tempIndex + 1));
                 }
                 var operationSign = operatorKind switch
@@ -1333,14 +1352,12 @@ namespace Blaze.Emit
             var builder = ImmutableArray.CreateBuilder<TextEmittionNode>();
             functionBuilder.AddLocal(_macro);
 
-            var temp = Temp(left.Type, current + 1);
-            functionBuilder.AddLocal(temp);
+            var temp = Temp(functionBuilder, left.Type, current + 1);
             builder.Add(GetAssignment(functionBuilder, temp, left, current + 1));
             builder.Add(new TextCommand($"data modify storage {stringStorage} {macroA.SaveName} set from storage {stringStorage} {temp.SaveName}", false));
             builder.Add(new TextCommand($"execute as {_nameTranslator.MathEntity1} run function {_nameTranslator.GetCallLink(macro)} with storage {stringStorage} {_macro.SaveName}", false));
 
-            temp = Temp(right.Type, current + 1);
-            functionBuilder.AddLocal(temp);
+            temp = Temp(functionBuilder, right.Type, current + 1);
             builder.Add(GetAssignment(functionBuilder, temp, right, current + 1));
             builder.Add(new TextCommand($"data modify storage {stringStorage} {macroA.SaveName} set from storage {stringStorage} {temp.SaveName}", false));
             builder.Add(new TextCommand($"execute as {_nameTranslator.MathEntity2} run function {_nameTranslator.GetCallLink(macro)} with storage {stringStorage} {_macro.SaveName}", false));
@@ -1394,8 +1411,7 @@ namespace Blaze.Emit
             var leftAssignment = GetAssignment(functionBuilder, symbol, left, current);
             blockBuilder.Add(leftAssignment);
 
-            var rightSymbol = Temp(right.Type, current + 1, "rTemp");
-            functionBuilder.AddLocal(rightSymbol);
+            var rightSymbol = Temp(functionBuilder, right.Type, current + 1, "rTemp");
             var rightAssignment = GetAssignment(functionBuilder, rightSymbol, right, current + 1);
             blockBuilder.Add(rightAssignment);
             
@@ -1424,8 +1440,8 @@ namespace Blaze.Emit
                     }
                 case BoundBinaryOperatorKind.Subtraction:
                     {
-                        var last = new EmittionVariableSymbol("*last", TypeSymbol.Object);
-                        var pol = new EmittionVariableSymbol("*pol", TypeSymbol.Object);
+                        var last = new EmittionVariableSymbol("*last", TypeSymbol.Object, true);
+                        var pol = new EmittionVariableSymbol("*pol", TypeSymbol.Object, true);
                         functionBuilder.AddLocal(last);
                         functionBuilder.AddLocal(pol);
 
@@ -1529,7 +1545,7 @@ namespace Blaze.Emit
 
                 return Block(
                         Comment($"Assigning return value of {call.Function.Name} to \"{symbol.SaveName}\""),
-                        GetFunctionParametersAssignment(functionBuilder, call.Function.Parameters, call.Arguments),
+                        GetArgumentAssignment(functionBuilder, call.Function, call.Function.Parameters, call.Arguments),
                         new TextCommand($"execute store result score {symbol.SaveName} {Vars} run function {_nameTranslator.GetCallLink(call.Function)}", false)
                     );
                 //EmitFunctionParameterCleanUp(setParameters, emittion);    
@@ -1544,7 +1560,7 @@ namespace Blaze.Emit
             }
         }
 
-        private TextEmittionNode GetFunctionParametersAssignment(MinecraftFunction.Builder functionBuilder, ImmutableArray<ParameterSymbol> parameters, ImmutableArray<BoundExpression> arguments)
+        private TextEmittionNode GetArgumentAssignment(MinecraftFunction.Builder functionBuilder, FunctionSymbol calledFunction, ImmutableArray<ParameterSymbol> parameters, ImmutableArray<BoundExpression> arguments)
         {
             var builder = ImmutableArray.CreateBuilder<TextEmittionNode>();
 
@@ -1553,7 +1569,7 @@ namespace Blaze.Emit
                 var argument = arguments[i];
                 var parameter = parameters[i];
 
-                var parameterVar = ToEmittionVariable(parameter);
+                var parameterVar = ToEmittionVariable(functionBuilder, parameter, true);
                 functionBuilder.AddLocal(parameterVar);
                 var assignment = GetAssignment(functionBuilder, parameterVar, argument, 0);
 
@@ -1591,15 +1607,14 @@ namespace Blaze.Emit
             }
             else
             {
-                var temp = Temp(conversion.Expression.Type, current);
+                var temp = Temp(functionBuilder, conversion.Expression.Type, current);
                 var tempAssignment = GetAssignment(functionBuilder, temp, conversion.Expression, current);
-                functionBuilder.AddLocal(temp);
 
                 if (resultType == TypeSymbol.String)
                 {
                     if (sourceType == TypeSymbol.Int || sourceType == TypeSymbol.Bool)
                     {
-                        var temp2 = Temp(TypeSymbol.String, current + 1);
+                        var temp2 = Temp(functionBuilder, TypeSymbol.String, current + 1);
                         functionBuilder.AddLocal(temp2);
 
                         return Block(
@@ -1709,19 +1724,20 @@ namespace Blaze.Emit
                 );
         }
 
-        private EmittionVariableSymbol Temp(TypeSymbol type, int current, string tempName = "temp", EmittionVariableLocation? location = null)
+        private EmittionVariableSymbol Temp(MinecraftFunction.Builder functionBuilder, TypeSymbol type, int current, string tempName = "temp", EmittionVariableLocation? location = null)
         {
             var name = $"*{tempName}{current}";
+            var temp = functionBuilder.Locals.FirstOrDefault(t => t.Name == name);
 
-            if (!_variables.TryGetValue(name, out var emittionVariable))
+            if (temp == null)
             {
-                emittionVariable = new EmittionVariableSymbol(name, type, location);
-                _variables.Add(name, emittionVariable);
+                temp = new EmittionVariableSymbol(name, type, true, location);
+                functionBuilder.AddLocal(temp);
             }
-            return emittionVariable;
+            return temp;
         }
 
-        private EmittionVariableSymbol Macro(string subName) => new EmittionVariableSymbol($"{_macro.Name}.{subName}", _macro.Type, _macro.Location);
+        private EmittionVariableSymbol Macro(string subName) => new EmittionVariableSymbol($"{_macro.Name}.{subName}", _macro.Type, true, _macro.Location);
 
         //private EmittionVariableSymbol EmitAssignmentToTemp(BoundExpression expression, MinecraftFunction emittion, int index) => EmitAssignmentToTemp(TEMP, expression, emittion, index);
 
@@ -1781,7 +1797,7 @@ namespace Blaze.Emit
             //2. If is bool, generate two conditions
             //3. If it's an int, generate a macro
 
-            var temp = Temp(right.Type, tempIndex);
+            var temp = Temp(functionBuilder, right.Type, tempIndex);
             var assignment = GetAssignment(functionBuilder, temp, right, tempIndex);
 
             if (field.Type == TypeSymbol.Bool)
@@ -1822,7 +1838,7 @@ namespace Blaze.Emit
             }
 
             var builder = ImmutableArray.CreateBuilder<TextEmittionNode>();
-            var rightSymbol = Temp(right.Type, tempIndex);
+            var rightSymbol = Temp(functionBuilder, right.Type, tempIndex);
             builder.Add(GetAssignment(functionBuilder, rightSymbol, right, tempIndex));
 
             foreach (var enumMember in BuiltInNamespace.Minecraft.General.Difficulty.Members)
@@ -1830,8 +1846,7 @@ namespace Blaze.Emit
                 var intMember = (IntEnumMemberSymbol)enumMember;
                 builder.Add(new TextCommand($"execute if score {rightSymbol.SaveName} {Vars} matches {intMember.UnderlyingValue} run difficulty {enumMember.Name.ToLower()}", false));
             }
-
-            //EmitCleanUp(rightName, right.Type, emittion);
+            
             return new TextBlockEmittionNode(builder.ToImmutable());
         }
 
@@ -1900,6 +1915,7 @@ namespace Blaze.Emit
         {
             var macroCommand = Macro("command");
             var macro = GetOrCreateBuiltIn(call.Function, out bool isCreated);
+            functionBuilder.Locals.Add(_macro);
 
             if (isCreated)
                 macro.AddMacro("$(command)");
@@ -1908,13 +1924,13 @@ namespace Blaze.Emit
                     GetAssignment(functionBuilder, macroCommand, call.Arguments.First(), 0),
                     new TextCommand($"function {_nameTranslator.GetCallLink(macro)} with storage {_nameTranslator.MainStorage} {_macro.SaveName}", false)
                 );
-            // EmitMacroCleanUp();
         }
 
         private TextEmittionNode EmitDatapackEnable(MinecraftFunction.Builder functionBuilder, BoundCallExpression call)
         {
             var macrosPack = Macro("pack");
             var macro = GetOrCreateBuiltIn(call.Function, out bool isCreated);
+            functionBuilder.Locals.Add(_macro);
 
             if (isCreated)
                 macro.AddMacro($"datapack enable \"file/$(pack)\"");
@@ -1923,13 +1939,13 @@ namespace Blaze.Emit
                     GetAssignment(functionBuilder, macrosPack, call.Arguments.First()),
                     new TextCommand($"function {_nameTranslator.GetCallLink(macro)} with storage {_nameTranslator.MainStorage} {_macro.SaveName}", false)
                 );
-            // EmitMacroCleanUp();
         }
 
         private TextEmittionNode EmitDatapackDisable(MinecraftFunction.Builder functionBuilder, BoundCallExpression call)
         {
             var macrosPack = Macro("pack");
             var macro = GetOrCreateBuiltIn(call.Function, out bool isCreated);
+            functionBuilder.Locals.Add(_macro);
 
             if (isCreated)
                 macro.AddMacro($"datapack disable \"file/$(pack)\"");
@@ -1938,7 +1954,6 @@ namespace Blaze.Emit
                     GetAssignment(functionBuilder, macrosPack, call.Arguments.First()),
                     new TextCommand($"function {_nameTranslator.GetCallLink(macro)} with storage {_nameTranslator.GetStorage(TypeSymbol.String)} {_macro.SaveName}", false)
                 );
-            // EmitMacroCleanUp();
         }
 
         private TextEmittionNode EmitSetDatapackEnabled(MinecraftFunction.Builder functionBuilder, BoundCallExpression call, int tempIndex)
@@ -1947,7 +1962,7 @@ namespace Blaze.Emit
             var value = call.Arguments[1];
 
             var macrosPack = Macro("pack");
-            var temp = Temp(TypeSymbol.Bool, tempIndex, "de");
+            var temp = Temp(functionBuilder, TypeSymbol.Bool, tempIndex, "de");
 
             var macro = GetOrCreateBuiltIn(call.Function, out bool isCreated);
 
@@ -1962,9 +1977,6 @@ namespace Blaze.Emit
                     GetAssignment(functionBuilder, temp, value, tempIndex),
                     new TextCommand($"function {_nameTranslator.GetCallLink(macro)} with storage {_nameTranslator.MainStorage} {_macro.SaveName}", false)
                 );
-
-            // EmitCleanUp(valueName, value.Type);
-            // EmitMacroCleanUp();
         }
 
         private TextEmittionNode EmitGetDatapackCount(MinecraftFunction.Builder functionBuilder, EmittionVariableSymbol symbol, BoundCallExpression call, bool countEnabled = false, bool countAvailable = false)
@@ -1977,7 +1989,7 @@ namespace Blaze.Emit
         {
             TextEmittionNode EmitNonMacroNonConstantTypeCheck(BoundExpression weatherType, int current, int time = 0, string? timeUnits = null)
             {
-                var temp = Temp(weatherType.Type, current, "type");
+                var temp = Temp(functionBuilder, weatherType.Type, current, "type");
                 var builder = ImmutableArray.CreateBuilder<TextEmittionNode>();
 
                 foreach (var enumMember in BuiltInNamespace.Minecraft.General.Weather.Weather.Members)
@@ -1991,7 +2003,6 @@ namespace Blaze.Emit
                 }
 
                 return new TextBlockEmittionNode(builder.ToImmutable());
-                // EmitCleanUp(right, weatherType.Type);
             }
 
             var weatherType = call.Arguments[0];
@@ -2013,9 +2024,10 @@ namespace Blaze.Emit
                 else
                 {
                     var macroType = Macro("type");
-                    var duration = Temp(call.Arguments[1].Type, tempIndex);
+                    var duration = Temp(functionBuilder, call.Arguments[1].Type, tempIndex);
                     var macroDuration = Macro("duration");
                     var macroTimeUnits = Macro("timeUnits");
+                    functionBuilder.Locals.Add(_macro);
 
                     var macro = GetOrCreateBuiltIn(BuiltInNamespace.Minecraft.General.Weather.SetWeather, out bool isCreated);
                     if (isCreated)
@@ -2028,10 +2040,6 @@ namespace Blaze.Emit
                             new TextCommand($"data modify storage {_nameTranslator.MainStorage} {macroTimeUnits.SaveName} set value \"{timeUnits}\"", false),
                             new TextCommand($"function {_nameTranslator.GetCallLink(macro)} with storage {_nameTranslator.MainStorage} {_macro.SaveName}", false)
                         );
-
-
-                    // EmitCleanUp(duration, TypeSymbol.Int);
-                    // EmitMacroCleanUp();
                 }
             }
             else
@@ -2062,7 +2070,8 @@ namespace Blaze.Emit
             }
             else if (argument is BoundVariableExpression variable)
             {
-                var varSymbol = ToEmittionVariable(functionBuilder, variable, out var setupNode, tempIndex);
+                var varSymbol = ToEmittionVariable(functionBuilder, variable, out var setupNode, tempIndex, false);
+
                 return Block(
                         setupNode ?? TextTriviaNode.Empty(),
                         new TextCommand($"tellraw @a {{\"storage\":\"{_nameTranslator.MainStorage}\",\"nbt\":\"{varSymbol.SaveName}\"}}", false)
@@ -2070,13 +2079,12 @@ namespace Blaze.Emit
             }
             else
             {
-                var temp = Temp(argument.Type, 0);
+                var temp = Temp(functionBuilder, argument.Type, 0);
 
                 return Block(
                         GetAssignment(functionBuilder, temp, argument, tempIndex),
                         new TextCommand($"tellraw @a {{\"storage\":\"{_nameTranslator.MainStorage}\",\"nbt\":\"{temp.SaveName}\"}}", false)
                     );
-                // EmitCleanUp(tempName, argument.Type);
             }
         }
     }

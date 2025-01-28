@@ -61,7 +61,7 @@
 
         public GamerulesNamespace(GeneralNamespace parent) : base("gamerules", parent)
         {
-            SetGamerule = Function("set_gamerule", TypeSymbol.Void, new ParameterSymbol("rule", TypeSymbol.String), new ParameterSymbol("value", TypeSymbol.Int));
+            SetGamerule = Function("set_gamerule", TypeSymbol.Void, Parameter("rule", TypeSymbol.String), Parameter("value", TypeSymbol.Int));
 
             AnnounceAdvancements = AddField(Symbol, "announceAdvancements", TypeSymbol.Bool);
             BlockExplosionDropDecay = AddField(Symbol, "blockExplosionDropDecay", TypeSymbol.Bool);
