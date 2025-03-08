@@ -3,51 +3,55 @@ using Blaze.Emit.NameTranslation;
 using Blaze.Emit.Nodes;
 using Blaze.Symbols;
 using System.Collections.Immutable;
-using System.ComponentModel.Design;
 using System.Diagnostics;
-using System.Reflection.Metadata.Ecma335;
-using System.Runtime.CompilerServices;
 using System.Text;
-using System.Xml.Linq;
 using static Blaze.Symbols.EmittionVariableSymbol;
 
 namespace Blaze.Emit
 {
     internal sealed class DatapackBuilder
     {
+        private const int DEBUG_CHUNK_X = 10000000;
+        private const int DEBUG_CHUNK_Z = 10000000;
+        private const string CONST = "CONST";
+        private static readonly UUID _mathEntity1 = new UUID(1068730519, 377069937, 1764794166, -1230438844);
+        private static readonly UUID _mathEntity2 = new UUID(-1824770608, 1852200875, -1037488134, 520770809);
+        private static readonly EmittionVariableSymbol _macro = new EmittionVariableSymbol("*macros", TypeSymbol.Object, true);
+        private static readonly EmittionVariableSymbol _returnValue = new EmittionVariableSymbol("*return.value", TypeSymbol.Object, false);
+        
         private readonly BoundProgram _program;
         private readonly CompilationConfiguration _configuration;
-        private readonly EmittionNameTranslator _nameTranslator;
 
         private readonly MinecraftFunction.Builder _initFunction;
         private readonly MinecraftFunction.Builder _tickFunction;
 
         private readonly List<FunctionSymbol> _fabricatedMacroFunctions = new List<FunctionSymbol>();
         private readonly Dictionary<FunctionSymbol, MinecraftFunction.Builder> _usedBuiltIn = new Dictionary<FunctionSymbol, MinecraftFunction.Builder>();
-      
-        private readonly EmittionVariableSymbol _macro = new EmittionVariableSymbol("*macros", TypeSymbol.Object, true);
-        private readonly EmittionVariableSymbol _returnValue = new EmittionVariableSymbol("*return.value", TypeSymbol.Object, false);
-        
+
         private EmittionVariableSymbol? _thisSymbol = null;
 
-        private string Vars => _nameTranslator.Vars;
-        private string Const => _nameTranslator.Const;
-        private string DEBUG_CHUNK_X => EmittionNameTranslator.DEBUG_CHUNK_X;
-        private string DEBUG_CHUNK_Z => EmittionNameTranslator.DEBUG_CHUNK_Z;
-
+        public string Vars => $"{_configuration.RootNamespace}.vars";
+        public string MainStorage => $"{_configuration.RootNamespace}:main";
+        
         public DatapackBuilder(BoundProgram program, CompilationConfiguration configuration)
         {
             _program = program;
             _configuration = configuration;
-            _nameTranslator = new EmittionNameTranslator(configuration.RootNamespace);
 
-            _initFunction = MinecraftFunction.Init(program.GlobalNamespace);
-            _tickFunction = MinecraftFunction.Tick(program.GlobalNamespace);
-            
+            _initFunction = MinecraftFunction.Init(_configuration.RootNamespace, program.GlobalNamespace);
+            _tickFunction = MinecraftFunction.Tick(_configuration.RootNamespace, program.GlobalNamespace);
         }
 
+
+        //These are honestly just for looks, it makes for readable blocks
+        private TextEmittionNode GetCallWith(MinecraftFunction.Builder function, string jsonLiteral) => FunctionCommand.GetCallWith(function.CallName, jsonLiteral);
+        private TextEmittionNode GetCallWith(MinecraftFunction.Builder function, EmittionVariableSymbol symbol) => FunctionCommand.GetCallWith(function.CallName, MainStorage, symbol);
+        private TextEmittionNode GetMacroCall(MinecraftFunction.Builder function) => FunctionCommand.GetCallWith(function.CallName, MainStorage, _macro);
+        private TextEmittionNode GetCall(MinecraftFunction.Builder function) => FunctionCommand.GetCall(function.CallName);
+        private TextEmittionNode GetCall(FunctionSymbol function) => FunctionCommand.GetCall($"{_configuration.RootNamespace}:{function.AddressName}");
         private TextEmittionNode LineBreak() => TextTriviaNode.LineBreak();
         private TextEmittionNode Comment(string comment) => TextTriviaNode.Comment(comment);
+
 
         public Datapack BuildDatapack()
         {
@@ -83,13 +87,13 @@ namespace Blaze.Emit
                 {
                     Debug.Assert(namespaceEmittion.LoadFunction.Symbol != null);
                     var functionSymbol = (FunctionSymbol) namespaceEmittion.LoadFunction.Symbol;
-                    _initFunction.AddCommand($"function {_nameTranslator.GetCallLink(functionSymbol)}");
+                    _initFunction.Content.Add(GetCall(functionSymbol));
                 }
                 if (namespaceEmittion.TickFunction != null)
                 {
                     Debug.Assert(namespaceEmittion.TickFunction.Symbol != null);
                     var functionSymbol = (FunctionSymbol)namespaceEmittion.TickFunction.Symbol;
-                    _tickFunction.AddCommand($"function {_nameTranslator.GetCallLink(functionSymbol)}");
+                    _tickFunction.Content.Add(GetCall(functionSymbol));
                 }
             }
 
@@ -107,15 +111,15 @@ namespace Blaze.Emit
         {
             _initFunction.AddComment("Blaze setup");
             _initFunction.AddCommand(ScoreboardCommand.AddObjective(Vars, "dummy"));
-            _initFunction.AddCommand(ScoreboardCommand.AddObjective(Const, "dummy"));
-            _initFunction.AddCommand($"scoreboard players set *-1 {Const} -1");
+            _initFunction.AddCommand(ScoreboardCommand.AddObjective(CONST, "dummy"));
+            _initFunction.AddCommand($"scoreboard players set *-1 {CONST} -1");
 
             //Debug chunk setup
             _initFunction.AddLineBreak();
             _initFunction.AddCommand($"forceload add {DEBUG_CHUNK_X} {DEBUG_CHUNK_Z}");
             _initFunction.AddCommand($"kill @e[tag=debug,tag=blz]");
-            _initFunction.AddCommand($"summon item_display {DEBUG_CHUNK_X} 0 {DEBUG_CHUNK_Z} {{Tags:[\"blz\",\"debug\", \"first\"], UUID:{_nameTranslator.MathEntity1.TagValue}, item:{{ id:\"stone_button\",Count:1b,components:{{\"minecraft:custom_data\":{{greater:1,less:0}}}}}}}}");
-            _initFunction.AddCommand($"summon item_display {DEBUG_CHUNK_X} 0 {DEBUG_CHUNK_Z} {{Tags:[\"blz\",\"debug\", \"second\"], UUID:{_nameTranslator.MathEntity2.TagValue}, item:{{ id:\"stone_button\",Count:1b,components:{{\"minecraft:custom_data\":{{greater:0,less:1}}}}}}}}");
+            _initFunction.AddCommand($"summon item_display {DEBUG_CHUNK_X} 0 {DEBUG_CHUNK_Z} {{Tags:[\"blz\",\"debug\", \"first\"], UUID:{_mathEntity1.TagValue}, item:{{ id:\"stone_button\",Count:1b,components:{{\"minecraft:custom_data\":{{greater:1,less:0}}}}}}}}");
+            _initFunction.AddCommand($"summon item_display {DEBUG_CHUNK_X} 0 {DEBUG_CHUNK_Z} {{Tags:[\"blz\",\"debug\", \"second\"], UUID:{_mathEntity2.TagValue}, item:{{ id:\"stone_button\",Count:1b,components:{{\"minecraft:custom_data\":{{greater:0,less:1}}}}}}}}");
         }
 
         private string GetEmittionVariableName(VariableSymbol variable)
@@ -236,7 +240,7 @@ namespace Blaze.Emit
 
         private MinecraftFunction GetFunction(FunctionSymbol function, BoundStatement bodyBlock)
         {
-            var functionBuilder = new MinecraftFunction.Builder(function.Name, null, function, null);
+            var functionBuilder = new MinecraftFunction.Builder(function.Name, _configuration.RootNamespace, null, function, null);
 
             if (function.ReturnType != TypeSymbol.Void)
                 functionBuilder.Content.Add(GetResetCommand(_returnValue));
@@ -284,7 +288,7 @@ namespace Blaze.Emit
                 case EmittionVariableLocation.Scoreboard:
                     return new TextCommand($"scoreboard players reset {local.SaveName} {Vars}", true);
                 case EmittionVariableLocation.Storage:
-                    return new TextCommand($"data remove storage {_nameTranslator.MainStorage} {local.SaveName}", true);
+                    return new TextCommand($"data remove storage {MainStorage} {local.SaveName}", true);
                 default:
                     throw new Exception($"Unexpected variable location {local.Location}");
             }
@@ -348,26 +352,26 @@ namespace Blaze.Emit
 
             var builder = ImmutableArray.CreateBuilder<TextEmittionNode>();
             var subFunction = functionBuilder.CreateSub(SubFunctionKind.If);
-            var textBody = GetStatement(subFunction, node.Body);
-            subFunction.Content.Add(textBody);
+            subFunction.Content.Add(GetStatement(subFunction, node.Body));
 
             var temp = Temp(functionBuilder, TypeSymbol.Bool, 0);
-            var tempAssignment = GetAssignment(functionBuilder, temp, node.Condition, 0);
 
             if (node.ElseBody == null)
+            {
                 return Block(
-                        tempAssignment,
-                        new TextCommand($"execute if score {temp.SaveName} {Vars} matches 1 run function {_nameTranslator.GetCallLink(subFunction)}", false)
+                        GetAssignment(functionBuilder, temp, node.Condition, 0),
+                        new TextCommand($"execute if score {temp.SaveName} {Vars} matches 1 run function {subFunction.CallName}", false)
                     );
+            }   
             else
             {
                 var elseSubFunction = functionBuilder.CreateSub(SubFunctionKind.Else);
                 elseSubFunction.Content.Add(GetStatement(elseSubFunction, node.ElseBody));
 
                 return Block(
-                        tempAssignment,
-                        new TextCommand($"execute if score {temp.SaveName} {Vars} matches 1 run function {_nameTranslator.GetCallLink(subFunction)}", false),
-                        new TextCommand($"execute if score {temp.SaveName} {Vars} matches 0 run function {_nameTranslator.GetCallLink(elseSubFunction)}", false)
+                        GetAssignment(functionBuilder, temp, node.Condition, 0),
+                        new TextCommand($"execute if score {temp.SaveName} {Vars} matches 1 run function {subFunction.CallName}", false),
+                        new TextCommand($"execute if score {temp.SaveName} {Vars} matches 0 run function {elseSubFunction.CallName}", false)
                     );
             }
         }
@@ -385,7 +389,7 @@ namespace Blaze.Emit
             var subFunction = functionBuilder.CreateSub(SubFunctionKind.Loop);
             var temp = Temp(functionBuilder, TypeSymbol.Bool, 0);
 
-            var callCommand = new TextCommand($"function {_nameTranslator.GetCallLink(subFunction)}", false);
+            var callCommand = GetCall(subFunction);
 
             subFunction.Content.Add(GetAssignment(subFunction, temp, node.Condition));
             subFunction.Content.Add(new TextCommand($"execute if score {temp.SaveName} {Vars} matches 0 run return 0", false));
@@ -410,12 +414,12 @@ namespace Blaze.Emit
             var subFunction = functionBuilder.CreateSub(SubFunctionKind.Loop);
             var temp = Temp(functionBuilder, TypeSymbol.Bool, 0);
 
-            var callCommand = new TextCommand($"function {_nameTranslator.GetCallLink(subFunction)}", false);
+            var callCommand = GetCall(subFunction);
 
             subFunction.Content.Add(GetAssignment(subFunction, temp, node.Condition, 0));
             subFunction.AddLineBreak();
             subFunction.Content.Add(GetStatement(subFunction, node.Body));
-            subFunction.Content.Add(new TextCommand($"execute if score {temp.SaveName} {Vars} matches 1 run function {_nameTranslator.GetCallLink(subFunction)}", false));
+            subFunction.Content.Add(new TextCommand($"execute if score {temp.SaveName} {Vars} matches 1 run function {subFunction.CallName}", false));
             
             return callCommand;
         }
@@ -450,7 +454,7 @@ namespace Blaze.Emit
             return Block(
                     GetCleanUp(functionBuilder, functionBuilder.Scope.GetLocals()),
                     GetAssignment(functionBuilder, _returnValue, returnExpression, 0),
-                    new TextCommand($"return run data get storage {_nameTranslator.MainStorage} {_returnValue.SaveName} 1", false)
+                    new TextCommand($"return run data get storage {MainStorage} {_returnValue.SaveName} 1", false)
                 );
         }
 
@@ -490,7 +494,7 @@ namespace Blaze.Emit
                
             return Block(
                         GetArgumentAssignment(functionBuilder, call.Function, call.Function.Parameters, call.Arguments),
-                        new TextCommand($"function {_nameTranslator.GetCallLink(call.Function)}", false)
+                        GetCall(call.Function)
                     );
         }
 
@@ -604,7 +608,7 @@ namespace Blaze.Emit
                     for (int i = 0; i < rank; i++)
                         accessRankBuilder.Append($"[$({"a" + i.ToString()})]");
 
-                    fabricatedAccessor.AddMacro($"data modify storage {_nameTranslator.MainStorage} {macroLeft.SaveName} set value \"$(name){accessRankBuilder.ToString()}\"");
+                    fabricatedAccessor.AddMacro($"data modify storage {MainStorage} {macroLeft.SaveName} set value \"$(name){accessRankBuilder.ToString()}\"");
                 }
             }
             else
@@ -616,7 +620,7 @@ namespace Blaze.Emit
                     for (int i = 0; i < rank; i++)
                         accessRankBuilder.Append($"[$({"a" + i.ToString()})]");
 
-                    fabricatedAccessor.AddMacro($"data modify storage {_nameTranslator.MainStorage} {_returnValue.SaveName} set from storage {_nameTranslator.MainStorage} $(name){accessRankBuilder.ToString()}");
+                    fabricatedAccessor.AddMacro($"data modify storage {MainStorage} {_returnValue.SaveName} set from storage {MainStorage} $(name){accessRankBuilder.ToString()}");
                 }
             }
 
@@ -626,10 +630,10 @@ namespace Blaze.Emit
                 var temp = Temp(functionBuilder, TypeSymbol.Int, tempIndex + i);
 
                 builder.Add(GetAssignment(functionBuilder, temp, arrayAccess.Arguments[i], tempIndex + i));
-                builder.Add(new TextCommand($"execute store result storage {_nameTranslator.MainStorage} {macroArg.SaveName} int 1 run scoreboard players get {temp.SaveName} {Vars}", false));
+                builder.Add(new TextCommand($"execute store result storage {MainStorage} {macroArg.SaveName} int 1 run scoreboard players get {temp.SaveName} {Vars}", false));
             }
 
-            builder.Add(new TextCommand($"function {_nameTranslator.GetCallLink(fabricatedAccessor)} with storage {_nameTranslator.MainStorage} {_macro.SaveName}", false));
+            builder.Add(GetMacroCall(fabricatedAccessor));
             builder.Add(LineBreak());
 
             return new TextBlockEmittionNode(builder.ToImmutable());
@@ -812,7 +816,7 @@ namespace Blaze.Emit
         {
             if (symbol.Location == EmittionVariableLocation.Storage)
             {
-                return new TextCommand($"data modify storage {_nameTranslator.MainStorage} {symbol.SaveName} set value {value}", false);
+                return new TextCommand($"data modify storage {MainStorage} {symbol.SaveName} set value {value}", false);
             }
             else if (symbol.Location == EmittionVariableLocation.Scoreboard)
             {
@@ -890,7 +894,7 @@ namespace Blaze.Emit
 
             if (left.Location == EmittionVariableLocation.Storage && right.Location == EmittionVariableLocation.Storage)
             {
-                return new TextCommand($"data modify storage {_nameTranslator.MainStorage} {left.SaveName} set from storage {_nameTranslator.MainStorage} {right.SaveName}", false);
+                return new TextCommand($"data modify storage {MainStorage} {left.SaveName} set from storage {MainStorage} {right.SaveName}", false);
             }
 
             if (left.Location == EmittionVariableLocation.Scoreboard && right.Location == EmittionVariableLocation.Scoreboard)
@@ -900,12 +904,12 @@ namespace Blaze.Emit
 
             if (left.Location == EmittionVariableLocation.Storage && right.Location == EmittionVariableLocation.Scoreboard)
             {
-                return new TextCommand($"execute store result storage {_nameTranslator.MainStorage} {left.SaveName} int 1 run scoreboard players get {right.SaveName} {Vars}", false);
+                return new TextCommand($"execute store result storage {MainStorage} {left.SaveName} int 1 run scoreboard players get {right.SaveName} {Vars}", false);
             }
 
             if (left.Location == EmittionVariableLocation.Scoreboard && right.Location == EmittionVariableLocation.Storage)
             {
-                return new TextCommand($"execute store result score {left.SaveName} {Vars} run data get storage {_nameTranslator.MainStorage} {right.SaveName}", false);
+                return new TextCommand($"execute store result score {left.SaveName} {Vars} run data get storage {MainStorage} {right.SaveName}", false);
             }
 
             throw new Exception($"Unexpected variable location combination {left.Location} and {right.Location}");
@@ -916,27 +920,27 @@ namespace Blaze.Emit
             var rightVar = new EmittionVariableSymbol("*right", right.Type, true, null, null);
             functionBuilder.Scope.Declare(rightVar);
 
-            MinecraftFunction.Builder function;
+            MinecraftFunction.Builder assignmentMacro;
 
             if (rightVar.Location == EmittionVariableLocation.Storage)
             {
-                if (GetOrCreateBuiltIn(BuiltInNamespace.Blaze.AssignStSt, out function))
+                if (GetOrCreateBuiltIn(BuiltInNamespace.Blaze.AssignStSt, out assignmentMacro))
                 {
-                    function.AddMacro($"data modify storage {_nameTranslator.MainStorage} $(left) set from storage {_nameTranslator.MainStorage} {rightVar.SaveName}");
+                    assignmentMacro.AddMacro($"data modify storage {MainStorage} $(left) set from storage {MainStorage} {rightVar.SaveName}");
                 }
             }
             else
             {
-                if (GetOrCreateBuiltIn(BuiltInNamespace.Blaze.AssignStSc, out function))
+                if (GetOrCreateBuiltIn(BuiltInNamespace.Blaze.AssignStSc, out assignmentMacro))
                 {
-                    function.AddMacro($"execute store result storage {_nameTranslator.MainStorage} $(left) int 1 run scoreboard players get {rightVar.SaveName} {Vars}");
+                    assignmentMacro.AddMacro($"execute store result storage {MainStorage} $(left) int 1 run scoreboard players get {rightVar.SaveName} {Vars}");
                 }
             }
 
             return Block(
                     GetResetCommand(rightVar),
                     GetAssignment(functionBuilder, rightVar, right, tempIndex),
-                    new TextCommand($"function {_nameTranslator.GetCallLink(function)} with storage {_nameTranslator.MainStorage} **macros", false)
+                    GetMacroCall(assignmentMacro)
                 );
         }
 
@@ -979,7 +983,7 @@ namespace Blaze.Emit
                 for (int i = 0; i < rank; i++)
                     accessRankBuilder.Append($"[$({"a" + i.ToString()})]");
 
-                fabricatedAccessor.AddMacro($"data modify storage {_nameTranslator.MainStorage} {_returnValue.SaveName} set from storage {_nameTranslator.MainStorage} $(name){accessRankBuilder.ToString()}");
+                fabricatedAccessor.AddMacro($"data modify storage {MainStorage} {_returnValue.SaveName} set from storage {MainStorage} $(name){accessRankBuilder.ToString()}");
             }
 
             var macroName = Macro(functionBuilder, "name");
@@ -991,10 +995,10 @@ namespace Blaze.Emit
                 var temp = Temp(functionBuilder, TypeSymbol.Int, tempIndex + i);
 
                 builder.Add(GetAssignment(functionBuilder, temp, arrayAccessExpression.Arguments[i], tempIndex + i));
-                builder.Add(new TextCommand($"execute store result storage {_nameTranslator.MainStorage} {macroArg.SaveName} int 1 run scoreboard players get {temp.SaveName} {Vars}", false));
+                builder.Add(new TextCommand($"execute store result storage {MainStorage} {macroArg.SaveName} int 1 run scoreboard players get {temp.SaveName} {Vars}", false));
             }
 
-            builder.Add(new TextCommand($"function {_nameTranslator.GetCallLink(fabricatedAccessor)} with storage {_nameTranslator.MainStorage} {_macro.SaveName}", false));
+            builder.Add(new TextCommand($"function {_nameTranslator.GetCallLink(fabricatedAccessor)} with storage {MainStorage} {_macro.SaveName}", false));
             builder.Add(GetAssignment(functionBuilder, symbol, _returnValue));
 
             builder.Add(LineBreak());
@@ -1074,15 +1078,15 @@ namespace Blaze.Emit
                         continue;
                     }
                     else
-                        assignmentCommand = new TextCommand($"data modify storage {_nameTranslator.MainStorage} {arraySymbol.SaveName} append value {defaultValue}", false);
+                        assignmentCommand = new TextCommand($"data modify storage {MainStorage} {arraySymbol.SaveName} append value {defaultValue}", false);
                 }
                 else
-                    assignmentCommand = new TextCommand($"data modify storage {_nameTranslator.MainStorage} {arraySymbol.SaveName} append from storage {_nameTranslator.MainStorage} {previous?.SaveName}", false);
+                    assignmentCommand = new TextCommand($"data modify storage {MainStorage} {arraySymbol.SaveName} append from storage {MainStorage} {previous?.SaveName}", false);
 
                 builder.Add(GetAssignment(arraySymbol, "[]"));
 
                 var subFunction = functionBuilder.CreateSub(SubFunctionKind.Loop);
-                var callCommand = new TextCommand($"function {_nameTranslator.GetCallLink(subFunction)}", false);
+                var callCommand = GetCall(subFunction);
                 
                 var tempIter = Temp(functionBuilder, TypeSymbol.Int, tempIndex + i, "iter");
                 var tempUpperBound = Temp(functionBuilder, TypeSymbol.Int, tempIndex + i, "upperBound");
@@ -1092,11 +1096,11 @@ namespace Blaze.Emit
                 builder.Add(callCommand);
 
                 if (previous != null)
-                    builder.Add(new TextCommand($"data remove storage {_nameTranslator.MainStorage} {previous.SaveName}", false));
+                    builder.Add(new TextCommand($"data remove storage {MainStorage} {previous.SaveName}", false));
 
                 subFunction.Content.Add(assignmentCommand);
                 subFunction.AddCommand($"scoreboard players add {tempIter.SaveName} {Vars} 1");
-                subFunction.AddCommand($"execute if score {tempIter.SaveName} {Vars} < {tempUpperBound.SaveName} {Vars} run function {_nameTranslator.GetCallLink(subFunction)}");
+                subFunction.AddCommand($"execute if score {tempIter.SaveName} {Vars} < {tempUpperBound.SaveName} {Vars} run function {subFunction.CallName}");
 
                 previous = arraySymbol;
             }
@@ -1135,7 +1139,7 @@ namespace Blaze.Emit
                                 LineBreak(),
                                 Comment($"Emitting integer negation unary expression \"{unary}\" to \"{symbol.SaveName}\""),
                                 GetAssignment(functionBuilder, symbol, operand, tempIndex),
-                                new TextCommand($"scoreboard players operation {symbol.SaveName} {Vars} *= *-1 {Const}", false)
+                                new TextCommand($"scoreboard players operation {symbol.SaveName} {Vars} *= *-1 {CONST}", false)
                             );
                     }
                     else
@@ -1153,14 +1157,14 @@ namespace Blaze.Emit
                         {
                             if (GetOrCreateBuiltIn(BuiltInNamespace.Blaze.Math.NegateFloat, out macro))
                             {
-                                macro.AddMacro($"data modify storage {_nameTranslator.MainStorage} **macros.return set value $(sign)$(a)f");
+                                macro.AddMacro($"data modify storage {MainStorage} **macros.return set value $(sign)$(a)f");
                             }
                         }
                         else
                         {
                             if (GetOrCreateBuiltIn(BuiltInNamespace.Blaze.Math.NegateDouble, out macro))
                             {
-                                macro.AddMacro($"data modify storage {_nameTranslator.MainStorage} **macros.return set value $(sign)$(a)d");
+                                macro.AddMacro($"data modify storage {MainStorage} **macros.return set value $(sign)$(a)d");
                             }   
                         }
 
@@ -1171,13 +1175,13 @@ namespace Blaze.Emit
                                 Comment($"Emitting floating point negation unary expression \"{unary}\" to \"{symbol.SaveName}\""),
                                 GetAssignment(functionBuilder, symbol, operand, tempIndex),
                                 GetAssignment(functionBuilder, macroA, symbol),
-                                new TextCommand($"data modify storage {_nameTranslator.MainStorage} {sign.SaveName} set string storage {_nameTranslator.MainStorage} {symbol.SaveName} 0 1", false),
-                                new TextCommand($"data modify storage {_nameTranslator.MainStorage} {last.SaveName} set string storage {_nameTranslator.MainStorage} {symbol.SaveName} -1", false),
-                                new TextCommand($"execute if data storage {_nameTranslator.MainStorage} {{ \"{sign.SaveName}\": \"-\"}} run data modify storage {_nameTranslator.MainStorage} {macroA.SaveName} set string storage {_nameTranslator.MainStorage} {macroA.SaveName} 1", false),
-                                new TextCommand($"execute if data storage {_nameTranslator.MainStorage} {{ \"{last.SaveName}\": \"{typeSuffix}\"}} run data modify storage {_nameTranslator.MainStorage} {macroA.SaveName} set string storage {_nameTranslator.MainStorage} {macroA.SaveName} 0 -1", false),
-                                new TextCommand($"execute if data storage {_nameTranslator.MainStorage} {{ \"{sign.SaveName}\": \"-\"}} run data modify storage {_nameTranslator.MainStorage} {macroSign.SaveName} set value \"\"", false),
-                                new TextCommand($"execute unless data storage {_nameTranslator.MainStorage} {{ \"{sign.SaveName}\": \"-\"}} run data modify storage {_nameTranslator.MainStorage} {macroSign.SaveName} set value \"-\"", false),
-                                new TextCommand($"function {_nameTranslator.GetCallLink(macro)} with storage {_nameTranslator.MainStorage} {_macro.SaveName}", false),
+                                new TextCommand($"data modify storage {MainStorage} {sign.SaveName} set string storage {MainStorage} {symbol.SaveName} 0 1", false),
+                                new TextCommand($"data modify storage {MainStorage} {last.SaveName} set string storage {MainStorage} {symbol.SaveName} -1", false),
+                                new TextCommand($"execute if data storage {MainStorage} {{ \"{sign.SaveName}\": \"-\"}} run data modify storage {MainStorage} {macroA.SaveName} set string storage {MainStorage} {macroA.SaveName} 1", false),
+                                new TextCommand($"execute if data storage {MainStorage} {{ \"{last.SaveName}\": \"{typeSuffix}\"}} run data modify storage {MainStorage} {macroA.SaveName} set string storage {MainStorage} {macroA.SaveName} 0 -1", false),
+                                new TextCommand($"execute if data storage {MainStorage} {{ \"{sign.SaveName}\": \"-\"}} run data modify storage {MainStorage} {macroSign.SaveName} set value \"\"", false),
+                                new TextCommand($"execute unless data storage {MainStorage} {{ \"{sign.SaveName}\": \"-\"}} run data modify storage {MainStorage} {macroSign.SaveName} set value \"-\"", false),
+                                GetMacroCall(macro),
                                 GetAssignment(functionBuilder, symbol, macroReturn)
                             );
                     }
@@ -1275,7 +1279,7 @@ namespace Blaze.Emit
                                     Comment($"Emitting equals operation \"{binary}\" to \"{symbol.SaveName}\""),
                                     GetAssignment(functionBuilder, leftSymbol, left, tempIndex + 1),
                                     GetAssignment(functionBuilder, rightSymbol, right, tempIndex + 1),
-                                    new TextCommand($"execute store success score {resultTemp.SaveName} {Vars} run data modify storage {_nameTranslator.MainStorage} {leftSymbol.SaveName} set from storage {_nameTranslator.MainStorage} {rightSymbol.SaveName}", false),
+                                    new TextCommand($"execute store success score {resultTemp.SaveName} {Vars} run data modify storage {MainStorage} {leftSymbol.SaveName} set from storage {MainStorage} {rightSymbol.SaveName}", false),
                                     new TextCommand($"execute if score {resultTemp.SaveName} {Vars} matches 1 run scoreboard players set {symbol.SaveName} {Vars} 0", false),
                                     new TextCommand($"execute if score {resultTemp.SaveName} {Vars} matches 0 run scoreboard players set {symbol.SaveName} {Vars} 1", false)
                                 );
@@ -1301,7 +1305,7 @@ namespace Blaze.Emit
                                     Comment($"Emitting equals operation \"{binary}\" to \"{symbol.SaveName}\""),
                                     GetAssignment(functionBuilder, leftSymbol, left, tempIndex + 1),
                                     GetAssignment(functionBuilder, rightSymbol, right, tempIndex + 1),
-                                    new TextCommand($"execute store success score {symbol.SaveName} {Vars} run data modify storage {_nameTranslator.MainStorage} {leftSymbol.SaveName} set from storage {_nameTranslator.MainStorage} {rightSymbol.SaveName}", false)
+                                    new TextCommand($"execute store success score {symbol.SaveName} {Vars} run data modify storage {MainStorage} {leftSymbol.SaveName} set from storage {MainStorage} {rightSymbol.SaveName}", false)
                                 );
                         }
                         else
@@ -1333,13 +1337,13 @@ namespace Blaze.Emit
 
             if (GetOrCreateBuiltIn(BuiltInNamespace.Blaze.StrConcat, out var macro))
             {
-                macro.AddMacro($"data modify storage {_nameTranslator.MainStorage} {_returnValue.SaveName} set value \"$(str_left)$(right)\"");
+                macro.AddMacro($"data modify storage {MainStorage} {_returnValue.SaveName} set value \"$(str_left)$(right)\"");
             }   
 
             return Block(
                     GetAssignment(functionBuilder, macroLeft, symbol),
                     GetAssignment(functionBuilder, macroRight, right, tempIndex),
-                    new TextCommand($"function {_nameTranslator.GetCallLink(macro)} with storage {_nameTranslator.MainStorage} {_macro.SaveName}", false),
+                    GetMacroCall(macro),
                     GetAssignment(functionBuilder, symbol, _returnValue)
                 );
         }
@@ -1351,14 +1355,14 @@ namespace Blaze.Emit
             
             if (GetOrCreateBuiltIn(BuiltInNamespace.Blaze.StrConcat, out var macro))
             {
-                macro.AddMacro($"data modify storage {_nameTranslator.MainStorage} {_returnValue.SaveName} set value \"$(str_left)$(right)\"");
+                macro.AddMacro($"data modify storage {MainStorage} {_returnValue.SaveName} set value \"$(str_left)$(right)\"");
             }   
 
             return Block(
                     GetAssignment(functionBuilder, symbol, left),
                     GetAssignment(functionBuilder, macroLeft, symbol),
                     GetAssignment(functionBuilder, macroRight, right, tempIndex),
-                    new TextCommand($"function {_nameTranslator.GetCallLink(macro)} with storage {_nameTranslator.MainStorage} {_macro.SaveName}", false),
+                    GetMacroCall(macro),
                     GetAssignment(functionBuilder, symbol, _returnValue)
                 );
         }
@@ -1505,8 +1509,6 @@ namespace Blaze.Emit
         }
         private TextEmittionNode EmitFloatingPointComparisonOperation(MinecraftFunction.Builder functionBuilder, EmittionVariableSymbol symbol, BoundExpression left, BoundExpression right, BoundBinaryOperatorKind operatorKind, int current)
         {
-            var stringStorage = _nameTranslator.MainStorage;
-
             if (GetOrCreateBuiltIn(BuiltInNamespace.Blaze.Math.PositionY, out var macro))
             {
                 macro.AddMacro($"tp @s {DEBUG_CHUNK_X} $(a) {DEBUG_CHUNK_Z}");
@@ -1515,26 +1517,22 @@ namespace Blaze.Emit
             var macroA = Macro(functionBuilder, "a");
             var builder = ImmutableArray.CreateBuilder<TextEmittionNode>();
 
-            var temp = Temp(functionBuilder, left.Type, current + 1);
-            builder.Add(GetAssignment(functionBuilder, temp, left, current + 1));
-            builder.Add(new TextCommand($"data modify storage {stringStorage} {macroA.SaveName} set from storage {stringStorage} {temp.SaveName}", false));
-            builder.Add(new TextCommand($"execute as {_nameTranslator.MathEntity1} run function {_nameTranslator.GetCallLink(macro)} with storage {stringStorage} {_macro.SaveName}", false));
+            builder.Add(GetAssignment(functionBuilder, macroA, left, current));
+            builder.Add(new TextCommand($"execute as {_mathEntity1} run function {macro.CallName} with storage {MainStorage} {_macro.SaveName}", false));
 
-            temp = Temp(functionBuilder, right.Type, current + 1);
-            builder.Add(GetAssignment(functionBuilder, temp, right, current + 1));
-            builder.Add(new TextCommand($"data modify storage {stringStorage} {macroA.SaveName} set from storage {stringStorage} {temp.SaveName}", false));
-            builder.Add(new TextCommand($"execute as {_nameTranslator.MathEntity2} run function {_nameTranslator.GetCallLink(macro)} with storage {stringStorage} {_macro.SaveName}", false));
+            builder.Add(GetAssignment(functionBuilder, macroA, right, current));
+            builder.Add(new TextCommand($"execute as {_mathEntity2} run function {macro.CallName} with storage {MainStorage} {_macro.SaveName}", false));
 
             switch (operatorKind)
             {
                 case BoundBinaryOperatorKind.Equals:
                     builder.Add(new TextCommand($"scoreboard players set {symbol.SaveName} {Vars} 0", false));
-                    builder.Add(new TextCommand($"execute as {_nameTranslator.MathEntity1} at @s if entity @e[type=item_display,tag=!first,tag=blz,tag=debug,distance=..0.0001] run scoreboard players set {symbol.SaveName} {Vars} 1", false));
+                    builder.Add(new TextCommand($"execute as {_mathEntity1} at @s if entity @e[type=item_display,tag=!first,tag=blz,tag=debug,distance=..0.0001] run scoreboard players set {symbol.SaveName} {Vars} 1", false));
                     break;
 
                 case BoundBinaryOperatorKind.NotEquals:
                     builder.Add(new TextCommand($"scoreboard players set {symbol.SaveName} {Vars} 1", false));
-                    builder.Add(new TextCommand($"execute as {_nameTranslator.MathEntity1} at @s if entity @e[type=item_display,tag=!first,tag=blz,tag=debug,distance=..0.0001] run scoreboard players set {symbol.SaveName} {Vars} 0", false));
+                    builder.Add(new TextCommand($"execute as {_mathEntity1} at @s if entity @e[type=item_display,tag=!first,tag=blz,tag=debug,distance=..0.0001] run scoreboard players set {symbol.SaveName} {Vars} 0", false));
                     break;
 
                 case BoundBinaryOperatorKind.Greater:
@@ -1589,7 +1587,7 @@ namespace Blaze.Emit
             }
 
             MinecraftFunction.Builder macro;
-            var entity = _nameTranslator.MathEntity1.ToString();
+            var entity = _mathEntity1.ToString();
 
             switch (kind)
             {
@@ -1613,19 +1611,19 @@ namespace Blaze.Emit
 
                         if (macro.GetOrCreateSub("if_minus", out var sub))
                         {
-                            sub.AddCommand($"data modify storage {_nameTranslator.MainStorage} {macroA.SaveName} set string storage {_nameTranslator.MainStorage} {macroA.SaveName} 1");
-                            sub.AddCommand($"data modify storage {_nameTranslator.MainStorage} {last.SaveName} set string storage {_nameTranslator.MainStorage} {macroA.SaveName} -1");
-                            sub.AddCommand($"execute if data storage {_nameTranslator.MainStorage} {{ \"{last.SaveName}\" : \"d\" }} run data modify storage {_nameTranslator.MainStorage} {macroA.SaveName} set string storage {_nameTranslator.MainStorage} {macroA.SaveName} 0 -1");
-                            sub.AddCommand($"execute if data storage {_nameTranslator.MainStorage} {{ \"{last.SaveName}\" : \"f\" }} run data modify storage {_nameTranslator.MainStorage} {macroA.SaveName} set string storage {_nameTranslator.MainStorage} {macroA.SaveName} 0 -1");
+                            sub.AddCommand($"data modify storage {MainStorage} {macroA.SaveName} set string storage {MainStorage} {macroA.SaveName} 1");
+                            sub.AddCommand($"data modify storage {MainStorage} {last.SaveName} set string storage {MainStorage} {macroA.SaveName} -1");
+                            sub.AddCommand($"execute if data storage {MainStorage} {{ \"{last.SaveName}\" : \"d\" }} run data modify storage {MainStorage} {macroA.SaveName} set string storage {MainStorage} {macroA.SaveName} 0 -1");
+                            sub.AddCommand($"execute if data storage {MainStorage} {{ \"{last.SaveName}\" : \"f\" }} run data modify storage {MainStorage} {macroA.SaveName} set string storage {MainStorage} {macroA.SaveName} 0 -1");
                             sub.Content.Add(GetAssignment(macroPolarity, "\"\""));
                         }
 
                         blockBuilder.Add(GetAssignment(functionBuilder, macroB, symbol));
                         blockBuilder.Add(GetAssignment(functionBuilder, macroA, rightSymbol));
                         blockBuilder.Add(GetAssignment(functionBuilder, pol, rightSymbol));
-                        blockBuilder.Add(new TextCommand($"data modify storage {_nameTranslator.MainStorage} {pol.SaveName} set string storage {_nameTranslator.MainStorage} {pol.SaveName} 0 1", false));
-                        blockBuilder.Add(new TextCommand($"execute if data storage {_nameTranslator.MainStorage} {{ \"{pol.SaveName}\" : \"-\" }} run function {_nameTranslator.GetCallLink(sub)}", false));
-                        blockBuilder.Add(new TextCommand($"execute unless data storage {_nameTranslator.MainStorage} {{ \"{pol.SaveName}\" : \"-\" }} run data modify storage {_nameTranslator.MainStorage} {macroPolarity.SaveName} set value \"-\"", false));
+                        blockBuilder.Add(new TextCommand($"data modify storage {MainStorage} {pol.SaveName} set string storage {MainStorage} {pol.SaveName} 0 1", false));
+                        blockBuilder.Add(new TextCommand($"execute if data storage {MainStorage} {{ \"{pol.SaveName}\" : \"-\" }} run function {sub.CallName}", false));
+                        blockBuilder.Add(new TextCommand($"execute unless data storage {MainStorage} {{ \"{pol.SaveName}\" : \"-\" }} run data modify storage {MainStorage} {macroPolarity.SaveName} set value \"-\"", false));
 
                         blockBuilder.Add(GetDoubleConversion(functionBuilder, macroA, macroA));
                         break;
@@ -1634,7 +1632,7 @@ namespace Blaze.Emit
                     {
                         if (GetOrCreateBuiltIn(BuiltInNamespace.Blaze.Math.Multiply, out macro))
                         {
-                            macro.AddMacro($"data modify storage {_nameTranslator.MainStorage} {_returnValue.SaveName} set value [0f, 0f, 0f,$(a)f, 0f, 1f, 0f, 0f, 0f, 0f, 1f, 0f, 0f, 0f, 0f, 1f]");
+                            macro.AddMacro($"data modify storage {MainStorage} {_returnValue.SaveName} set value [0f, 0f, 0f,$(a)f, 0f, 1f, 0f, 0f, 0f, 0f, 1f, 0f, 0f, 0f, 0f, 1f]");
                             macro.AddMacro($"data modify entity {entity} transformation set value [0f, 0f, 0f, 1f, 0f, 1f, 0f, 0f, 0f, 0f, 1f, 0f, 0f, 0f, 0f,$(b)f]");
                         }
                         break;
@@ -1652,11 +1650,11 @@ namespace Blaze.Emit
                     throw new Exception($"Unexpected binary operation kind {kind}");
             }
 
-            blockBuilder.Add(new TextCommand($"function {_nameTranslator.GetCallLink(macro)} with storage {_nameTranslator.MainStorage} {_macro.SaveName}", false));
+            blockBuilder.Add(GetMacroCall(macro));
 
             if (kind == BoundBinaryOperatorKind.Addition || kind == BoundBinaryOperatorKind.Subtraction)
             {
-                blockBuilder.Add(new TextCommand($"data modify storage {_nameTranslator.MainStorage} {symbol.SaveName} set from entity {_nameTranslator.MathEntity1.ToString()} Pos[1]", false));
+                blockBuilder.Add(new TextCommand($"data modify storage {MainStorage} {symbol.SaveName} set from entity {_mathEntity1.ToString()} Pos[1]", false));
                 blockBuilder.Add(new TextCommand($"tp {entity} {DEBUG_CHUNK_X} 0 {DEBUG_CHUNK_Z}", false));
 
                 if (left.Type == TypeSymbol.Float)
@@ -1665,9 +1663,9 @@ namespace Blaze.Emit
             }
             else if (kind == BoundBinaryOperatorKind.Multiplication)
             {
-                blockBuilder.Add(new TextCommand($"data modify storage {_nameTranslator.MainStorage} {_returnValue.SaveName}[-1] set from entity {entity} transformation.translation[0]", false));
-                blockBuilder.Add(new TextCommand($"data modify entity {entity} transformation set from storage {_nameTranslator.MainStorage} {_returnValue.SaveName}", false));
-                blockBuilder.Add(new TextCommand($"data modify storage {_nameTranslator.MainStorage} {symbol.SaveName} set from entity {entity} transformation.translation[0]", false));
+                blockBuilder.Add(new TextCommand($"data modify storage {MainStorage} {_returnValue.SaveName}[-1] set from entity {entity} transformation.translation[0]", false));
+                blockBuilder.Add(new TextCommand($"data modify entity {entity} transformation set from storage {MainStorage} {_returnValue.SaveName}", false));
+                blockBuilder.Add(new TextCommand($"data modify storage {MainStorage} {symbol.SaveName} set from entity {entity} transformation.translation[0]", false));
                 functionBuilder.Scope.Declare(_returnValue);
 
                 if (left.Type == TypeSymbol.Double)
@@ -1675,7 +1673,7 @@ namespace Blaze.Emit
             }
             else if (kind == BoundBinaryOperatorKind.Division)
             {
-                blockBuilder.Add(new TextCommand($"data modify storage {_nameTranslator.MainStorage} {symbol.SaveName} set from entity {entity} transformation.translation[0]", false));
+                blockBuilder.Add(new TextCommand($"data modify storage {MainStorage} {symbol.SaveName} set from entity {entity} transformation.translation[0]", false));
 
                 if (left.Type == TypeSymbol.Double)
                     blockBuilder.Add(GetDoubleConversion(functionBuilder, symbol, symbol));
@@ -1753,7 +1751,7 @@ namespace Blaze.Emit
                         return Block(
                                 tempAssignment,
                                 GetAssignment(functionBuilder, temp2, temp),
-                                new TextCommand($"data modify storage {_nameTranslator.MainStorage} {symbol.SaveName} set string storage {_nameTranslator.MainStorage} {temp2.SaveName}", false)
+                                new TextCommand($"data modify storage {MainStorage} {symbol.SaveName} set string storage {MainStorage} {temp2.SaveName}", false)
                             );
                     }
                     else if (sourceType is EnumSymbol enumSymbol)
@@ -1766,7 +1764,7 @@ namespace Blaze.Emit
                             foreach (var enumMember in enumSymbol.Members)
                             {
                                 var intMember = (IntEnumMemberSymbol) enumMember;
-                                var command = new TextCommand($"execute if score {temp.SaveName} {Vars} matches {intMember.UnderlyingValue} run data modify storage {_nameTranslator.MainStorage} {symbol.SaveName} set value \"{enumMember.Name}\"", false);
+                                var command = new TextCommand($"execute if score {temp.SaveName} {Vars} matches {intMember.UnderlyingValue} run data modify storage {MainStorage} {symbol.SaveName} set value \"{enumMember.Name}\"", false);
                                 builder.Add(command);
                             }
                             return new TextBlockEmittionNode(builder.ToImmutable());
@@ -1783,7 +1781,7 @@ namespace Blaze.Emit
                     {
                         return Block(
                             tempAssignment,
-                            new TextCommand($"data modify storage {_nameTranslator.MainStorage} {symbol.SaveName} set string storage {_nameTranslator.MainStorage} {temp.SaveName}", false)
+                            new TextCommand($"data modify storage {MainStorage} {symbol.SaveName} set string storage {MainStorage} {temp.SaveName}", false)
                         );
                     }
                     else
@@ -1828,14 +1826,14 @@ namespace Blaze.Emit
         {
             if (GetOrCreateBuiltIn(BuiltInNamespace.Blaze.Math.ToFloat, out var macro))
             {
-                macro.AddMacro($"data modify storage {_nameTranslator.MainStorage} {_returnValue.SaveName} set value $(a)f");
+                macro.AddMacro($"data modify storage {MainStorage} {_returnValue.SaveName} set value $(a)f");
             }
 
             var macroA = Macro(functionBuilder, "a");
 
             return Block(
                     GetAssignment(functionBuilder, macroA, right),
-                    new TextCommand($"function {_nameTranslator.GetCallLink(macro)} with storage {_nameTranslator.MainStorage} {_macro.SaveName}", false),
+                    GetMacroCall(macro),
                     GetAssignment(functionBuilder, left, _returnValue)
                 );
         }
@@ -1844,14 +1842,14 @@ namespace Blaze.Emit
         {
             if (GetOrCreateBuiltIn(BuiltInNamespace.Blaze.Math.ToDouble, out var macro))
             {
-                macro.AddMacro($"data modify storage {_nameTranslator.MainStorage} {_returnValue.SaveName} set value $(a)d");
+                macro.AddMacro($"data modify storage {MainStorage} {_returnValue.SaveName} set value $(a)d");
             }   
 
             var macroA = Macro(functionBuilder, "a");
            
             return Block(
                     GetAssignment(functionBuilder, macroA, right),
-                    new TextCommand($"function {_nameTranslator.GetCallLink(macro)} with storage {_nameTranslator.MainStorage} {_macro.SaveName}", false),
+                    GetMacroCall(macro),
                     GetAssignment(functionBuilder, left, _returnValue)
                 );
         }
@@ -1873,7 +1871,7 @@ namespace Blaze.Emit
         {
             if (!_usedBuiltIn.ContainsKey(function))
             {
-                builder = new MinecraftFunction.Builder(function.Name, null, function, null);
+                builder = new MinecraftFunction.Builder(function.Name, _configuration.RootNamespace, null, function, null);
                 _usedBuiltIn.Add(function, builder);
                 return true;
             }
@@ -1891,7 +1889,7 @@ namespace Blaze.Emit
                 if (symbol.Location == EmittionVariableLocation.Scoreboard)
                     node = new TextCommand($"execute store result score {symbol.SaveName} {Vars} run gamerule {right.Field.Name}", false);
                 else
-                    node = new TextCommand($"execute store result storage {_nameTranslator.MainStorage} {symbol.SaveName} int 1 run gamerule {right.Field.Name}", false);
+                    node = new TextCommand($"execute store result storage {MainStorage} {symbol.SaveName} int 1 run gamerule {right.Field.Name}", false);
 
                 return true;
             }
@@ -1900,7 +1898,7 @@ namespace Blaze.Emit
                 if (symbol.Location == EmittionVariableLocation.Scoreboard)
                     node = new TextCommand($"execute store result score {symbol.SaveName} {Vars} run difficulty", false);
                 else
-                    node = new TextCommand($"execute store result storage {_nameTranslator.MainStorage} {symbol.SaveName} int 1 run difficulty", false);
+                    node = new TextCommand($"execute store result storage {MainStorage} {symbol.SaveName} int 1 run difficulty", false);
 
                 return true;
             }
@@ -1957,7 +1955,7 @@ namespace Blaze.Emit
                         assignment,
                         GetAssignment(macroRule, $"\"{field.Name}\""),
                         GetAssignment(functionBuilder, macroValue, temp),
-                        new TextCommand($"function {_nameTranslator.GetCallLink(macro)} with storage {_nameTranslator.MainStorage} {_macro.SaveName}", false)
+                        GetMacroCall(macro)
                     );
             }
         }
@@ -2072,7 +2070,7 @@ namespace Blaze.Emit
         
             return Block(
                     GetAssignment(functionBuilder, macroCommand, call.Arguments.First(), 0),
-                    new TextCommand($"function {_nameTranslator.GetCallLink(macro)} with storage {_nameTranslator.MainStorage} {_macro.SaveName}", false)
+                    GetMacroCall(macro)
                 );
         }
 
@@ -2087,7 +2085,7 @@ namespace Blaze.Emit
 
             return Block(
                     GetAssignment(functionBuilder, macrosPack, call.Arguments.First()),
-                    new TextCommand($"function {_nameTranslator.GetCallLink(macro)} with storage {_nameTranslator.MainStorage} {_macro.SaveName}", false)
+                    GetMacroCall(macro)
                 );
         }
 
@@ -2102,7 +2100,7 @@ namespace Blaze.Emit
 
             return Block(
                     GetAssignment(functionBuilder, macrosPack, call.Arguments.First()),
-                    new TextCommand($"function {_nameTranslator.GetCallLink(macro)} with storage {_nameTranslator.GetStorage(TypeSymbol.String)} {_macro.SaveName}", false)
+                    GetMacroCall(macro)
                 );
         }
 
@@ -2124,7 +2122,7 @@ namespace Blaze.Emit
             return Block(
                     GetAssignment(functionBuilder, macrosPack, pack, tempIndex),
                     GetAssignment(functionBuilder, temp, value, tempIndex),
-                    new TextCommand($"function {_nameTranslator.GetCallLink(macro)} with storage {_nameTranslator.MainStorage} {_macro.SaveName}", false)
+                    GetMacroCall(macro)
                 );
         }
 
@@ -2187,7 +2185,7 @@ namespace Blaze.Emit
                             GetAssignment(functionBuilder, duration, call.Arguments[1], tempIndex),
                             GetAssignment(functionBuilder, macroDuration, duration),
                             GetAssignment(macroTimeUnits, $"\"{timeUnits}\""),
-                            new TextCommand($"function {_nameTranslator.GetCallLink(macro)} with storage {_nameTranslator.MainStorage} {_macro.SaveName}", false)
+                            GetMacroCall(macro)
                         );
                 }
             }
@@ -2221,7 +2219,7 @@ namespace Blaze.Emit
             {
                 var varSymbol = ToEmittionVariable(functionBuilder, variable.Variable, false, true);
 
-                return new TextCommand($"tellraw @a {{\"storage\":\"{_nameTranslator.MainStorage}\",\"nbt\":\"{varSymbol.SaveName}\"}}", false);
+                return new TextCommand($"tellraw @a {{\"storage\":\"{MainStorage}\",\"nbt\":\"{varSymbol.SaveName}\"}}", false);
             }
             else
             {
@@ -2229,7 +2227,7 @@ namespace Blaze.Emit
 
                 return Block(
                         GetAssignment(functionBuilder, temp, argument, tempIndex),
-                        new TextCommand($"tellraw @a {{\"storage\":\"{_nameTranslator.MainStorage}\",\"nbt\":\"{temp.SaveName}\"}}", false)
+                        new TextCommand($"tellraw @a {{\"storage\":\"{MainStorage}\",\"nbt\":\"{temp.SaveName}\"}}", false)
                     );
             }
         }

@@ -55,12 +55,17 @@ namespace Blaze.Emit.Nodes
                     WriteCleanUpMarker((CleanUpMarker) node, writer);
                     break;
 
+                case EmittionNodeKind.FunctionCommand:
+                    WriteFunctionCommand((FunctionCommand)node, writer);
+                    break;
+
                 // Temporary
                 case EmittionNodeKind.TextCommand:
                     WriteTextCommand((TextCommand)node, writer);
                     break;
             }
         }
+
         private static void WriteDatapack(Datapack node, IndentedTextWriter writer)
         {
             writer.WriteKeyword("datapack ");
@@ -176,6 +181,28 @@ namespace Blaze.Emit.Nodes
                 }
             }
 
+            writer.WriteLine();
+        }
+
+        private static void WriteFunctionCommand(FunctionCommand node, IndentedTextWriter writer)
+        {
+            writer.WriteKeyword(node.Keyword);
+            writer.WriteIdentifier($" {node.FunctionCallName}");
+
+            if (node.WithClause != null)
+            {
+                if (node.WithClause.JsonLiteral != null)
+                {
+                    writer.WriteString(node.WithClause.JsonLiteral);
+                }
+                else if (node.WithClause.Storage != null)
+                {
+                    Debug.Assert(node.WithClause.Symbol != null);
+                    writer.WriteKeyword(" with storage ");
+                    writer.WriteIdentifier(node.WithClause.Storage);
+                    writer.WriteIdentifier($" {node.WithClause.Symbol }");
+                }
+            }
             writer.WriteLine();
         }
 

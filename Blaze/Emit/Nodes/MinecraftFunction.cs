@@ -22,13 +22,13 @@ namespace Blaze.Emit.Nodes
                         throw new Exception("Function emittion without a function symbol");
 
                     if (_callName != null)
-                        return _callName;
+                        return $"{RootNamespace}:{_callName}";
 
                     if (SubFunctionKind == null)
                     {
-                        var functionSymbol = (FunctionSymbol)Function;
+                        var functionSymbol = Function;
                         _callName = functionSymbol.AddressName;
-                        return _callName;
+                        return $"{RootNamespace}:{_callName}";
                     }
                     else
                     {
@@ -49,7 +49,7 @@ namespace Blaze.Emit.Nodes
 
                         builder.Append(Name);
                         _callName = builder.ToString();
-                        return _callName;
+                        return $"{RootNamespace}:{_callName}";
                     }
                 }
             }
@@ -59,6 +59,7 @@ namespace Blaze.Emit.Nodes
             private int _elseCount = 0;
             
             public string Name { get; }
+            public string RootNamespace { get; }
             public ImmutableArray<TextEmittionNode>.Builder Content { get; } = ImmutableArray.CreateBuilder<TextEmittionNode>();
             public ImmutableArray<Builder>.Builder SubFunctions { get; } = ImmutableArray.CreateBuilder<Builder>();
             public ImmutableArray<EmittionVariableSymbol>.Builder Locals { get; } = ImmutableArray.CreateBuilder<EmittionVariableSymbol>();
@@ -66,9 +67,10 @@ namespace Blaze.Emit.Nodes
             public FunctionSymbol Function { get; }
             public SubFunctionKind? SubFunctionKind { get; }
             
-            public Builder(string name, EmittionScope? previousScope, FunctionSymbol function, SubFunctionKind? kind)
+            public Builder(string name, string rootNamespace, EmittionScope? previousScope, FunctionSymbol function, SubFunctionKind? kind)
             {
                 Name = name;
+                RootNamespace = rootNamespace;
                 Function = function;
                 SubFunctionKind = kind;
                 Scope = new EmittionScope(previousScope);
@@ -109,7 +111,7 @@ namespace Blaze.Emit.Nodes
                 }
 
                 Debug.Assert(Function != null);
-                var sub = new Builder(name, Scope, Function, kind);
+                var sub = new Builder(name, RootNamespace, Scope, Function, kind);
                 SubFunctions.Add(sub);
                 return sub;
             }
@@ -133,7 +135,7 @@ namespace Blaze.Emit.Nodes
             private Builder CreateSubNamed(string name)
             {
                 var fullName = $"{Name}_{name}";
-                var sub = new Builder(fullName, Scope, Function, Emit.SubFunctionKind.Misc);
+                var sub = new Builder(fullName, RootNamespace, Scope, Function, Emit.SubFunctionKind.Misc);
                 SubFunctions.Add(sub);
                 return sub;
             }
@@ -222,19 +224,17 @@ namespace Blaze.Emit.Nodes
             //Variables = new List<EmittionVariableSymbol>();
         }
 
-        public static Builder Init(NamespaceSymbol globalNamespace)
+        public static Builder Init(string rootNamespace, NamespaceSymbol globalNamespace)
         {
             var init = new FunctionSymbol("init", globalNamespace, ImmutableArray<ParameterSymbol>.Empty, TypeSymbol.Void, true, false, AccessModifier.Private, null);
-            return new Builder(init.Name, null, init, null);
+            return new Builder(init.Name, rootNamespace, null, init, null);
         }
 
-        public static Builder Tick(NamespaceSymbol globalNamespace)
+        public static Builder Tick(string rootNamespace, NamespaceSymbol globalNamespace)
         {
             var tick = new FunctionSymbol("tick", globalNamespace, ImmutableArray<ParameterSymbol>.Empty, TypeSymbol.Void, false, true, AccessModifier.Private, null);
-            return new Builder(tick.Name, null, tick, null);
+            return new Builder(tick.Name, rootNamespace, null, tick, null);
         }
-
-        public CommandNode GetCall(string rootNamespace) => new TextCommand($"function {rootNamespace}:{FullName}", false);
     }
 
     /*

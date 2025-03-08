@@ -11,6 +11,8 @@
         CommentTrivia,
 
         ScoreboardCommand,
+        FunctionCommand,
+
         TextBlock,
 
         //Temporary
