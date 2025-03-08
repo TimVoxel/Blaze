@@ -114,7 +114,23 @@ namespace Blaze.Emit.Nodes
                 return sub;
             }
 
-            public Builder CreateSubNamed(string name)
+            public bool GetOrCreateSub(string subName, out Builder subBuilder)
+            {
+                var sub = SubFunctions.FirstOrDefault(s => s.Name == $"{Name}_{subName}");
+                
+                if (sub == null)
+                {
+                    subBuilder = CreateSubNamed(subName);
+                    return true;
+                }
+                else
+                {
+                    subBuilder = sub;
+                    return false;
+                }   
+            }
+
+            private Builder CreateSubNamed(string name)
             {
                 var fullName = $"{Name}_{name}";
                 var sub = new Builder(fullName, Scope, Function, Emit.SubFunctionKind.Misc);
