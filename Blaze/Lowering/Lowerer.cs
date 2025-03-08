@@ -1,6 +1,5 @@
 ﻿using Blaze.Binding;
 using Blaze.Symbols;
-using Mono.Cecil.Cil;
 using System.Collections.Immutable;
 namespace Blaze.Lowering
 {

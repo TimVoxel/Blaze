@@ -1,4 +1,5 @@
 ﻿using Blaze.Syntax_Nodes;
+using System.Windows.Markup;
 
 namespace Blaze
 {
@@ -90,6 +91,7 @@ namespace Blaze
                 case SyntaxKind.MemberAccessExpression:
                 case SyntaxKind.ParenthesizedExpression:
                 case SyntaxKind.CallExpression:
+                case SyntaxKind.ArrayAccessExpression:
                     return true;
                 default:
                     return false;

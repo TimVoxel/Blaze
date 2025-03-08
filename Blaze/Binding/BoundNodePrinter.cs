@@ -28,6 +28,9 @@ namespace Blaze.Binding
                 case BoundNodeKind.VariableExpression:
                     WriteVariableExpression((BoundVariableExpression)node, writer);
                     break;
+                case BoundNodeKind.ThisExpression:
+                    WriteThisExpression((BoundThisExpression)node, writer);
+                    break;
                 case BoundNodeKind.AssignmentExpression:
                     WriteAssignmentExpression((BoundAssignmentExpression)node, writer);
                     break;
@@ -106,6 +109,11 @@ namespace Blaze.Binding
                 default:
                     throw new Exception($"Unexpected node kind {node.Kind}");
             }
+        }
+
+        private static void WriteThisExpression(BoundThisExpression node, IndentedTextWriter writer)
+        {
+            writer.WriteKeyword("this");
         }
 
         private static void WriteNamespace(BoundNamespace node, IndentedTextWriter writer)

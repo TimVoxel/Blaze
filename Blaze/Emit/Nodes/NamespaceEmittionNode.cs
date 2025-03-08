@@ -7,14 +7,18 @@ namespace Blaze.Emit.Nodes
     {
         public override EmittionNodeKind Kind => EmittionNodeKind.Namespace;
 
-        public ImmutableArray<StructureEmittionNode> Children { get; }
+        public MinecraftFunction? LoadFunction { get; }
+        public MinecraftFunction? TickFunction { get; }
 
+        public ImmutableArray<StructureEmittionNode> Children { get; }
         public IEnumerable<MinecraftFunction> Functions => Children.OfType<MinecraftFunction>();
         public IEnumerable<NamespaceEmittionNode> NestedNamespaces => Children.OfType<NamespaceEmittionNode>();
 
-        public NamespaceEmittionNode(IMemberSymbol symbol, string name, ImmutableArray<StructureEmittionNode> children) : base(symbol, name) 
+        public NamespaceEmittionNode(IMemberSymbol symbol, string name, ImmutableArray<StructureEmittionNode> children, MinecraftFunction? loadFunction, MinecraftFunction? tickFunction) : base(symbol, name) 
         {
             Children = children;
+            LoadFunction = loadFunction;
+            TickFunction = tickFunction;
         }
     }
 

@@ -20,7 +20,7 @@ namespace Blaze.Binding
         private readonly NamespaceSymbol _globalNamespace;
         private readonly NamespaceSymbol _namespace;
        
-        private Stack<(BoundLabel breakLabel, BoundLabel continueLabel)> _loopStack = new Stack<(BoundLabel breakLabel, BoundLabel continueLabel)>();
+        private readonly Stack<(BoundLabel breakLabel, BoundLabel continueLabel)> _loopStack = new Stack<(BoundLabel breakLabel, BoundLabel continueLabel)>();
         private int _labelCounter = 0;
 
         private BoundScope _scope;
@@ -542,7 +542,6 @@ namespace Blaze.Binding
             _scope = new BoundScope(previous);
 
             var variable = BindVariable(syntax.Identifier, TypeSymbol.Int, false);
-
             var body = BindLoopBody(syntax.Body, out BoundLabel breakLabel, out BoundLabel continueLabel);
             _scope = previous;
             return new BoundForStatement(variable, lowerBound, upperBound, body, breakLabel, continueLabel);

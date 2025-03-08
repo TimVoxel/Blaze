@@ -26,7 +26,7 @@ namespace Blaze.Emit.Nodes
 
                     if (SubFunctionKind == null)
                     {
-                        FunctionSymbol functionSymbol = (FunctionSymbol)Function;
+                        var functionSymbol = (FunctionSymbol)Function;
                         _callName = functionSymbol.AddressName;
                         return _callName;
                     }
@@ -62,21 +62,23 @@ namespace Blaze.Emit.Nodes
             public ImmutableArray<TextEmittionNode>.Builder Content { get; } = ImmutableArray.CreateBuilder<TextEmittionNode>();
             public ImmutableArray<Builder>.Builder SubFunctions { get; } = ImmutableArray.CreateBuilder<Builder>();
             public ImmutableArray<EmittionVariableSymbol>.Builder Locals { get; } = ImmutableArray.CreateBuilder<EmittionVariableSymbol>();
+            public EmittionScope Scope { get; private set; }
             public FunctionSymbol Function { get; }
             public SubFunctionKind? SubFunctionKind { get; }
-
-            public Builder(string name, FunctionSymbol function, SubFunctionKind? kind)
+            
+            public Builder(string name, EmittionScope? previousScope, FunctionSymbol function, SubFunctionKind? kind)
             {
                 Name = name;
                 Function = function;
                 SubFunctionKind = kind;
+                Scope = new EmittionScope(previousScope);
             }
 
-            public void AddLocal(EmittionVariableSymbol emittionVariableSymbol)
+            /*public void AddLocal(EmittionVariableSymbol emittionVariableSymbol)
             {
-                if (!Locals.Contains(emittionVariableSymbol))
+                if (!Scope.Contains(emittionVariableSymbol))
                     Locals.Add(emittionVariableSymbol);
-            }
+            }*/
 
             public MinecraftFunction ToFunction()
             {
@@ -85,9 +87,9 @@ namespace Blaze.Emit.Nodes
                 foreach (var builder in SubFunctions)
                     subBuilder.Add(builder.ToFunction());
 
-                return new MinecraftFunction(Name, Function, SubFunctionKind, Content.ToImmutable(), subBuilder.ToImmutable(), Locals.ToImmutable());
+                return new MinecraftFunction(Name, Function, SubFunctionKind, Content.ToImmutable(), subBuilder.ToImmutable(), Scope.GetLocals());
             }
-
+            
             public Builder CreateSub(SubFunctionKind kind)
             {
                 var name = string.Empty;
@@ -107,7 +109,7 @@ namespace Blaze.Emit.Nodes
                 }
 
                 Debug.Assert(Function != null);
-                var sub = new Builder(name, Function, kind);
+                var sub = new Builder(name, Scope, Function, kind);
                 SubFunctions.Add(sub);
                 return sub;
             }
@@ -115,9 +117,20 @@ namespace Blaze.Emit.Nodes
             public Builder CreateSubNamed(string name)
             {
                 var fullName = $"{Name}_{name}";
-                var sub = new Builder(fullName, Function, Emit.SubFunctionKind.Misc);
+                var sub = new Builder(fullName, Scope, Function, Emit.SubFunctionKind.Misc);
                 SubFunctions.Add(sub);
                 return sub;
+            }
+
+            public void EnterNewScope() => Scope = new EmittionScope(Scope);
+          
+            public void ExitScope()
+            {
+                if (Scope.Parent == null)
+                    throw new Exception("Cannot exit scope because it has no parent");
+
+                Locals.AddRange(Scope.GetLocals());
+                Scope = Scope.Parent;
             }
 
             public void AddCommand(CommandNode command) => Content.Add(command);
@@ -196,13 +209,13 @@ namespace Blaze.Emit.Nodes
         public static Builder Init(NamespaceSymbol globalNamespace)
         {
             var init = new FunctionSymbol("init", globalNamespace, ImmutableArray<ParameterSymbol>.Empty, TypeSymbol.Void, true, false, AccessModifier.Private, null);
-            return new Builder(init.Name, init, null);
+            return new Builder(init.Name, null, init, null);
         }
 
         public static Builder Tick(NamespaceSymbol globalNamespace)
         {
             var tick = new FunctionSymbol("tick", globalNamespace, ImmutableArray<ParameterSymbol>.Empty, TypeSymbol.Void, false, true, AccessModifier.Private, null);
-            return new Builder(tick.Name, tick, null);
+            return new Builder(tick.Name, null, tick, null);
         }
 
         public CommandNode GetCall(string rootNamespace) => new TextCommand($"function {rootNamespace}:{FullName}", false);
