@@ -1,4 +1,5 @@
-﻿using Blaze.Symbols;
+﻿using Blaze.Binding;
+using Blaze.Symbols;
 using static Blaze.Symbols.EmittionVariableSymbol;
 
 namespace Blaze.Emit.Nodes
@@ -19,6 +20,30 @@ namespace Blaze.Emit.Nodes
             {
                 return EmittionVariableLocation.Storage;
             }
+        }
+
+        internal static string GetScoreboardOperationsOperatorSymbol(BoundBinaryOperatorKind kind)
+        {
+            return kind switch
+            {
+                BoundBinaryOperatorKind.Addition => "+=",
+                BoundBinaryOperatorKind.Subtraction => "-=",
+                BoundBinaryOperatorKind.Multiplication => "*=",
+                BoundBinaryOperatorKind.Division => "/=",
+                _ => "="
+            };
+        }
+
+        internal static string GetComparisonSign(BoundBinaryOperatorKind kind)
+        {
+            return kind switch
+            {
+                BoundBinaryOperatorKind.Less => "<",
+                BoundBinaryOperatorKind.LessOrEquals => "<=",
+                BoundBinaryOperatorKind.Greater => ">",
+                BoundBinaryOperatorKind.GreaterOrEquals => ">=",
+                _ => "="
+            };
         }
 
         public static string GetEmittionDefaultValue(TypeSymbol type)
