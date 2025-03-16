@@ -261,14 +261,6 @@ namespace Blaze.Emit
             foreach (var local in functionBuilder.Locals)
                 if (local.IsTemp)
                     builder.Add(GetResetCommand(local));
-                    
-
-           /* if (extras != null)
-            {
-                foreach (var local in extras)
-                    if (local.IsTemp)
-                        builder.Add(GetResetCommand(local));
-            }*/
             
             if (builder.Any())
             {

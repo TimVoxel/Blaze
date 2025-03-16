@@ -51,10 +51,6 @@ namespace Blaze.Emit.Nodes
                     WriteTextBlock((TextBlockEmittionNode)node, writer);
                     break;
 
-                case EmittionNodeKind.CleanUpMarker:
-                    WriteCleanUpMarker((CleanUpMarker) node, writer);
-                    break;
-
                 case EmittionNodeKind.FunctionCommand:
                     WriteFunctionCommand((FunctionCommand)node, writer);
                     break;
@@ -221,12 +217,6 @@ namespace Blaze.Emit.Nodes
         private static void WriteTextCommand(TextCommand node, IndentedTextWriter writer)
         {
             writer.WriteLine(node.Text);
-        }
-
-        private static void WriteCleanUpMarker(CleanUpMarker node, IndentedTextWriter writer)
-        {
-            writer.WriteLabel("clean up marker");
-            writer.WriteLine();
         }
     }
 

@@ -17,9 +17,6 @@
 
         //Temporary
         TextCommand,
-
-        //Markers
-        CleanUpMarker
     }
 
     /*

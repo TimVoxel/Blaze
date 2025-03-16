@@ -159,15 +159,6 @@ namespace Blaze.Emit
 
                         break;
                     }
-                case EmittionNodeKind.CleanUpMarker:
-                    {
-                        //if (node is CleanUpMarkerEmittionNode)
-                       //     foreach (var cleanUpNode in emittion.Content.Where(n => n.IsCleanUp))
-                       //         streamWriter.WriteLine(cleanUpNode.Text);
-
-                        //do stuff
-                        break;
-                    }
                 default:
                     writer.WriteLine(node.Text);
                     break;
