@@ -1,4 +1,4 @@
-﻿using Blaze.Emit.Nodes;
+﻿using Blaze.Emit;
 
 namespace Blaze.Symbols
 {

@@ -1,8 +1,9 @@
 ﻿using Blaze.Binding;
 using Blaze.Symbols;
 using static Blaze.Symbols.EmittionVariableSymbol;
+using static Blaze.Emit.Nodes.ScoreboardPlayersCommand.ScoreboardPlayersOperationsClause;
 
-namespace Blaze.Emit.Nodes
+namespace Blaze.Emit
 {
     public static class EmittionFacts
     {
@@ -20,6 +21,35 @@ namespace Blaze.Emit.Nodes
             {
                 return EmittionVariableLocation.Storage;
             }
+        }
+
+        internal static PlayersOperation ToPlayersOperation(BoundBinaryOperatorKind kind)
+        {
+            return kind switch
+            {
+                BoundBinaryOperatorKind.Addition => PlayersOperation.Addition,
+                BoundBinaryOperatorKind.Subtraction => PlayersOperation.Subtraction,
+                BoundBinaryOperatorKind.Multiplication => PlayersOperation.Multiplication,
+                BoundBinaryOperatorKind.Division => PlayersOperation.Division,
+                _ => throw new Exception($"No scoreboard players operation command corresponds to {kind} operator kind")
+            };
+        }
+
+        internal static string GetSignText(PlayersOperation operation)
+        {
+            return operation switch
+            {
+                PlayersOperation.Assignment => "=",
+                PlayersOperation.Addition => "+=",
+                PlayersOperation.Subtraction => "-=",
+                PlayersOperation.Multiplication => "*=",
+                PlayersOperation.Division => "/=",
+                PlayersOperation.Mod => "%=",
+                PlayersOperation.Min => "<",
+                PlayersOperation.Max => ">",
+                PlayersOperation.Swap => "><",
+                _ => throw new Exception($"No sign corresponds to {operation}")
+            };
         }
 
         internal static string GetScoreboardOperationsOperatorSymbol(BoundBinaryOperatorKind kind)

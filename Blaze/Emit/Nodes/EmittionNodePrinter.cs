@@ -176,8 +176,76 @@ namespace Blaze.Emit.Nodes
                         break;
                 }
             }
+            else if (node is ScoreboardPlayersCommand scoreboardPlayers)
+            {
+                writer.WriteKeyword("players ");
+                writer.WriteKeyword($"{scoreboardPlayers.Action.ToString().ToLower()} ");
+
+                switch (scoreboardPlayers.Action)
+                {
+                    case ScoreboardPlayersCommand.SubAction.Add:
+                    case ScoreboardPlayersCommand.SubAction.Remove:
+                    case ScoreboardPlayersCommand.SubAction.Set:
+                    case ScoreboardPlayersCommand.SubAction.Get:
+                    case ScoreboardPlayersCommand.SubAction.Enable:
+                    case ScoreboardPlayersCommand.SubAction.Reset:
+                        {
+                            var clause = (ScoreboardPlayersCommand.ScoreIdentifierClause)scoreboardPlayers.SubClause;
+                            WriteScoreIdentifier(clause.Score, writer);
+
+                            if (scoreboardPlayers.Value != null)
+                                writer.WriteNumber($" {scoreboardPlayers.Value}");
+
+                            break;
+                        }
+
+                    case ScoreboardPlayersCommand.SubAction.Operations:
+                        {
+                            var clause = (ScoreboardPlayersCommand.ScoreboardPlayersOperationsClause)scoreboardPlayers.SubClause;
+                            WriteScoreIdentifier(clause.Left, writer);
+                            writer.WritePunctuation($" {EmittionFacts.GetSignText(clause.Operation)} ");
+                            WriteScoreIdentifier(clause.Right, writer);
+                            break;
+                        }
+
+                    case ScoreboardPlayersCommand.SubAction.List:
+                        {
+                            var clause = (ScoreboardPlayersCommand.ListTarget)scoreboardPlayers.SubClause;
+                            if (!string.IsNullOrEmpty(clause.Text))
+                                writer.WriteIdentifier(clause.Text);
+                            break;
+                        }
+
+                    case ScoreboardPlayersCommand.SubAction.Display:
+                        {
+                            if (scoreboardPlayers.SubClause is ScoreboardPlayersCommand.DisplayNameClause nameClause)
+                            {
+                                WriteScoreIdentifier(nameClause.Score, writer);
+                                writer.WriteString($" {nameClause.Name}");
+                            }
+                            else if (scoreboardPlayers.SubClause is ScoreboardPlayersCommand.DisplayNumberFormatClause numberFormatClause)
+                            {
+                                WriteScoreIdentifier(numberFormatClause.Score, writer);
+                                writer.WriteKeyword($" {numberFormatClause.Format.ToString().ToLower()}");
+
+                                if (numberFormatClause.Format == ScoreboardPlayersCommand.DisplayNumberFormatClause.NumberFormat.Styled)
+                                {
+                                    Debug.Assert(numberFormatClause.Style != null);
+                                    writer.WriteString($" {numberFormatClause.Style}");
+                                }
+                            }
+                            break;
+                        }
+                }
+            }
 
             writer.WriteLine();
+        }
+
+        private static void WriteScoreIdentifier(ScoreboardPlayersCommand.ScoreIdentifier identifier, IndentedTextWriter writer)
+        {
+            writer.WriteIdentifier($"{identifier.Selector}");
+            writer.WriteIdentifier($" {identifier.Objective}");
         }
 
         private static void WriteFunctionCommand(FunctionCommand node, IndentedTextWriter writer)
