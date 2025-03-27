@@ -59,22 +59,4 @@ namespace Blaze.Emit.Nodes
             Name = name;
         }
     }
-
-    /*
-
-    public class ScoreboardPlayersCommand : ScoreboardCommand
-    {
-        enum SubAction 
-        {
-            Add,
-            Remove,
-            Reset
-            
-        }
-           
-        internal ScoreboardPlayersCommand()
-        {
-
-        }
-    }*/
 }

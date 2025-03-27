@@ -10,31 +10,18 @@
         LineBreakTrivia,
         CommentTrivia,
 
-        ScoreboardCommand,
         DataCommand,
+        DatapackCommand,
+        DifficultyCommand,
         FunctionCommand,
-
+        GameruleCommand,
+        ScoreboardCommand,
+        TellrawCommand,
+        WeatherCommand,
+        
         TextBlock,
 
         //Temporary
         TextCommand,
     }
-
-    /*
-
-    public class ScoreboardPlayersCommand : ScoreboardCommand
-    {
-        enum SubAction 
-        {
-            Add,
-            Remove,
-            Reset
-            
-        }
-           
-        internal ScoreboardPlayersCommand()
-        {
-
-        }
-    }*/
 }

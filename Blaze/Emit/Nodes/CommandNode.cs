@@ -1,6 +1,4 @@
-﻿using static System.Net.Mime.MediaTypeNames;
-
-namespace Blaze.Emit.Nodes
+﻿namespace Blaze.Emit.Nodes
 {
     public abstract class CommandNode : TextEmittionNode
     {
@@ -14,13 +12,11 @@ namespace Blaze.Emit.Nodes
 
         public override string Text { get; }
         public override EmittionNodeKind Kind => EmittionNodeKind.TextCommand;
-        public override bool IsCleanUp { get; }
         public override string Keyword => Text.Split().First();
 
         public TextCommand(string text, bool isCleanUp)
         {
             Text = text;
-            IsCleanUp = isCleanUp;
         }
     }
 }

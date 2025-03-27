@@ -45,7 +45,6 @@ namespace Blaze.Emit.Nodes
             }
         }
 
-        public override bool IsCleanUp => false;
         public override EmittionNodeKind Kind => EmittionNodeKind.FunctionCommand;
         public override string Keyword => "function";
         public string FunctionCallName { get; }

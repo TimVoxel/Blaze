@@ -5,7 +5,6 @@
         public override bool IsSingleLine => true;
         public override string Text { get; }
         public override EmittionNodeKind Kind { get; }
-        public override bool IsCleanUp => false;
 
         internal TextTriviaNode(EmittionNodeKind kind, string text) : base()
         {

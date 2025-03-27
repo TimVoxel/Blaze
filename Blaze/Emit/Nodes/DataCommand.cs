@@ -32,18 +32,16 @@ namespace Blaze.Emit.Nodes
 
     }
 
-    public class DataGetCommand : DataCommand {
+    public class DataGetCommand : DataCommand
+    {
+        public ObjectPathIdentifier Identifier { get; }
+        public string? Multiplier { get; }
 
-        public override bool IsCleanUp => false;
 
         public override string Text =>
             Multiplier == null
                 ? $"{Keyword} get {Identifier}"
                 : $"{Keyword} get {Identifier} {Multiplier}";
-           
-
-        public ObjectPathIdentifier Identifier { get; }
-        public string? Multiplier { get; }
 
         public DataGetCommand(ObjectPathIdentifier location, string? multiplier)
         {
@@ -54,12 +52,11 @@ namespace Blaze.Emit.Nodes
 
     public class DataMergeCommand : DataCommand
     {
-        public override bool IsCleanUp => false;
-        public override string Text => $"{Keyword} merge {EmittionFacts.GetLocationSyntaxName(Location)} {StorageObject} {Value}";
-
         public DataLocation Location { get; }
         public string StorageObject { get; }
         public string Value { get; }
+
+        public override string Text => $"{Keyword} merge {EmittionFacts.GetLocationSyntaxName(Location)} {StorageObject} {Value}";
 
         public DataMergeCommand(DataLocation location, string obj, string value)
         {
@@ -69,12 +66,11 @@ namespace Blaze.Emit.Nodes
         }
     }
 
-    public class DataRemoveCommand : DataCommand {
-
-        public override bool IsCleanUp => true;
-        public override string Text => $"{Keyword} remove {Identifier.Text}";
-
+    public class DataRemoveCommand : DataCommand
+    {
         public ObjectPathIdentifier Identifier { get; }
+
+        public override string Text => $"{Keyword} remove {Identifier.Text}";
 
         public DataRemoveCommand(ObjectPathIdentifier location)
         {
@@ -173,8 +169,6 @@ namespace Blaze.Emit.Nodes
                 }
             }
         }
-
-        public override bool IsCleanUp => false;
 
         public DataModifyCommand(ObjectPathIdentifier location, ModificationType modification, string? insertIndex, DataModifySource source)
         {

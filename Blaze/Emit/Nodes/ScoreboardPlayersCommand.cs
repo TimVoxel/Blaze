@@ -114,7 +114,6 @@
         public ScoreboardPlayersSubCommandClause SubClause { get; }
         public string? Value { get; }
 
-        public override bool IsCleanUp => Action == SubAction.Reset;
         public override string Text =>
             Value == null
                 ? $"{Keyword} players {Action.ToString().ToLower()} {SubClause.Text}"

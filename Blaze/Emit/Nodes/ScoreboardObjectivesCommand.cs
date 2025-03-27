@@ -21,8 +21,6 @@ namespace Blaze.Emit.Nodes
         public string? ModifiedProperty { get; }
         public object? ModifyValue { get; }
 
-        public override bool IsCleanUp => false;
-
         public override string Text
         {
             get

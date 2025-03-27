@@ -20,13 +20,11 @@ namespace Blaze.Emit.Nodes
         }
 
         public override bool IsSingleLine => false;
-        public override bool IsCleanUp { get; }
         public override EmittionNodeKind Kind => EmittionNodeKind.TextBlock;
 
-        public TextBlockEmittionNode(ImmutableArray<TextEmittionNode> lines, bool? isCleanUp = null)
+        public TextBlockEmittionNode(ImmutableArray<TextEmittionNode> lines)
         {
             Lines = lines;
-            IsCleanUp = isCleanUp ?? false;
         }
     }
 

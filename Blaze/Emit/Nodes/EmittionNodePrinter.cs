@@ -1,6 +1,7 @@
 ﻿using Blaze.IO;
 using System.CodeDom.Compiler;
 using System.Diagnostics;
+using System.Globalization;
 using static Blaze.Emit.Nodes.ScoreboardObjectivesCommand;
 
 namespace Blaze.Emit.Nodes
@@ -43,21 +44,43 @@ namespace Blaze.Emit.Nodes
                     WriteCommentTrivia((TextTriviaNode) node, writer);
                     break;
 
-                case EmittionNodeKind.ScoreboardCommand:
-                    WriteScoreboardCommand((ScoreboardCommand) node, writer);
-                    break;
-
                 case EmittionNodeKind.DataCommand:
                     WriteDataCommand((DataCommand)node, writer);
                     break;
 
-                case EmittionNodeKind.TextBlock:
-                    WriteTextBlock((TextBlockEmittionNode)node, writer);
+                case EmittionNodeKind.DatapackCommand:
+                    WriteDatapackCommand((DatapackCommand)node, writer);
+                    break;
+
+                case EmittionNodeKind.DifficultyCommand:
+                    WriteDifficultyCommand((DifficultyCommand)node, writer);
+                    break;
+
+                case EmittionNodeKind.GameruleCommand:
+                    WriteGameruleCommand((GameruleCommand)node, writer);
                     break;
 
                 case EmittionNodeKind.FunctionCommand:
                     WriteFunctionCommand((FunctionCommand)node, writer);
                     break;
+
+                case EmittionNodeKind.ScoreboardCommand:
+                    WriteScoreboardCommand((ScoreboardCommand)node, writer);
+                    break;
+
+                case EmittionNodeKind.TellrawCommand:
+                    WriteTellrawCommand((TellrawCommand)node, writer);
+                    break;
+
+                case EmittionNodeKind.WeatherCommand:
+                    WriteWeatherCommand((WeatherCommand)node, writer);
+                    break;
+
+
+                case EmittionNodeKind.TextBlock:
+                    WriteTextBlock((TextBlockEmittionNode)node, writer);
+                    break;
+
 
                 // Temporary
                 case EmittionNodeKind.TextCommand:
@@ -327,6 +350,60 @@ namespace Blaze.Emit.Nodes
             writer.WriteIdentifier($" {identifier.Objective}");
         }
 
+        private static void WriteDatapackCommand(DatapackCommand node, IndentedTextWriter writer)
+        {
+            writer.WriteKeyword(node.Keyword);
+
+            if (node is DatapackEnableCommand enableCommand)
+            {
+                writer.WriteKeyword(" enable ");
+                writer.WriteIdentifier(enableCommand.PackFullName);
+
+                if (enableCommand.Mode != null)
+                {
+                    writer.WriteKeyword($" {enableCommand.Mode?.ToString().ToLower()}");
+                    
+                    if (enableCommand.Mode != DatapackEnableCommand.EnableMode.First &&
+                        enableCommand.Mode != DatapackEnableCommand.EnableMode.Last)
+                    {
+                        Debug.Assert(enableCommand.OtherPackFullName != null);
+                        writer.WriteIdentifier($" {enableCommand.OtherPackFullName}");
+                    }
+                }
+               
+            }
+            else if (node is DatapackDisableCommand disableCommand)
+            {
+                writer.WriteKeyword($" disable ");
+                writer.WriteIdentifier(disableCommand.PackFullName);
+            }
+            else if (node is DatapackListCommand listCommand)
+            {
+                writer.WriteKeyword($" list");
+                if (listCommand.Filter != null)
+                    writer.WriteKeyword($" {listCommand.Filter?.ToString().ToLower()}");
+            }
+            writer.WriteLine();
+        }
+
+        private static void WriteDifficultyCommand(DifficultyCommand node, IndentedTextWriter writer)
+        {
+            writer.WriteKeyword(node.Keyword);
+            if (node.Value != null)
+                writer.WriteKeyword($" {node.Value}");
+            writer.WriteLine();
+        }
+
+        private static void WriteGameruleCommand(GameruleCommand node, IndentedTextWriter writer)
+        {
+            writer.WriteKeyword(node.Keyword);
+            writer.WriteIdentifier($" {node.GameruleName}");
+
+            if (node.Value != null)
+                writer.WriteNumber($" {node.Value}");
+            writer.WriteLine();
+        }
+
         private static void WriteFunctionCommand(FunctionCommand node, IndentedTextWriter writer)
         {
             writer.WriteKeyword(node.Keyword);
@@ -349,6 +426,26 @@ namespace Blaze.Emit.Nodes
             writer.WriteLine();
         }
 
+        private static void WriteTellrawCommand(TellrawCommand node, IndentedTextWriter writer)
+        {
+            writer.WriteKeyword(node.Keyword);
+            writer.WriteIdentifier($" {node.Selector} ");
+            writer.WriteString(node.Component);
+            writer.WriteLine();
+        }
+
+        private static void WriteWeatherCommand(WeatherCommand node, IndentedTextWriter writer)
+        {
+            writer.WriteKeyword(node.Keyword);
+            writer.WriteKeyword($" {node.WeatherType}");
+
+            if (node.Duration != null)
+                writer.WriteNumber(node.Duration);
+
+            if (node.TimeUnits != null)
+                writer.WriteString(node.TimeUnits);
+        }
+
         private static void WriteTextBlock(TextBlockEmittionNode node, IndentedTextWriter writer)
         {
             writer.WriteLabel("block: ");
@@ -366,22 +463,4 @@ namespace Blaze.Emit.Nodes
             writer.WriteLine(node.Text);
         }
     }
-
-    /*
-
-    public class ScoreboardPlayersCommand : ScoreboardCommand
-    {
-        enum SubAction 
-        {
-            Add,
-            Remove,
-            Reset
-            
-        }
-           
-        internal ScoreboardPlayersCommand()
-        {
-
-        }
-    }*/
 }

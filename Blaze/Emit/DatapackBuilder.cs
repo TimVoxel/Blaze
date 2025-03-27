@@ -282,7 +282,7 @@ namespace Blaze.Emit
             if (builder.Any())
             {
                 builder.Insert(0, Comment("Clean up"));
-                return new TextBlockEmittionNode(builder.ToImmutable(), true);
+                return new TextBlockEmittionNode(builder.ToImmutable());
             }
             else
             {
@@ -519,7 +519,7 @@ namespace Blaze.Emit
         {
             if (left is BoundFieldAccessExpression fieldAccess)
             {
-                if (TryEmitBuiltInFieldAssignment(functionBuilder, fieldAccess.Field, right, tempIndex, out var node))
+                if (TrygetBuiltInFieldAssignment(functionBuilder, fieldAccess.Field, right, tempIndex, out var node))
                 {
                     Debug.Assert(node != null);
                     return node;
@@ -814,7 +814,7 @@ namespace Blaze.Emit
 
         private TextEmittionNode GetFieldAccessAssignment(MinecraftFunction.Builder functionBuilder, EmittionVariableSymbol symbol, BoundFieldAccessExpression fieldAccess, int tempIndex = 0)
         {
-            if (TryEmitBuiltInFieldGetter(functionBuilder, symbol, fieldAccess, tempIndex, out var node))
+            if (TryGetBuiltInFieldGetter(functionBuilder, symbol, fieldAccess, tempIndex, out var node))
             {
                 Debug.Assert(node != null);
                 return node;
@@ -1812,7 +1812,7 @@ namespace Blaze.Emit
             }
         }
 
-        public bool TryEmitBuiltInFieldGetter(MinecraftFunction.Builder functionBuilder, EmittionVariableSymbol symbol, BoundFieldAccessExpression right, int current, out TextEmittionNode? node)
+        public bool TryGetBuiltInFieldGetter(MinecraftFunction.Builder functionBuilder, EmittionVariableSymbol symbol, BoundFieldAccessExpression right, int current, out TextEmittionNode? node)
         {
             if (BuiltInNamespace.Minecraft.General.Gamerules.IsGamerule(right.Field))
             {
@@ -1836,7 +1836,7 @@ namespace Blaze.Emit
             return false;
         }
 
-        public bool TryEmitBuiltInFieldAssignment(MinecraftFunction.Builder functionBuilder, FieldSymbol field, BoundExpression right, int current, out TextEmittionNode? node)
+        public bool TrygetBuiltInFieldAssignment(MinecraftFunction.Builder functionBuilder, FieldSymbol field, BoundExpression right, int current, out TextEmittionNode? node)
         {
             if (BuiltInNamespace.Minecraft.General.Gamerules.IsGamerule(field))
             {
@@ -1852,16 +1852,16 @@ namespace Blaze.Emit
             return false;
         }
 
-        private TextEmittionNode GetGameruleAssignment(MinecraftFunction.Builder functionBuilder, FieldSymbol field, BoundExpression right, int tempIndex)
+        private TextEmittionNode GetGameruleAssignment(MinecraftFunction.Builder functionBuilder, FieldSymbol gameruleField, BoundExpression right, int tempIndex)
         {
             var temp = Temp(functionBuilder, right.Type, tempIndex);
 
-            if (field.Type == TypeSymbol.Bool)
+            if (gameruleField.Type == TypeSymbol.Bool)
             {
                 return Block(
                         GetAssignment(functionBuilder, temp, right, tempIndex),
-                        new TextCommand($"execute if score {temp.SaveName} {Vars} matches 1 run gamerule {field.Name} true", false),
-                        new TextCommand($"execute if score {temp.SaveName} {Vars} matches 0 run gamerule {field.Name} false", false)
+                        new TextCommand($"execute if score {temp.SaveName} {Vars} matches 1 run gamerule {gameruleField.Name} true", false),
+                        new TextCommand($"execute if score {temp.SaveName} {Vars} matches 0 run gamerule {gameruleField.Name} false", false)
                     );
             }
             else
@@ -1878,7 +1878,7 @@ namespace Blaze.Emit
 
                 return Block(
                         GetAssignment(functionBuilder, temp, right, tempIndex),
-                        GetAssignment(macroRule, $"\"{field.Name}\""),
+                        GetAssignment(macroRule, $"\"{gameruleField.Name}\""),
                         GetAssignment(functionBuilder, macroValue, temp),
                         GetMacroCall(macro)
                     );
@@ -1888,9 +1888,7 @@ namespace Blaze.Emit
         private TextEmittionNode GetDifficultyAssignment(MinecraftFunction.Builder functionBuilder, FieldSymbol field, BoundExpression right, int tempIndex)
         {
             if (right is BoundVariableExpression variableExpression && variableExpression.Variable is EnumMemberSymbol em)
-            {
-                return new TextCommand($"difficulty {em.Name.ToLower()}", false);
-            }
+                return new DifficultyCommand(em.Name.ToLower());
 
             var builder = ImmutableArray.CreateBuilder<TextEmittionNode>();
             var rightSymbol = Temp(functionBuilder, right.Type, tempIndex);
@@ -1909,52 +1907,52 @@ namespace Blaze.Emit
         {
             if (call.Function == BuiltInNamespace.Minecraft.General.RunCommand)
             {
-                node = EmitRunCommand(functionBuilder, call);
+                node = GetRunCommand(functionBuilder, call);
                 return true;
             }
             if (call.Function == BuiltInNamespace.Minecraft.General.DatapackEnable)
             {
-                node = EmitDatapackEnable(functionBuilder, call);
+                node = GetDatapackEnable(functionBuilder, call);
                 return true;
             }
             if (call.Function == BuiltInNamespace.Minecraft.General.DatapackDisable)
             {
-                node = EmitDatapackDisable(functionBuilder, call);
+                node = GetDatapackDisable(functionBuilder, call);
                 return true;
             }
             if (call.Function == BuiltInNamespace.Minecraft.General.SetDatapackEnabled)
             {
-                node = EmitSetDatapackEnabled(functionBuilder, call, tempIndex);
+                node = GetDatapackEnabledSetter(functionBuilder, call, tempIndex);
                 return true;
             }
             if (call.Function == BuiltInNamespace.Minecraft.General.Weather.SetWeather)
             {
-                node = EmitSetWeather(functionBuilder, call, tempIndex);
+                node = GetWeatherSetter(functionBuilder, call, tempIndex);
                 return true;
             }
             if (call.Function == BuiltInNamespace.Minecraft.General.Weather.SetWeatherForTicks)
             {
-                node = EmitSetWeatherForTicks(functionBuilder, call, tempIndex);
+                node = GetWeatherForTicksSetter(functionBuilder, call, tempIndex);
                 return true;
             }
             if (call.Function == BuiltInNamespace.Minecraft.General.Weather.SetWeatherForDays)
             {
-                node = EmitSetWeatherForDays(functionBuilder, call, tempIndex);
+                node = GetWeatherForDaysSetter(functionBuilder, call, tempIndex);
                 return true;
             }
             if (call.Function == BuiltInNamespace.Minecraft.General.Weather.SetWeatherForSeconds)
             {
-                node = EmitSetWeatherForSeconds(functionBuilder, call, tempIndex);
+                node = GetWeatherForSecondsSetter(functionBuilder, call, tempIndex);
                 return true;
             }
             if (call.Function == BuiltInNamespace.Minecraft.Chat.Say)
             {
-                node = EmitPrint(functionBuilder, call, tempIndex);
+                node = GetPrint(functionBuilder, call, tempIndex);
                 return true;
             }
             if (call.Function == BuiltInNamespace.Minecraft.Chat.Print)
             {
-                node = EmitPrint(functionBuilder, call, tempIndex);
+                node = GetPrint(functionBuilder, call, tempIndex);
                 return true;
             }
 
@@ -1966,17 +1964,17 @@ namespace Blaze.Emit
                 
             if (call.Function == BuiltInNamespace.Minecraft.General.GetDatapackCount)
             {
-                node = EmitGetDatapackCount(functionBuilder, symbol, call);
+                node = GetDatapackCountEmittion(functionBuilder, symbol, call);
                 return true;
             }
             if (call.Function == BuiltInNamespace.Minecraft.General.GetEnabledDatapackCount)
             {
-                node = EmitGetDatapackCount(functionBuilder, symbol, call, true);
+                node = GetDatapackCountEmittion(functionBuilder, symbol, call, true);
                 return true;
             }
             if (call.Function == BuiltInNamespace.Minecraft.General.GetAvailableDatapackCount)
             {
-                node = EmitGetDatapackCount(functionBuilder, symbol, call, false, true);
+                node = GetDatapackCountEmittion(functionBuilder, symbol, call, false, true);
                 return true;
             }
 
@@ -1984,7 +1982,7 @@ namespace Blaze.Emit
             return false;
         }
 
-        private TextEmittionNode EmitRunCommand(MinecraftFunction.Builder functionBuilder, BoundCallExpression call)
+        private TextEmittionNode GetRunCommand(MinecraftFunction.Builder functionBuilder, BoundCallExpression call)
         {
             var macroCommand = Macro(functionBuilder, "command");
             
@@ -1997,7 +1995,7 @@ namespace Blaze.Emit
                 );
         }
 
-        private TextEmittionNode EmitDatapackEnable(MinecraftFunction.Builder functionBuilder, BoundCallExpression call)
+        private TextEmittionNode GetDatapackEnable(MinecraftFunction.Builder functionBuilder, BoundCallExpression call)
         {
             var macrosPack = Macro(functionBuilder, "pack");
 
@@ -2010,7 +2008,7 @@ namespace Blaze.Emit
                 );
         }
 
-        private TextEmittionNode EmitDatapackDisable(MinecraftFunction.Builder functionBuilder, BoundCallExpression call)
+        private TextEmittionNode GetDatapackDisable(MinecraftFunction.Builder functionBuilder, BoundCallExpression call)
         {
             var macrosPack = Macro(functionBuilder, "pack");
          
@@ -2023,7 +2021,7 @@ namespace Blaze.Emit
                 );
         }
 
-        private TextEmittionNode EmitSetDatapackEnabled(MinecraftFunction.Builder functionBuilder, BoundCallExpression call, int tempIndex)
+        private TextEmittionNode GetDatapackEnabledSetter(MinecraftFunction.Builder functionBuilder, BoundCallExpression call, int tempIndex)
         {
             var pack = call.Arguments[0];
             var value = call.Arguments[1];
@@ -2045,15 +2043,15 @@ namespace Blaze.Emit
                 );
         }
 
-        private TextEmittionNode EmitGetDatapackCount(MinecraftFunction.Builder functionBuilder, EmittionVariableSymbol symbol, BoundCallExpression call, bool countEnabled = false, bool countAvailable = false)
+        private TextEmittionNode GetDatapackCountEmittion(MinecraftFunction.Builder functionBuilder, EmittionVariableSymbol symbol, BoundCallExpression call, bool countEnabled = false, bool countAvailable = false)
         {
             var filter = countEnabled ? "enabled" : "available";
             return new TextCommand($"execute store result score {symbol.SaveName} {Vars} run datapack list {filter}", false);
         }
 
-        private TextEmittionNode EmitSetWeather(MinecraftFunction.Builder functionBuilder, BoundCallExpression call, int tempIndex, string? timeUnits = null)
+        private TextEmittionNode GetWeatherSetter(MinecraftFunction.Builder functionBuilder, BoundCallExpression call, int tempIndex, string? timeUnits = null)
         {
-            TextEmittionNode EmitNonMacroNonConstantTypeCheck(BoundExpression weatherType, int current, int time = 0, string? timeUnits = null)
+            TextEmittionNode GetNonMacroNonConstantTypeCheck(BoundExpression weatherType, int current, int time = 0, string? timeUnits = null)
             {
                 var temp = Temp(functionBuilder, weatherType.Type, current, "type");
                 var builder = ImmutableArray.CreateBuilder<TextEmittionNode>();
@@ -2078,11 +2076,11 @@ namespace Blaze.Emit
                 if (call.Arguments[1] is BoundLiteralExpression l)
                 {
                     if (weatherType is BoundVariableExpression variableExpression && variableExpression.Variable is EnumMemberSymbol em)
-                        return new TextCommand($"weather {em.Name.ToLower()} {l.Value}{timeUnits}", false);
+                        return new WeatherCommand(em.Name.ToLower(), l.Value.ToString(), timeUnits);
                     else
                     {
                         var time = (int)l.Value;
-                        return EmitNonMacroNonConstantTypeCheck(weatherType, tempIndex, time, timeUnits);
+                        return GetNonMacroNonConstantTypeCheck(weatherType, tempIndex, time, timeUnits);
                     }
                 }
                 else
@@ -2107,34 +2105,29 @@ namespace Blaze.Emit
             else
             {
                 if (weatherType is BoundVariableExpression variableExpression && variableExpression.Variable is EnumMemberSymbol em)
-                {
-                    return new TextCommand($"weather {em.Name.ToLower()}", false);
-                }
+                    return new WeatherCommand(em.Name.ToLower());
                 else
-                {
-                    return EmitNonMacroNonConstantTypeCheck(weatherType, tempIndex);
-                }
+                    return GetNonMacroNonConstantTypeCheck(weatherType, tempIndex);
             }
         }
 
-        private TextEmittionNode EmitSetWeatherForTicks(MinecraftFunction.Builder functionBuilder, BoundCallExpression call, int current) => EmitSetWeather(functionBuilder, call, current, "t");
-        private TextEmittionNode EmitSetWeatherForSeconds(MinecraftFunction.Builder functionBuilder, BoundCallExpression call, int current) => EmitSetWeather(functionBuilder, call, current, "s");
-        private TextEmittionNode EmitSetWeatherForDays(MinecraftFunction.Builder functionBuilder, BoundCallExpression call, int current) => EmitSetWeather(functionBuilder, call, current, "d");
+        private TextEmittionNode GetWeatherForTicksSetter(MinecraftFunction.Builder functionBuilder, BoundCallExpression call, int current) => GetWeatherSetter(functionBuilder, call, current, "t");
+        private TextEmittionNode GetWeatherForSecondsSetter(MinecraftFunction.Builder functionBuilder, BoundCallExpression call, int current) => GetWeatherSetter(functionBuilder, call, current, "s");
+        private TextEmittionNode GetWeatherForDaysSetter(MinecraftFunction.Builder functionBuilder, BoundCallExpression call, int current) => GetWeatherSetter(functionBuilder, call, current, "d");
 
-        private TextEmittionNode EmitPrint(MinecraftFunction.Builder functionBuilder, BoundCallExpression call, int tempIndex)
+        private TextEmittionNode GetPrint(MinecraftFunction.Builder functionBuilder, BoundCallExpression call, int tempIndex)
         {
             var argument = call.Arguments[0];
             var command = string.Empty;
 
             if (argument is BoundLiteralExpression literal)
             {
-                return new TextCommand($"tellraw @a {{\"text\":\"{literal.Value}\"}}", false);
+                return new TellrawCommand("@a", $"{{\"text\":\"{literal.Value}\"}}");
             }
             else if (argument is BoundVariableExpression variable)
             {
                 var varSymbol = ToEmittionVariable(functionBuilder, variable.Variable, false, true);
-
-                return new TextCommand($"tellraw @a {{\"storage\":\"{MainStorage}\",\"nbt\":\"{varSymbol.SaveName}\"}}", false);
+                return new TellrawCommand("@a", $"{{\"storage\":\"{MainStorage}\",\"nbt\":\"{varSymbol.SaveName}\"}}");
             }
             else
             {
@@ -2142,7 +2135,7 @@ namespace Blaze.Emit
 
                 return Block(
                         GetAssignment(functionBuilder, temp, argument, tempIndex),
-                        new TextCommand($"tellraw @a {{\"storage\":\"{MainStorage}\",\"nbt\":\"{temp.SaveName}\"}}", false)
+                        new TellrawCommand("@a", $"{{\"storage\":\"{MainStorage}\",\"nbt\":\"{temp.SaveName}\"}}")
                     );
             }
         }
