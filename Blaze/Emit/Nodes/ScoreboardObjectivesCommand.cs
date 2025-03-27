@@ -55,7 +55,7 @@ namespace Blaze.Emit.Nodes
             }
         }
 
-        internal ScoreboardObjectivesCommand(string objective, SubAction action, string? criteria = null, string? displayName = null, string? displaySlot = null, string? modifiedProperty = null, object? modifyValue = null) : base()
+        internal ScoreboardObjectivesCommand(string objective, SubAction action, string? criteria = null, string? displayName = null, string? displaySlot = null, string? modifiedProperty = null, object? modifyValue = null)
         {
             Objective = objective;
             Action = action;
@@ -66,22 +66,4 @@ namespace Blaze.Emit.Nodes
             ModifyValue = modifyValue;
         }
     }
-
-    /*
-
-    public class ScoreboardPlayersCommand : ScoreboardCommand
-    {
-        enum SubAction 
-        {
-            Add,
-            Remove,
-            Reset
-            
-        }
-           
-        internal ScoreboardPlayersCommand()
-        {
-
-        }
-    }*/
 }

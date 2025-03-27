@@ -1,14 +1,11 @@
-﻿namespace Blaze.Emit.Nodes
+﻿using static System.Net.Mime.MediaTypeNames;
+
+namespace Blaze.Emit.Nodes
 {
     public abstract class CommandNode : TextEmittionNode
     {
         public override bool IsSingleLine => true;
-        public string Keyword { get; }
-
-        public CommandNode(string keyword) : base()
-        {
-            Keyword = keyword;
-        }
+        public abstract string Keyword { get; }
     }
 
     public class TextCommand : CommandNode
@@ -18,29 +15,12 @@
         public override string Text { get; }
         public override EmittionNodeKind Kind => EmittionNodeKind.TextCommand;
         public override bool IsCleanUp { get; }
-        
-        public TextCommand(string text, bool isCleanUp) : base(text.Split().First())
+        public override string Keyword => Text.Split().First();
+
+        public TextCommand(string text, bool isCleanUp)
         {
             Text = text;
             IsCleanUp = isCleanUp;
         }
     }
-
-    /*
-
-    public class ScoreboardPlayersCommand : ScoreboardCommand
-    {
-        enum SubAction 
-        {
-            Add,
-            Remove,
-            Reset
-            
-        }
-           
-        internal ScoreboardPlayersCommand()
-        {
-
-        }
-    }*/
 }

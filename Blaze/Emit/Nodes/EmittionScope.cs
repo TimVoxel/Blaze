@@ -1,12 +1,11 @@
 ﻿using Blaze.Symbols;
 using System.Collections.Immutable;
-using static Blaze.Symbols.EmittionVariableSymbol;
 
 namespace Blaze.Emit.Nodes
 {
     public sealed class EmittionScope
     {
-        private Dictionary<string, Dictionary<EmittionVariableLocation, EmittionVariableSymbol>>? _variables;
+        private Dictionary<string, Dictionary<DataLocation, EmittionVariableSymbol>>? _variables;
         public EmittionScope? Parent { get; }
         public int NestIndex { get; }
        
@@ -33,7 +32,7 @@ namespace Blaze.Emit.Nodes
                 NestIndex = parent.NestIndex + 1;
         }
 
-        public EmittionVariableSymbol LookupOrDeclare(string name, TypeSymbol type, bool makeTemp, bool useScoping, EmittionVariableLocation? location = null)
+        public EmittionVariableSymbol LookupOrDeclare(string name, TypeSymbol type, bool makeTemp, bool useScoping, Symbols.DataLocation? location = null)
         {
             var searchLocation = location ?? EmittionFacts.ToLocation(type);
             var variable = TryLookupVariable(name, searchLocation);
@@ -47,7 +46,7 @@ namespace Blaze.Emit.Nodes
             return variable;
         }
 
-        public EmittionVariableSymbol Declare(string name, TypeSymbol type, bool makeTemp, EmittionVariableLocation? location = null)
+        public EmittionVariableSymbol Declare(string name, TypeSymbol type, bool makeTemp, Symbols.DataLocation? location = null)
         {
             var variable = new EmittionVariableSymbol(name, type, makeTemp, NestIndex, location);
             Declare(variable);
@@ -57,11 +56,11 @@ namespace Blaze.Emit.Nodes
         public void Declare(EmittionVariableSymbol emittionVariable)
         {
             if (_variables == null)
-                _variables = new Dictionary<string, Dictionary<EmittionVariableLocation, EmittionVariableSymbol>>();
+                _variables = new Dictionary<string, Dictionary<Symbols.DataLocation, EmittionVariableSymbol>>();
 
             if (!_variables.ContainsKey(emittionVariable.Name))
             {
-                _variables.Add(emittionVariable.Name, new Dictionary<EmittionVariableLocation, EmittionVariableSymbol>());
+                _variables.Add(emittionVariable.Name, new Dictionary<Symbols.DataLocation, EmittionVariableSymbol>());
                 _variables[emittionVariable.Name][emittionVariable.Location] = emittionVariable;
             }
             else
@@ -71,7 +70,7 @@ namespace Blaze.Emit.Nodes
             }
         }
 
-        public EmittionVariableSymbol? TryLookupVariable(string name, EmittionVariableLocation location)
+        public EmittionVariableSymbol? TryLookupVariable(string name, DataLocation location)
         {
             if (_variables != null)
                 if (_variables.TryGetValue(name, out var variables) && variables.TryGetValue(location, out var variable))
@@ -88,22 +87,4 @@ namespace Blaze.Emit.Nodes
             return _variables.Values.SelectMany(t => t.Values).ToImmutableArray();
         }
     }
-
-    /*
-
-    public class ScoreboardPlayersCommand : ScoreboardCommand
-    {
-        enum SubAction 
-        {
-            Add,
-            Remove,
-            Reset
-            
-        }
-           
-        internal ScoreboardPlayersCommand()
-        {
-
-        }
-    }*/
 }

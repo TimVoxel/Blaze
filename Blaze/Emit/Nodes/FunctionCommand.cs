@@ -47,8 +47,9 @@ namespace Blaze.Emit.Nodes
 
         public override bool IsCleanUp => false;
         public override EmittionNodeKind Kind => EmittionNodeKind.FunctionCommand;
+        public override string Keyword => "function";
         public string FunctionCallName { get; }
-
+        
         public FunctionWithClause? WithClause { get; }
 
         public override string Text
@@ -62,7 +63,7 @@ namespace Blaze.Emit.Nodes
             }
         }
 
-        private FunctionCommand(string function, FunctionWithClause? withClause) : base("function")
+        private FunctionCommand(string function, FunctionWithClause? withClause)
         {
             FunctionCallName = function;
             WithClause = withClause;

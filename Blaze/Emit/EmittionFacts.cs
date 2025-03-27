@@ -7,20 +7,30 @@ namespace Blaze.Emit
 {
     public static class EmittionFacts
     {
-        public static EmittionVariableLocation ToLocation(TypeSymbol type)
+        public static DataLocation ToLocation(TypeSymbol type)
         {
             if (type is ArrayTypeSymbol)
             {
-                return EmittionVariableLocation.Storage;
+                return DataLocation.Storage;
             }
             if (type == TypeSymbol.Int || type == TypeSymbol.Bool || type is EnumSymbol e && e.IsIntEnum)
             {
-                return EmittionVariableLocation.Scoreboard;
+                return DataLocation.Scoreboard;
             }
             else
             {
-                return EmittionVariableLocation.Storage;
+                return DataLocation.Storage;
             }
+        }
+
+        public static string GetLocationSyntaxName(DataLocation emittionVariableLocation)
+        {
+            return emittionVariableLocation switch
+            {
+                DataLocation.Scoreboard => "score",
+                DataLocation.Storage => "storage",
+                _ => throw new Exception($"Unexpected variable location {emittionVariableLocation}")
+            };
         }
 
         internal static PlayersOperation ToPlayersOperation(BoundBinaryOperatorKind kind)

@@ -2,25 +2,12 @@
 using static Blaze.Emit.Nodes.ScoreboardObjectivesCommand;
 namespace Blaze.Emit.Nodes
 {
-    public abstract class ScoreboardCommand : CommandNode
+    public abstract partial class ScoreboardCommand : CommandNode
     {
-        public class ScoreIdentifier
-        {
-            public string Selector { get; }
-            public string Objective { get; }
-
-            public string Text => $"{Selector} {Objective}";
-
-            public ScoreIdentifier(string selector, string objective)
-            {
-                Selector = selector;
-                Objective = objective;
-            }
-
-        }
         public override EmittionNodeKind Kind => EmittionNodeKind.ScoreboardCommand;
+        public override string Keyword => "scoreboard";
 
-        protected ScoreboardCommand() : base("scoreboard") { }
+        protected ScoreboardCommand() : base() { }
 
         internal static ScoreboardObjectivesCommand ListObjectives() => new ScoreboardObjectivesCommand(string.Empty, SubAction.List);
         internal static ScoreboardObjectivesCommand AddObjective(string objective, string criteria) => new ScoreboardObjectivesCommand(objective, SubAction.Add, criteria: criteria);

@@ -4,12 +4,6 @@ namespace Blaze.Symbols
 {
     public class EmittionVariableSymbol : VariableSymbol
     {
-        public enum EmittionVariableLocation
-        {
-            Scoreboard,
-            Storage
-        }
-
         public override SymbolKind Kind => SymbolKind.EmittionVariable;
 
         public string SaveName
@@ -32,11 +26,11 @@ namespace Blaze.Symbols
             }
         }
 
-        public EmittionVariableLocation Location { get; }
+        public DataLocation Location { get; }
         public bool IsTemp { get; }
         public int? ScopeIndex { get; }
 
-        public EmittionVariableSymbol(string name, TypeSymbol type, bool isTemp, int? scopeIndex = null, EmittionVariableLocation? location = null) : base(name, type, false, null)
+        public EmittionVariableSymbol(string name, TypeSymbol type, bool isTemp, int? scopeIndex = null, DataLocation? location = null) : base(name, type, false, null)
         {
             Location = location ?? EmittionFacts.ToLocation(type);
             IsTemp = isTemp;

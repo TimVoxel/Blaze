@@ -47,6 +47,10 @@ namespace Blaze.Emit.Nodes
                     WriteScoreboardCommand((ScoreboardCommand) node, writer);
                     break;
 
+                case EmittionNodeKind.DataCommand:
+                    WriteDataCommand((DataCommand)node, writer);
+                    break;
+
                 case EmittionNodeKind.TextBlock:
                     WriteTextBlock((TextBlockEmittionNode)node, writer);
                     break;
@@ -148,7 +152,7 @@ namespace Blaze.Emit.Nodes
 
         private static void WriteScoreboardCommand(ScoreboardCommand node, IndentedTextWriter writer)
         {
-            writer.WriteKeyword($"{node.Keyword} "); 
+            writer.WriteKeyword($"{node.Keyword} ");
 
             if (node is ScoreboardObjectivesCommand scoreboardObjetives)
             {
@@ -238,11 +242,86 @@ namespace Blaze.Emit.Nodes
                         }
                 }
             }
+            else
+                throw new Exception($"Unexpected scoreboard sub command {node.GetType()}");
 
             writer.WriteLine();
         }
 
-        private static void WriteScoreIdentifier(ScoreboardPlayersCommand.ScoreIdentifier identifier, IndentedTextWriter writer)
+        private static void WriteDataCommand(DataCommand node, IndentedTextWriter writer)
+        {
+            writer.WriteKeyword(node.Keyword);
+
+            if (node is DataGetCommand dataGet)
+            {
+                writer.WriteKeyword(" get ");
+                WriteObjectPathIdentifier(dataGet.Identifier, writer);
+
+                if (dataGet.Multiplier != null)
+                    writer.WriteNumber($" {dataGet.Multiplier}");
+            }
+            else if (node is DataRemoveCommand dataRemove)
+            {
+                writer.WriteKeyword(" remove ");
+                WriteObjectPathIdentifier(dataRemove.Identifier, writer);
+            }
+            else if (node is DataMergeCommand dataMerge)
+            {
+                writer.WriteKeyword(" merge ");
+                writer.WriteKeyword(EmittionFacts.GetLocationSyntaxName(dataMerge.Location));
+                writer.WriteIdentifier($" {dataMerge.StorageObject}");
+                writer.WriteString($" {dataMerge.Value}");
+            }
+            else if (node is DataModifyCommand dataModify)
+            {
+                writer.WriteKeyword(" modify ");
+                WriteObjectPathIdentifier(dataModify.TargetIdentifier, writer);
+
+                writer.WriteKeyword($" {dataModify.Modification.ToString().ToLower()}");
+
+                if (dataModify.Modification == DataModifyCommand.ModificationType.Insert)
+                {
+                    Debug.Assert(dataModify.InsertIndex != null);
+                    writer.WriteNumber($" {dataModify.InsertIndex}");
+                }
+
+                if (dataModify.Source is DataModifyCommand.FromSource fromSource)
+                {
+                    writer.WriteKeyword(" from ");
+                    WriteObjectPathIdentifier(fromSource.Identifier, writer);
+                }
+                else if (dataModify.Source is DataModifyCommand.ValueSource valueSource)
+                {
+                    writer.WriteKeyword(" value ");
+                    writer.WriteString(valueSource.Value);
+                }
+                else if (dataModify.Source is DataModifyCommand.StringSource stringSource)
+                {
+                    writer.WriteKeyword(" string ");
+                    WriteObjectPathIdentifier(stringSource.Identifier, writer);
+
+                    if (stringSource.StartIndex != null)
+                        writer.WriteNumber($" {stringSource.StartIndex}");
+                    if (stringSource.EndIndex != null)
+                        writer.WriteNumber($" {stringSource.EndIndex}");
+                }
+                else
+                    throw new Exception($"Unexpected data modify source {node.GetType()}");
+            }
+            else
+                throw new Exception($"Unexpected data sub command {node.GetType()}");
+
+            writer.WriteLine();
+        }
+
+        private static void WriteObjectPathIdentifier(ObjectPathIdentifier identifier, IndentedTextWriter writer)
+        {
+            writer.WriteKeyword(EmittionFacts.GetLocationSyntaxName(identifier.Location));
+            writer.WriteIdentifier($" {identifier.StorageObject}");
+            writer.WriteIdentifier($" {identifier.Path}");
+        }
+
+        private static void WriteScoreIdentifier(ScoreIdentifier identifier, IndentedTextWriter writer)
         {
             writer.WriteIdentifier($"{identifier.Selector}");
             writer.WriteIdentifier($" {identifier.Objective}");

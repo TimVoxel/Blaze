@@ -11,6 +11,7 @@
         CommentTrivia,
 
         ScoreboardCommand,
+        DataCommand,
         FunctionCommand,
 
         TextBlock,
