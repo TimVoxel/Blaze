@@ -19,7 +19,7 @@ namespace Blaze.Emit.Nodes
             }
         }
 
-        public override bool IsSingleLine => false;
+        public override bool IsSingleLine => Lines.Length <= 1;
         public override EmittionNodeKind Kind => EmittionNodeKind.TextBlock;
 
         public TextBlockEmittionNode(ImmutableArray<TextEmittionNode> lines)
@@ -27,22 +27,4 @@ namespace Blaze.Emit.Nodes
             Lines = lines;
         }
     }
-
-    /*
-
-    public class ScoreboardPlayersCommand : ScoreboardCommand
-    {
-        enum SubAction 
-        {
-            Add,
-            Remove,
-            Reset
-            
-        }
-           
-        internal ScoreboardPlayersCommand()
-        {
-
-        }
-    }*/
 }

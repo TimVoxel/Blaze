@@ -14,6 +14,7 @@
         DatapackCommand,
         DifficultyCommand,
         FunctionCommand,
+        ForceloadCommand,
         GameruleCommand,
         ScoreboardCommand,
         TellrawCommand,

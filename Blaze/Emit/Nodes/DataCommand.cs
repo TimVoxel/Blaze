@@ -1,4 +1,5 @@
-﻿using Blaze.Symbols;
+﻿using Blaze.Emit.Data;
+using Blaze.Symbols;
 using System.Diagnostics;
 
 namespace Blaze.Emit.Nodes

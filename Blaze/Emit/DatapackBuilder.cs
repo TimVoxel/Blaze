@@ -1,4 +1,5 @@
 ﻿using Blaze.Binding;
+using Blaze.Emit.Data;
 using Blaze.Emit.NameTranslation;
 using Blaze.Emit.Nodes;
 using Blaze.Symbols;
@@ -11,10 +12,9 @@ namespace Blaze.Emit
 {
     internal sealed class DatapackBuilder
     {
-        private const int DEBUG_CHUNK_X = 10000000;
-        private const int DEBUG_CHUNK_Z = 10000000;
         private const string CONST = "CONST";
 
+        private static readonly Coordinates2 _debugChunk = new Coordinates2("10000000", "10000000");
         private static readonly UUID _mathEntity1 = new UUID(1068730519, 377069937, 1764794166, -1230438844);
         private static readonly UUID _mathEntity2 = new UUID(-1824770608, 1852200875, -1037488134, 520770809);
         private static readonly EmittionVariableSymbol _macro = new EmittionVariableSymbol(MacroEmittionVariableSymbol.MACRO_PREFIX, TypeSymbol.Object, true);
@@ -138,10 +138,10 @@ namespace Blaze.Emit
 
             //Debug chunk setup
             _initFunction.AddLineBreak();
-            _initFunction.AddCommand($"forceload add {DEBUG_CHUNK_X} {DEBUG_CHUNK_Z}");
+            _initFunction.AddCommand(new ForceloadCommand(ForceloadCommand.SubAction.Add, _debugChunk));
             _initFunction.AddCommand($"kill @e[tag=debug,tag=blz]");
-            _initFunction.AddCommand($"summon item_display {DEBUG_CHUNK_X} 0 {DEBUG_CHUNK_Z} {{Tags:[\"blz\",\"debug\", \"first\"], UUID:{_mathEntity1.TagValue}, item:{{ id:\"stone_button\",Count:1b,components:{{\"minecraft:custom_data\":{{greater:1,less:0}}}}}}}}");
-            _initFunction.AddCommand($"summon item_display {DEBUG_CHUNK_X} 0 {DEBUG_CHUNK_Z} {{Tags:[\"blz\",\"debug\", \"second\"], UUID:{_mathEntity2.TagValue}, item:{{ id:\"stone_button\",Count:1b,components:{{\"minecraft:custom_data\":{{greater:0,less:1}}}}}}}}");
+            _initFunction.AddCommand($"summon item_display {_debugChunk.X} 0 {_debugChunk.Z} {{Tags:[\"blz\",\"debug\", \"first\"], UUID:{_mathEntity1.TagValue}, item:{{ id:\"stone_button\",Count:1b,components:{{\"minecraft:custom_data\":{{greater:1,less:0}}}}}}}}");
+            _initFunction.AddCommand($"summon item_display {_debugChunk.X} 0 {_debugChunk.Z} {{Tags:[\"blz\",\"debug\", \"second\"], UUID:{_mathEntity2.TagValue}, item:{{ id:\"stone_button\",Count:1b,components:{{\"minecraft:custom_data\":{{greater:0,less:1}}}}}}}}");
         }
 
         private string GetEmittionVariableName(VariableSymbol variable)
@@ -187,11 +187,6 @@ namespace Blaze.Emit
                     if (childrenBuilder == null)
                         childrenBuilder = ImmutableArray.CreateBuilder<StructureEmittionNode>();
 
-                    var builder = _usedBuiltIn[function];
-
-                    //if (function.ReturnType != TypeSymbol.Void)
-                    //    builder.Content.Insert(0, GetResetCommand(_returnValue));
-                    
                     var emittion = _usedBuiltIn[function].ToFunction();
                     childrenBuilder.Add(emittion);
                 }
@@ -293,44 +288,30 @@ namespace Blaze.Emit
 
         private TextEmittionNode GetResetCommand(EmittionVariableSymbol local)
         {
-            switch (local.Location)
+            return local.Location switch
             {
-                case DataLocation.Scoreboard:
-                    return ScoreReset(local);
-                case DataLocation.Storage:
-                    return DataRemove(local);
-                default:
-                    throw new Exception($"Unexpected variable location {local.Location}");
-            }
+                DataLocation.Scoreboard => ScoreReset(local),
+                DataLocation.Storage => DataRemove(local),
+                _ => throw new Exception($"Unexpected variable location {local.Location}"),
+            };
         }
 
         private TextEmittionNode GetStatement(MinecraftFunction.Builder functionBuilder, BoundStatement node)
         {
-            switch (node.Kind)
+            return node.Kind switch
             {
-                case BoundNodeKind.NopStatement:
-                    return GetNopStatement();
-                case BoundNodeKind.BlockStatement:
-                    return GetBlockStatement(functionBuilder, (BoundBlockStatement)node);
-                case BoundNodeKind.ExpressionStatement:
-                    return GetExpressionStatement(functionBuilder, (BoundExpressionStatement)node);
-                case BoundNodeKind.VariableDeclarationStatement:
-                    return GetVariableDeclarationStatement(functionBuilder, (BoundVariableDeclarationStatement)node);
-                case BoundNodeKind.IfStatement:
-                    return GetIfStatement(functionBuilder, (BoundIfStatement)node);
-                case BoundNodeKind.WhileStatement:
-                    return GetWhileStatement(functionBuilder, (BoundWhileStatement)node);
-                case BoundNodeKind.DoWhileStatement:
-                    return GetDoWhileStatement(functionBuilder, (BoundDoWhileStatement)node);
-                case BoundNodeKind.BreakStatement:
-                    return GetBreakStatement(functionBuilder, (BoundBreakStatement)node);
-                case BoundNodeKind.ContinueStatement:
-                    return GetContinueStatement(functionBuilder, (BoundContinueStatement)node);
-                case BoundNodeKind.ReturnStatement:
-                    return GetReturnStatement(functionBuilder, (BoundReturnStatement)node);
-                default:
-                    throw new Exception($"Unexpected node {node.Kind}");
-            }
+                BoundNodeKind.NopStatement => GetNopStatement(),
+                BoundNodeKind.BlockStatement => GetBlockStatement(functionBuilder, (BoundBlockStatement)node),
+                BoundNodeKind.ExpressionStatement => GetExpressionStatement(functionBuilder, (BoundExpressionStatement)node),
+                BoundNodeKind.VariableDeclarationStatement => GetVariableDeclarationStatement(functionBuilder, (BoundVariableDeclarationStatement)node),
+                BoundNodeKind.IfStatement => GetIfStatement(functionBuilder, (BoundIfStatement)node),
+                BoundNodeKind.WhileStatement => GetWhileStatement(functionBuilder, (BoundWhileStatement)node),
+                BoundNodeKind.DoWhileStatement => GetDoWhileStatement(functionBuilder, (BoundDoWhileStatement)node),
+                BoundNodeKind.BreakStatement => GetBreakStatement(functionBuilder, (BoundBreakStatement)node),
+                BoundNodeKind.ContinueStatement => GetContinueStatement(functionBuilder, (BoundContinueStatement)node),
+                BoundNodeKind.ReturnStatement => GetReturnStatement(functionBuilder, (BoundReturnStatement)node),
+                _ => throw new Exception($"Unexpected node {node.Kind}"),
+            };
         }
 
         private TextEmittionNode GetBlockStatement(MinecraftFunction.Builder functionBuilder, BoundBlockStatement node)
@@ -1411,7 +1392,7 @@ namespace Blaze.Emit
             var builder = ImmutableArray.CreateBuilder<TextEmittionNode>();
 
             if (GetOrCreateBuiltIn(BuiltInNamespace.Blaze.Math.PositionY, out var macro))
-                macro.AddMacro(new TextCommand($"tp @s {DEBUG_CHUNK_X} {macroY.Accessor} {DEBUG_CHUNK_Z}", false));
+                macro.AddMacro(new TextCommand($"tp @s {_debugChunk.X} {macroY.Accessor} {_debugChunk.Z}", false));
             
             builder.Add(GetAssignment(functionBuilder, macroY, left, current));
             builder.Add(new TextCommand($"execute as {_mathEntity1} run function {macro.CallName} with storage {MainStorage} {_macro.SaveName}", false));
@@ -1432,27 +1413,27 @@ namespace Blaze.Emit
                     break;
 
                 case BoundBinaryOperatorKind.Greater:
-                    builder.Add(new TextCommand($"execute positioned {DEBUG_CHUNK_X} 19999999.9999 {DEBUG_CHUNK_Z} run tag @e[type=item_display,tag=blz,tag=debug,sort=nearest,limit=1] add .this", false));
+                    builder.Add(new TextCommand($"execute positioned {_debugChunk.X} 19999999.9999 {_debugChunk.Z} run tag @e[type=item_display,tag=blz,tag=debug,sort=nearest,limit=1] add .this", false));
                     builder.Add(new TextCommand($"execute store result score {symbol.SaveName} {Vars} run data get entity @e[type=item_display,tag=blz,tag=debug,tag=.this,limit=1] item.components.\"minecraft:custom_data\".greater", false));
                     builder.Add(new TextCommand($"execute at @e[type=item_display,tag=blz,tag=debug,tag=.this,limit=1] if entity @e[type=item_display,tag=blz,tag=debug,tag=!.this,distance=..0.0001] run scoreboard players set {symbol.SaveName} {Vars} 0", false));
                     builder.Add(new TextCommand($"tag @e[tag=.this] remove .this", false));
                     break;
 
                 case BoundBinaryOperatorKind.Less:
-                    builder.Add(new TextCommand($"execute positioned {DEBUG_CHUNK_X} 19999999.9999 {DEBUG_CHUNK_Z} run tag @e[type=item_display,tag=blz,tag=debug,sort=nearest,limit=1] add .this", false));
+                    builder.Add(new TextCommand($"execute positioned {_debugChunk.X} 19999999.9999 {_debugChunk.Z} run tag @e[type=item_display,tag=blz,tag=debug,sort=nearest,limit=1] add .this", false));
                     builder.Add(new TextCommand($"execute store result score {symbol.SaveName} {Vars} run data get entity @e[type=item_display,tag=blz,tag=debug,tag=.this,limit=1] item.components.\"minecraft:custom_data\".less", false));
                     builder.Add(new TextCommand($"execute at @e[type=item_display,tag=blz,tag=debug,tag=.this,limit=1] if entity @e[type=item_display,tag=blz,tag=debug,tag=!.this,distance=..0.0001] run scoreboard players set {symbol.SaveName} {Vars} 0", false));
                     builder.Add(new TextCommand($"tag @e[tag=.this] remove .this", false));
                     break;
 
                 case BoundBinaryOperatorKind.GreaterOrEquals:
-                    builder.Add(new TextCommand($"execute positioned {DEBUG_CHUNK_X} 19999999.9999 {DEBUG_CHUNK_Z} run tag @e[type=item_display,tag=blz,tag=debug,sort=nearest,limit=1] add .this", false));
+                    builder.Add(new TextCommand($"execute positioned {_debugChunk.X} 19999999.9999 {_debugChunk.Z} run tag @e[type=item_display,tag=blz,tag=debug,sort=nearest,limit=1] add .this", false));
                     builder.Add(new TextCommand($"execute store result score {symbol.SaveName} {Vars} run data get entity @e[type=item_display,tag=blz,tag=debug,tag=.this,limit=1] item.components.\"minecraft:custom_data\".greater", false));
                     builder.Add(new TextCommand($"tag @e[tag=.this] remove .this", false));
                     break;
 
                 case BoundBinaryOperatorKind.LessOrEquals:
-                    builder.Add(new TextCommand($"execute positioned {DEBUG_CHUNK_X} 19999999.9999 {DEBUG_CHUNK_Z} run tag @e[type=item_display,tag=blz,tag=debug,sort=nearest,limit=1] add .this", false));
+                    builder.Add(new TextCommand($"execute positioned {_debugChunk.X} 19999999.9999 {_debugChunk.Z} run tag @e[type=item_display,tag=blz,tag=debug,sort=nearest,limit=1] add .this", false));
                     builder.Add(new TextCommand($"execute store result score {symbol.SaveName} {Vars} run data get entity @e[type=item_display,tag=blz,tag=debug,tag=.this,limit=1] item.components.\"minecraft:custom_data\".less", false));
                     builder.Add(new TextCommand($"execute at @e[type=item_display,tag=blz,tag=debug,tag=.this,limit=1] if entity @e[type=item_display,tag=blz,tag=debug,tag=!.this,distance=..0.0001] run scoreboard players set {symbol.SaveName} {Vars} 1", false));
                     builder.Add(new TextCommand($"tag @e[tag=.this] remove .this", false));
@@ -1491,7 +1472,7 @@ namespace Blaze.Emit
                     {
                         if (GetOrCreateBuiltIn(BuiltInNamespace.Blaze.Math.Add, out macro))
                         {
-                            macro.AddMacro(new TextCommand($"execute positioned ~ {macroA.Accessor} ~ run tp {entity} {DEBUG_CHUNK_X} ~{macroB.Accessor} {DEBUG_CHUNK_Z}", false));
+                            macro.AddMacro(new TextCommand($"execute positioned ~ {macroA.Accessor} ~ run tp {entity} {_debugChunk.X} ~{macroB.Accessor} {_debugChunk.Z}", false));
                         }
                         break;
                     }
@@ -1501,7 +1482,7 @@ namespace Blaze.Emit
                         var pol = functionBuilder.Scope.LookupOrDeclare("*pol", TypeSymbol.Object, true, false);
 
                         if (GetOrCreateBuiltIn(BuiltInNamespace.Blaze.Math.Subtract, out macro))
-                            macro.AddMacro(new TextCommand($"execute positioned ~ {macroB.Accessor} ~ run tp {entity} {DEBUG_CHUNK_X} ~{macroPolarity.Accessor}{macroA.Accessor} {DEBUG_CHUNK_Z}", false));
+                            macro.AddMacro(new TextCommand($"execute positioned ~ {macroB.Accessor} ~ run tp {entity} {_debugChunk.X} ~{macroPolarity.Accessor}{macroA.Accessor} {_debugChunk.Z}", false));
 
                         if (macro.GetOrCreateSub("if_minus", out var sub))
                         {
@@ -1547,7 +1528,7 @@ namespace Blaze.Emit
             if (kind == BoundBinaryOperatorKind.Addition || kind == BoundBinaryOperatorKind.Subtraction)
             {
                 blockBuilder.Add(new TextCommand($"data modify storage {MainStorage} {symbol.SaveName} set from entity {_mathEntity1.ToString()} Pos[1]", false));
-                blockBuilder.Add(new TextCommand($"tp {entity} {DEBUG_CHUNK_X} 0 {DEBUG_CHUNK_Z}", false));
+                blockBuilder.Add(new TextCommand($"tp {entity} {_debugChunk.X} 0 {_debugChunk.Z}", false));
 
                 if (left.Type == TypeSymbol.Float)
                     blockBuilder.Add(GetFloatConversion(functionBuilder, symbol, symbol));
@@ -2065,12 +2046,9 @@ namespace Blaze.Emit
         private TextEmittionNode GetPrint(MinecraftFunction.Builder functionBuilder, BoundCallExpression call, int tempIndex)
         {
             var argument = call.Arguments[0];
-            var command = string.Empty;
 
             if (argument is BoundLiteralExpression literal)
-            {
                 return new TellrawCommand("@a", $"{{\"text\":\"{literal.Value}\"}}");
-            }
             else if (argument is BoundVariableExpression variable)
             {
                 var varSymbol = ToEmittionVariable(functionBuilder, variable.Variable, false, true);

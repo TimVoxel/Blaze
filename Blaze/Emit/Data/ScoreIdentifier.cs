@@ -1,6 +1,6 @@
 ﻿using Blaze.Symbols;
 
-namespace Blaze.Emit.Nodes
+namespace Blaze.Emit.Data
 {
     public class ScoreIdentifier : DataIdentifier
     {

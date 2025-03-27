@@ -1,4 +1,6 @@
-﻿namespace Blaze.Emit.Nodes
+﻿using Blaze.Emit.Data;
+
+namespace Blaze.Emit.Nodes
 {
     public class ScoreboardPlayersCommand : ScoreboardCommand
     {

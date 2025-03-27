@@ -76,12 +76,6 @@ namespace Blaze.Emit.Nodes
                 Scope = new EmittionScope(previousScope);
             }
 
-            /*public void AddLocal(EmittionVariableSymbol emittionVariableSymbol)
-            {
-                if (!Scope.Contains(emittionVariableSymbol))
-                    Locals.Add(emittionVariableSymbol);
-            }*/
-
             public MinecraftFunction ToFunction()
             {
                 var subBuilder = ImmutableArray.CreateBuilder<MinecraftFunction>();
@@ -95,6 +89,7 @@ namespace Blaze.Emit.Nodes
             public Builder CreateSub(SubFunctionKind kind)
             {
                 var name = string.Empty;
+
                 switch (kind)
                 {
                     case Emit.SubFunctionKind.If:

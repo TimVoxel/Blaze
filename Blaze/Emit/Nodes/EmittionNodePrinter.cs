@@ -1,4 +1,5 @@
-﻿using Blaze.IO;
+﻿using Blaze.Emit.Data;
+using Blaze.IO;
 using System.CodeDom.Compiler;
 using System.Diagnostics;
 using System.Globalization;
@@ -64,6 +65,10 @@ namespace Blaze.Emit.Nodes
                     WriteFunctionCommand((FunctionCommand)node, writer);
                     break;
 
+                case EmittionNodeKind.ForceloadCommand:
+                    WriteForceloadCommand((ForceloadCommand)node, writer);
+                    break;
+
                 case EmittionNodeKind.ScoreboardCommand:
                     WriteScoreboardCommand((ScoreboardCommand)node, writer);
                     break;
@@ -75,7 +80,6 @@ namespace Blaze.Emit.Nodes
                 case EmittionNodeKind.WeatherCommand:
                     WriteWeatherCommand((WeatherCommand)node, writer);
                     break;
-
 
                 case EmittionNodeKind.TextBlock:
                     WriteTextBlock((TextBlockEmittionNode)node, writer);
@@ -356,6 +360,12 @@ namespace Blaze.Emit.Nodes
             writer.WriteIdentifier($" {identifier.Objective}");
         }
 
+        private static void WriteCoords2(Coordinates2 coords, IndentedTextWriter writer)
+        {
+            writer.WriteNumber($"{coords.X} ");
+            writer.WriteNumber(coords.Z);
+        }
+
         private static void WriteDatapackCommand(DatapackCommand node, IndentedTextWriter writer)
         {
             writer.WriteKeyword(node.Keyword);
@@ -400,16 +410,6 @@ namespace Blaze.Emit.Nodes
             writer.WriteLine();
         }
 
-        private static void WriteGameruleCommand(GameruleCommand node, IndentedTextWriter writer)
-        {
-            writer.WriteKeyword(node.Keyword);
-            writer.WriteIdentifier($" {node.GameruleName}");
-
-            if (node.Value != null)
-                writer.WriteNumber($" {node.Value}");
-            writer.WriteLine();
-        }
-
         private static void WriteFunctionCommand(FunctionCommand node, IndentedTextWriter writer)
         {
             writer.WriteKeyword(node.Keyword);
@@ -426,9 +426,60 @@ namespace Blaze.Emit.Nodes
                     Debug.Assert(node.WithClause.Symbol != null);
                     writer.WriteKeyword(" with storage ");
                     writer.WriteIdentifier(node.WithClause.Storage);
-                    writer.WriteIdentifier($" {node.WithClause.Symbol }");
+                    writer.WriteIdentifier($" {node.WithClause.Symbol}");
                 }
             }
+            writer.WriteLine();
+        }
+
+        private static void WriteForceloadCommand(ForceloadCommand node, IndentedTextWriter writer)
+        {
+            writer.WriteKeyword(node.Keyword);
+            writer.WriteKeyword($" {node.Action.ToString().ToLower()}");
+
+            switch (node.Action)
+            {
+                case ForceloadCommand.SubAction.Add:
+                    Debug.Assert(node.Start != null);
+                    writer.Write(" "); 
+                    WriteCoords2(node.Start, writer);
+                    if (node.End != null)
+                        WriteCoords2(node.End, writer);
+                    break;
+
+                case ForceloadCommand.SubAction.Remove:
+                    Debug.Assert(node.Start != null);
+                    writer.Write(" ");
+                    WriteCoords2(node.Start, writer);
+                    if (node.RemoveAll != null && (bool)node.RemoveAll)
+                        writer.WriteKeyword(" all");
+                    else if (node.End != null)
+                    {
+                        writer.Write(" ");
+                        WriteCoords2(node.End, writer);
+
+                    }
+                    break;
+
+                case ForceloadCommand.SubAction.Query:
+                    if (node.Start != null)
+                    {
+                        writer.Write(" ");
+                        WriteCoords2(node.Start, writer);
+                    }
+                    break;
+            }
+
+            writer.WriteLine();
+        }
+
+        private static void WriteGameruleCommand(GameruleCommand node, IndentedTextWriter writer)
+        {
+            writer.WriteKeyword(node.Keyword);
+            writer.WriteIdentifier($" {node.GameruleName}");
+
+            if (node.Value != null)
+                writer.WriteNumber($" {node.Value}");
             writer.WriteLine();
         }
 

@@ -90,7 +90,7 @@ namespace Blaze.Emit
         {
             if (type is NamedTypeSymbol)
                 return "{}";
-            if (type is EnumSymbol e)
+            if (type is EnumSymbol)
                 return "{}";
             if (type == TypeSymbol.Object)
                 return "0";
