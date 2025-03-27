@@ -157,7 +157,12 @@ namespace Blaze.Emit.Nodes
 
             //Temporary
             public void AddCommand(string command, bool isCleanUp = false) => Content.Add(new TextCommand(command, isCleanUp));
-            public void AddMacro(string command) => Content.Add(new TextCommand($"${command}", false));
+            
+            public void AddMacro(CommandNode command)
+            {
+                var macro = new MacroCommand(command);
+                Content.Add(macro);
+            }
         }
 
         public SubFunctionKind? SubFunctionKind { get; }

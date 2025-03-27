@@ -18,7 +18,8 @@
         ScoreboardCommand,
         TellrawCommand,
         WeatherCommand,
-        
+
+        MacroCommand,
         TextBlock,
 
         //Temporary

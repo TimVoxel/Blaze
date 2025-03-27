@@ -2,11 +2,21 @@
 
 namespace Blaze.Symbols
 {
+    public class MacroEmittionVariableSymbol : EmittionVariableSymbol
+    {
+        public const string MACRO_PREFIX = "*macros";
+        public string Accessor => $"$({Name})";
+
+        public override string SaveName => $"*{MACRO_PREFIX}.{Name}";
+
+        public MacroEmittionVariableSymbol(string name) : base(name, TypeSymbol.Object, true, null, DataLocation.Storage) { }
+    }
+
     public class EmittionVariableSymbol : VariableSymbol
     {
         public override SymbolKind Kind => SymbolKind.EmittionVariable;
 
-        public string SaveName
+        public virtual string SaveName
         {
             get
             {

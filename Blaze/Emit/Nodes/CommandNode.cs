@@ -8,8 +8,6 @@
 
     public class TextCommand : CommandNode
     {
-        //This class is a placeholder and should be replaced by specific command classes
-
         public override string Text { get; }
         public override EmittionNodeKind Kind => EmittionNodeKind.TextCommand;
         public override string Keyword => Text.Split().First();

@@ -82,10 +82,16 @@ namespace Blaze.Emit.Nodes
                     break;
 
 
-                // Temporary
+                case EmittionNodeKind.MacroCommand:
+                    WriteMacroCommand((MacroCommand)node, writer);
+                    break;
+
                 case EmittionNodeKind.TextCommand:
                     WriteTextCommand((TextCommand)node, writer);
                     break;
+
+                default:
+                    throw new Exception($"Unexpected node kind {node.Kind}");
             }
         }
 
@@ -440,10 +446,12 @@ namespace Blaze.Emit.Nodes
             writer.WriteKeyword($" {node.WeatherType}");
 
             if (node.Duration != null)
-                writer.WriteNumber(node.Duration);
+                writer.WriteNumber($" {node.Duration}");
 
             if (node.TimeUnits != null)
                 writer.WriteString(node.TimeUnits);
+
+            writer.WriteLine();
         }
 
         private static void WriteTextBlock(TextBlockEmittionNode node, IndentedTextWriter writer)
@@ -461,6 +469,12 @@ namespace Blaze.Emit.Nodes
         private static void WriteTextCommand(TextCommand node, IndentedTextWriter writer)
         {
             writer.WriteLine(node.Text);
+        }
+
+        private static void WriteMacroCommand(MacroCommand node, IndentedTextWriter writer)
+        {
+            writer.WritePunctuation("$");
+            node.Command.WriteTo(writer);
         }
     }
 }

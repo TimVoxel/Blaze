@@ -2,6 +2,20 @@
 
 namespace Blaze.Emit.Nodes
 {
+    public class MacroCommand : CommandNode
+    {
+        public override string Keyword => Command.Keyword;
+        public CommandNode Command { get; }
+        public override EmittionNodeKind Kind => EmittionNodeKind.MacroCommand;
+
+        public override string Text => $"${Command.Text}";
+
+        public MacroCommand(CommandNode command)
+        {
+            Command = command;
+        }
+    }
+
     public abstract class DatapackCommand : CommandNode
     {
         public override EmittionNodeKind Kind => EmittionNodeKind.DatapackCommand;
@@ -56,7 +70,7 @@ namespace Blaze.Emit.Nodes
             }
         }
 
-        public DatapackEnableCommand(string name, EnableMode? mode, string? otherName)
+        public DatapackEnableCommand(string name, EnableMode? mode = null, string? otherName = null)
         {
             PackName = name;
             Mode = mode;
