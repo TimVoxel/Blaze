@@ -69,6 +69,10 @@ namespace Blaze.Emit.Nodes
                     WriteGameruleCommand((GameruleCommand)node, writer);
                     break;
 
+                case EmittionNodeKind.KillCommand:
+                    WriteKillCommand((KillCommnad)node, writer);
+                    break;
+
                 case EmittionNodeKind.ScoreboardCommand:
                     WriteScoreboardCommand((ScoreboardCommand)node, writer);
                     break;
@@ -107,6 +111,7 @@ namespace Blaze.Emit.Nodes
             }
         }
 
+       
         private static void WriteDatapack(Datapack node, IndentedTextWriter writer)
         {
             writer.WriteKeyword("datapack ");
@@ -399,6 +404,13 @@ namespace Blaze.Emit.Nodes
             writer.WriteLine();
         }
 
+        private static void WriteKillCommand(KillCommnad node, IndentedTextWriter writer)
+        {
+            writer.WriteKeyword(node.Keyword);
+            writer.WriteIdentifier($" {node.Selector}");
+            writer.WriteLine();
+        }
+
         private static void WriteScoreboardCommand(ScoreboardCommand node, IndentedTextWriter writer)
         {
             writer.WriteKeyword($"{node.Keyword} ");
@@ -505,6 +517,8 @@ namespace Blaze.Emit.Nodes
 
             if (node.Nbt != null)
                 writer.WriteString($" {node.Nbt}");
+
+            writer.WriteLine();
         }
 
         private static void WriteTeleportCommand(TeleportCommand node, IndentedTextWriter writer)

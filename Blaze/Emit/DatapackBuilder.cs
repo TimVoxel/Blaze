@@ -139,7 +139,7 @@ namespace Blaze.Emit
             //Debug chunk setup
             _initFunction.AddLineBreak();
             _initFunction.AddCommand(new ForceloadCommand(ForceloadCommand.SubAction.Add, _debugChunk));
-            _initFunction.AddCommand($"kill @e[tag=debug,tag=blz]");
+            _initFunction.AddCommand(new KillCommnad("@e[tag=debug,tag=blz]"));
 
             var coords = new Coordinates3(_debugChunk.X, "0", _debugChunk.Z);
             _initFunction.AddCommand(new SummonCommand("item_display", coords, $"{{Tags:[\"blz\",\"debug\",\"first\"], UUID:{_mathEntity1.TagValue}, item:{{id:\"stone_button\",Count:1b,components:{{\"minecraft:custom_data\":{{greater:1,less:0}}}}}}}}"));

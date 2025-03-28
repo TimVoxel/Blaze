@@ -16,6 +16,7 @@
         FunctionCommand,
         ForceloadCommand,
         GameruleCommand,
+        KillCommand,
         ScoreboardCommand,
         SummonCommand,
         TeleportCommand,
