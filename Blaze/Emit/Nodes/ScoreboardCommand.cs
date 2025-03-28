@@ -1,5 +1,5 @@
-﻿using Blaze.Binding;
-using static Blaze.Emit.Nodes.ScoreboardObjectivesCommand;
+﻿using static Blaze.Emit.Nodes.ScoreboardObjectivesCommand;
+
 namespace Blaze.Emit.Nodes
 {
     public abstract partial class ScoreboardCommand : CommandNode
@@ -20,7 +20,7 @@ namespace Blaze.Emit.Nodes
            => new ScoreboardPlayersCommand(ScoreboardPlayersCommand.SubAction.Get, new ScoreboardPlayersCommand.ScoreIdentifierClause(selector, objective), multiplier);
 
         internal static ScoreboardPlayersCommand ScoreOperation(string leftSelector, string leftObjective, ScoreboardPlayersCommand.ScoreboardPlayersOperationsClause.PlayersOperation operation, string rightSelector, string rightObjective)
-            => new ScoreboardPlayersCommand(ScoreboardPlayersCommand.SubAction.Operations, 
+            => new ScoreboardPlayersCommand(ScoreboardPlayersCommand.SubAction.Operation, 
                 new ScoreboardPlayersCommand.ScoreboardPlayersOperationsClause(leftSelector, leftObjective, operation, rightSelector, rightObjective),
                 null);
 

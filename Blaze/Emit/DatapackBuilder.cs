@@ -338,11 +338,6 @@ namespace Blaze.Emit
 
         private TextEmittionNode GetIfStatement(MinecraftFunction.Builder functionBuilder, BoundIfStatement node)
         {
-            //Emit condition into <.temp>
-            //execute if <.temp> run subfunction
-            //else generate a sub function and run it instead
-            //if there is an else clause generate another sub with the else body
-
             var builder = ImmutableArray.CreateBuilder<TextEmittionNode>();
             var subFunction = functionBuilder.CreateSub(SubFunctionKind.If);
             subFunction.Content.Add(GetStatement(subFunction, node.Body));
@@ -420,14 +415,14 @@ namespace Blaze.Emit
             {
                 return Block(
                         GetCleanUp(functionBuilder, functionBuilder.Scope.GetLocals()),
-                        new TextCommand("return 0", false)
+                        new ReturnValueCommand("0")
                     );
             }
 
             return Block(
                     GetCleanUp(functionBuilder, functionBuilder.Scope.GetLocals()),
                     GetAssignment(functionBuilder, _returnValue, returnExpression, 0),
-                    new TextCommand($"return run data get storage {MainStorage} {_returnValue.SaveName} 1", false)
+                    new ReturnRunCommand(StorageGet(_returnValue))
                 );
         }
 

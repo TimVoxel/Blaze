@@ -41,8 +41,8 @@ namespace Blaze.Emit.Nodes
 
         public override string Text =>
             Multiplier == null
-                ? $"{Keyword} get {Identifier}"
-                : $"{Keyword} get {Identifier} {Multiplier}";
+                ? $"{Keyword} get {Identifier.Text}"
+                : $"{Keyword} get {Identifier.Text} {Multiplier}";
 
         public DataGetCommand(ObjectPathIdentifier location, string? multiplier)
         {

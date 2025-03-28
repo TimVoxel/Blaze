@@ -17,6 +17,7 @@
         ForceloadCommand,
         GameruleCommand,
         KillCommand,
+        ReturnCommand,
         ScoreboardCommand,
         SummonCommand,
         TagCommand,

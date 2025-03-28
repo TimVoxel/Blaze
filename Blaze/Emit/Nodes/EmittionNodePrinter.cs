@@ -73,6 +73,10 @@ namespace Blaze.Emit.Nodes
                     WriteKillCommand((KillCommnad)node, writer);
                     break;
 
+                case EmittionNodeKind.ReturnCommand:
+                    WriteReturnCommand((ReturnCommand)node, writer);
+                    break;
+
                 case EmittionNodeKind.ScoreboardCommand:
                     WriteScoreboardCommand((ScoreboardCommand)node, writer);
                     break;
@@ -114,7 +118,6 @@ namespace Blaze.Emit.Nodes
             }
         }
 
-       
         private static void WriteDatapack(Datapack node, IndentedTextWriter writer)
         {
             writer.WriteKeyword("datapack ");
@@ -414,6 +417,24 @@ namespace Blaze.Emit.Nodes
             writer.WriteLine();
         }
 
+        private static void WriteReturnCommand(ReturnCommand node, IndentedTextWriter writer)
+        {
+            writer.WriteKeyword(node.Keyword);
+
+            if (node is ReturnRunCommand run)
+            {
+                writer.WriteKeyword($" run ");
+                run.Command.WriteTo(writer);
+            }
+            else if (node is ReturnValueCommand value)
+            {
+                writer.WriteString($" {value.Value}");
+                writer.WriteLine();
+            }
+            else
+                throw new Exception($"Unexpected return command type {node.GetType()}");
+        }
+
         private static void WriteScoreboardCommand(ScoreboardCommand node, IndentedTextWriter writer)
         {
             writer.WriteKeyword($"{node.Keyword} ");
@@ -467,7 +488,7 @@ namespace Blaze.Emit.Nodes
                             break;
                         }
 
-                    case ScoreboardPlayersCommand.SubAction.Operations:
+                    case ScoreboardPlayersCommand.SubAction.Operation:
                         {
                             var clause = (ScoreboardPlayersCommand.ScoreboardPlayersOperationsClause)scoreboardPlayers.SubClause;
                             WriteScoreIdentifier(clause.Left, writer);

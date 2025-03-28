@@ -12,7 +12,7 @@ namespace Blaze.Emit.Nodes
         public class ListTarget : ScoreboardPlayersSubCommandClause
         {
             public override string Text { get; }
-            
+
             public ListTarget(string? target)
             {
                 Text = target ?? string.Empty;
@@ -33,7 +33,7 @@ namespace Blaze.Emit.Nodes
 
         public class ScoreboardPlayersOperationsClause : ScoreboardPlayersSubCommandClause
         {
-            public enum PlayersOperation 
+            public enum PlayersOperation
             {
                 Assignment,
                 Addition,
@@ -49,7 +49,7 @@ namespace Blaze.Emit.Nodes
             public ScoreIdentifier Left { get; }
             public PlayersOperation Operation { get; }
             public ScoreIdentifier Right { get; }
-            
+
             public override string Text => $"{Left.Text} {EmittionFacts.GetSignText(Operation)} {Right.Text}";
 
             public ScoreboardPlayersOperationsClause(string leftSelector, string leftObjective, PlayersOperation operation, string rightSelector, string rightObjective)
@@ -105,7 +105,7 @@ namespace Blaze.Emit.Nodes
             Set,
             Get,
             Remove,
-            Operations,
+            Operation,
             Reset,
             Enable,
             List,
@@ -120,7 +120,7 @@ namespace Blaze.Emit.Nodes
             Value == null
                 ? $"{Keyword} players {Action.ToString().ToLower()} {SubClause.Text}"
                 : $"{Keyword} players {Action.ToString().ToLower()} {SubClause.Text} {Value}";
-        
+
         internal ScoreboardPlayersCommand(SubAction action, ScoreboardPlayersSubCommandClause subClause, string? value)
         {
             Action = action;
@@ -128,22 +128,4 @@ namespace Blaze.Emit.Nodes
             Value = value;
         }
     }
-
-    /*
-
-    public class ScoreboardPlayersCommand : ScoreboardCommand
-    {
-        enum SubAction 
-        {
-            Add,
-            Remove,
-            Reset
-            
-        }
-           
-        internal ScoreboardPlayersCommand()
-        {
-
-        }
-    }*/
 }
