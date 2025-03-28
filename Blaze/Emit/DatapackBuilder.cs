@@ -1392,7 +1392,7 @@ namespace Blaze.Emit
             var builder = ImmutableArray.CreateBuilder<TextEmittionNode>();
 
             if (GetOrCreateBuiltIn(BuiltInNamespace.Blaze.Math.PositionY, out var macro))
-                macro.AddMacro(new TextCommand($"tp @s {_debugChunk.X} {macroY.Accessor} {_debugChunk.Z}", false));
+                macro.AddMacro(TeleportCommand.ToLocation("@s", _debugChunk.X, macroY.Accessor, _debugChunk.Z));
             
             builder.Add(GetAssignment(functionBuilder, macroY, left, current));
             builder.Add(new TextCommand($"execute as {_mathEntity1} run function {macro.CallName} with storage {MainStorage} {_macro.SaveName}", false));
@@ -1528,11 +1528,10 @@ namespace Blaze.Emit
             if (kind == BoundBinaryOperatorKind.Addition || kind == BoundBinaryOperatorKind.Subtraction)
             {
                 blockBuilder.Add(new TextCommand($"data modify storage {MainStorage} {symbol.SaveName} set from entity {_mathEntity1.ToString()} Pos[1]", false));
-                blockBuilder.Add(new TextCommand($"tp {entity} {_debugChunk.X} 0 {_debugChunk.Z}", false));
+                blockBuilder.Add(TeleportCommand.ToLocation(entity, _debugChunk.X, "0", _debugChunk.Z));
 
                 if (left.Type == TypeSymbol.Float)
                     blockBuilder.Add(GetFloatConversion(functionBuilder, symbol, symbol));
-
             }
             else if (kind == BoundBinaryOperatorKind.Multiplication)
             {

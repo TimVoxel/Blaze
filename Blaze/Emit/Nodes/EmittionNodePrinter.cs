@@ -73,6 +73,10 @@ namespace Blaze.Emit.Nodes
                     WriteScoreboardCommand((ScoreboardCommand)node, writer);
                     break;
 
+                case EmittionNodeKind.TeleportCommand:
+                    WriteTeleportCommand((TeleportCommand)node, writer);
+                    break;
+
                 case EmittionNodeKind.TellrawCommand:
                     WriteTellrawCommand((TellrawCommand)node, writer);
                     break;
@@ -99,6 +103,7 @@ namespace Blaze.Emit.Nodes
             }
         }
 
+        
         private static void WriteDatapack(Datapack node, IndentedTextWriter writer)
         {
             writer.WriteKeyword("datapack ");
@@ -366,6 +371,13 @@ namespace Blaze.Emit.Nodes
             writer.WriteNumber(coords.Z);
         }
 
+        private static void WriteCoords3(Coordinates3 coords, IndentedTextWriter writer)
+        {
+            writer.WriteNumber(coords.X);
+            writer.WriteNumber($" {coords.Y} ");
+            writer.WriteNumber(coords.Z);
+        }
+
         private static void WriteDatapackCommand(DatapackCommand node, IndentedTextWriter writer)
         {
             writer.WriteKeyword(node.Keyword);
@@ -483,6 +495,44 @@ namespace Blaze.Emit.Nodes
             writer.WriteLine();
         }
 
+        private static void WriteTeleportCommand(TeleportCommand node, IndentedTextWriter writer)
+        {
+            writer.WriteKeyword(node.Keyword);
+            writer.WriteIdentifier($" {node.TargetSelector}");
+
+            if (node is TeleportToEntityCommand tpEntity)
+                writer.WriteIdentifier($" {tpEntity.DestinationEntitySelector}");
+            else if (node is TeleportToLocationCommand tpLocation)
+            {
+                writer.Write(" ");
+                WriteCoords3(tpLocation.Location, writer);
+                
+                if (tpLocation.RotationClause != null)
+                {
+                    if (tpLocation.RotationClause is Coordinates2 pitchYaw)
+                    {
+                        writer.Write(" "); 
+                        WriteCoords2(pitchYaw, writer);
+                    }
+                    else if (tpLocation.RotationClause is TeleportToLocationCommand.FacingLocationClause facingLocation)
+                    {
+                        writer.WriteKeyword(" facing ");
+                        WriteCoords3(facingLocation.Location, writer);
+                    }
+                    else if (tpLocation.RotationClause is TeleportToLocationCommand.FacingEntityClause facingEntity)
+                    {
+                        writer.WriteKeyword(" facing");
+                        writer.WriteKeyword(" entity ");
+                        writer.WriteIdentifier(facingEntity.Selector);
+
+                        if (facingEntity.Anchor != null)
+                            writer.WriteKeyword($" {facingEntity.Anchor?.ToString().ToLower()}");
+                    }
+                }
+            }
+            writer.WriteLine();
+        }
+
         private static void WriteTellrawCommand(TellrawCommand node, IndentedTextWriter writer)
         {
             writer.WriteKeyword(node.Keyword);
@@ -490,7 +540,7 @@ namespace Blaze.Emit.Nodes
             writer.WriteString(node.Component);
             writer.WriteLine();
         }
-
+        
         private static void WriteWeatherCommand(WeatherCommand node, IndentedTextWriter writer)
         {
             writer.WriteKeyword(node.Keyword);
