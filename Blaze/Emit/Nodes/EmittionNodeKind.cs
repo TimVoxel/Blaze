@@ -17,6 +17,7 @@
         ForceloadCommand,
         GameruleCommand,
         ScoreboardCommand,
+        SummonCommand,
         TeleportCommand,
         TellrawCommand,
         WeatherCommand,

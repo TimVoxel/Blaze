@@ -57,10 +57,6 @@ namespace Blaze.Emit.Nodes
                     WriteDifficultyCommand((DifficultyCommand)node, writer);
                     break;
 
-                case EmittionNodeKind.GameruleCommand:
-                    WriteGameruleCommand((GameruleCommand)node, writer);
-                    break;
-
                 case EmittionNodeKind.FunctionCommand:
                     WriteFunctionCommand((FunctionCommand)node, writer);
                     break;
@@ -69,8 +65,16 @@ namespace Blaze.Emit.Nodes
                     WriteForceloadCommand((ForceloadCommand)node, writer);
                     break;
 
+                case EmittionNodeKind.GameruleCommand:
+                    WriteGameruleCommand((GameruleCommand)node, writer);
+                    break;
+
                 case EmittionNodeKind.ScoreboardCommand:
                     WriteScoreboardCommand((ScoreboardCommand)node, writer);
+                    break;
+
+                case EmittionNodeKind.SummonCommand:
+                    WriteSummonCommand((SummonCommand)node, writer);
                     break;
 
                 case EmittionNodeKind.TeleportCommand:
@@ -103,7 +107,6 @@ namespace Blaze.Emit.Nodes
             }
         }
 
-        
         private static void WriteDatapack(Datapack node, IndentedTextWriter writer)
         {
             writer.WriteKeyword("datapack ");
@@ -187,105 +190,6 @@ namespace Blaze.Emit.Nodes
             writer.WriteTrivia(node.Text);
             writer.WriteLine();
         }
-
-        private static void WriteScoreboardCommand(ScoreboardCommand node, IndentedTextWriter writer)
-        {
-            writer.WriteKeyword($"{node.Keyword} ");
-
-            if (node is ScoreboardObjectivesCommand scoreboardObjetives)
-            {
-                writer.WriteKeyword("objectives ");
-                writer.WriteKeyword($"{scoreboardObjetives.Action.ToString().ToLower()} ");
-
-                switch (scoreboardObjetives.Action)
-                {
-                    case SubAction.Add:
-                        writer.WriteIdentifier($"{scoreboardObjetives.Objective} ");
-                        writer.WriteIdentifier($"{scoreboardObjetives.Criteria} ");
-                        writer.WriteString($"{scoreboardObjetives.DisplayName}");
-                        break;
-                    case SubAction.Remove:
-                        writer.WriteIdentifier($"{scoreboardObjetives.Objective}");
-                        break;
-                    case SubAction.Modify:
-                        writer.WriteIdentifier($"{scoreboardObjetives.Objective} ");
-                        writer.WriteIdentifier($"{scoreboardObjetives.ModifiedProperty} ");
-                        writer.WriteIdentifier($"{scoreboardObjetives.ModifyValue}");
-                        break;
-                    case SubAction.SetDisplay:
-                        writer.WriteKeyword($"{scoreboardObjetives.DisplaySlot} ");
-                        writer.WriteIdentifier($"{scoreboardObjetives.Objective}");
-                        break;
-                }
-            }
-            else if (node is ScoreboardPlayersCommand scoreboardPlayers)
-            {
-                writer.WriteKeyword("players ");
-                writer.WriteKeyword($"{scoreboardPlayers.Action.ToString().ToLower()} ");
-
-                switch (scoreboardPlayers.Action)
-                {
-                    case ScoreboardPlayersCommand.SubAction.Add:
-                    case ScoreboardPlayersCommand.SubAction.Remove:
-                    case ScoreboardPlayersCommand.SubAction.Set:
-                    case ScoreboardPlayersCommand.SubAction.Get:
-                    case ScoreboardPlayersCommand.SubAction.Enable:
-                    case ScoreboardPlayersCommand.SubAction.Reset:
-                        {
-                            var clause = (ScoreboardPlayersCommand.ScoreIdentifierClause)scoreboardPlayers.SubClause;
-                            WriteScoreIdentifier(clause.Score, writer);
-
-                            if (scoreboardPlayers.Value != null)
-                                writer.WriteNumber($" {scoreboardPlayers.Value}");
-
-                            break;
-                        }
-
-                    case ScoreboardPlayersCommand.SubAction.Operations:
-                        {
-                            var clause = (ScoreboardPlayersCommand.ScoreboardPlayersOperationsClause)scoreboardPlayers.SubClause;
-                            WriteScoreIdentifier(clause.Left, writer);
-                            writer.WritePunctuation($" {EmittionFacts.GetSignText(clause.Operation)} ");
-                            WriteScoreIdentifier(clause.Right, writer);
-                            break;
-                        }
-
-                    case ScoreboardPlayersCommand.SubAction.List:
-                        {
-                            var clause = (ScoreboardPlayersCommand.ListTarget)scoreboardPlayers.SubClause;
-                            if (!string.IsNullOrEmpty(clause.Text))
-                                writer.WriteIdentifier(clause.Text);
-                            break;
-                        }
-
-                    case ScoreboardPlayersCommand.SubAction.Display:
-                        {
-                            if (scoreboardPlayers.SubClause is ScoreboardPlayersCommand.DisplayNameClause nameClause)
-                            {
-                                WriteScoreIdentifier(nameClause.Score, writer);
-                                writer.WriteString($" {nameClause.Name}");
-                            }
-                            else if (scoreboardPlayers.SubClause is ScoreboardPlayersCommand.DisplayNumberFormatClause numberFormatClause)
-                            {
-                                WriteScoreIdentifier(numberFormatClause.Score, writer);
-                                writer.WriteKeyword($" {numberFormatClause.Format.ToString().ToLower()}");
-
-                                if (numberFormatClause.Format == ScoreboardPlayersCommand.DisplayNumberFormatClause.NumberFormat.Styled)
-                                {
-                                    Debug.Assert(numberFormatClause.Style != null);
-                                    writer.WriteString($" {numberFormatClause.Style}");
-                                }
-                            }
-                            break;
-                        }
-                }
-            }
-            else
-                throw new Exception($"Unexpected scoreboard sub command {node.GetType()}");
-
-            writer.WriteLine();
-        }
-
         private static void WriteDataCommand(DataCommand node, IndentedTextWriter writer)
         {
             writer.WriteKeyword(node.Keyword);
@@ -493,6 +397,114 @@ namespace Blaze.Emit.Nodes
             if (node.Value != null)
                 writer.WriteNumber($" {node.Value}");
             writer.WriteLine();
+        }
+
+        private static void WriteScoreboardCommand(ScoreboardCommand node, IndentedTextWriter writer)
+        {
+            writer.WriteKeyword($"{node.Keyword} ");
+
+            if (node is ScoreboardObjectivesCommand scoreboardObjetives)
+            {
+                writer.WriteKeyword("objectives ");
+                writer.WriteKeyword($"{scoreboardObjetives.Action.ToString().ToLower()} ");
+
+                switch (scoreboardObjetives.Action)
+                {
+                    case SubAction.Add:
+                        writer.WriteIdentifier($"{scoreboardObjetives.Objective} ");
+                        writer.WriteIdentifier($"{scoreboardObjetives.Criteria} ");
+                        writer.WriteString($"{scoreboardObjetives.DisplayName}");
+                        break;
+                    case SubAction.Remove:
+                        writer.WriteIdentifier($"{scoreboardObjetives.Objective}");
+                        break;
+                    case SubAction.Modify:
+                        writer.WriteIdentifier($"{scoreboardObjetives.Objective} ");
+                        writer.WriteIdentifier($"{scoreboardObjetives.ModifiedProperty} ");
+                        writer.WriteIdentifier($"{scoreboardObjetives.ModifyValue}");
+                        break;
+                    case SubAction.SetDisplay:
+                        writer.WriteKeyword($"{scoreboardObjetives.DisplaySlot} ");
+                        writer.WriteIdentifier($"{scoreboardObjetives.Objective}");
+                        break;
+                }
+            }
+            else if (node is ScoreboardPlayersCommand scoreboardPlayers)
+            {
+                writer.WriteKeyword("players ");
+                writer.WriteKeyword($"{scoreboardPlayers.Action.ToString().ToLower()} ");
+
+                switch (scoreboardPlayers.Action)
+                {
+                    case ScoreboardPlayersCommand.SubAction.Add:
+                    case ScoreboardPlayersCommand.SubAction.Remove:
+                    case ScoreboardPlayersCommand.SubAction.Set:
+                    case ScoreboardPlayersCommand.SubAction.Get:
+                    case ScoreboardPlayersCommand.SubAction.Enable:
+                    case ScoreboardPlayersCommand.SubAction.Reset:
+                        {
+                            var clause = (ScoreboardPlayersCommand.ScoreIdentifierClause)scoreboardPlayers.SubClause;
+                            WriteScoreIdentifier(clause.Score, writer);
+
+                            if (scoreboardPlayers.Value != null)
+                                writer.WriteNumber($" {scoreboardPlayers.Value}");
+
+                            break;
+                        }
+
+                    case ScoreboardPlayersCommand.SubAction.Operations:
+                        {
+                            var clause = (ScoreboardPlayersCommand.ScoreboardPlayersOperationsClause)scoreboardPlayers.SubClause;
+                            WriteScoreIdentifier(clause.Left, writer);
+                            writer.WritePunctuation($" {EmittionFacts.GetSignText(clause.Operation)} ");
+                            WriteScoreIdentifier(clause.Right, writer);
+                            break;
+                        }
+
+                    case ScoreboardPlayersCommand.SubAction.List:
+                        {
+                            var clause = (ScoreboardPlayersCommand.ListTarget)scoreboardPlayers.SubClause;
+                            if (!string.IsNullOrEmpty(clause.Text))
+                                writer.WriteIdentifier(clause.Text);
+                            break;
+                        }
+
+                    case ScoreboardPlayersCommand.SubAction.Display:
+                        {
+                            if (scoreboardPlayers.SubClause is ScoreboardPlayersCommand.DisplayNameClause nameClause)
+                            {
+                                WriteScoreIdentifier(nameClause.Score, writer);
+                                writer.WriteString($" {nameClause.Name}");
+                            }
+                            else if (scoreboardPlayers.SubClause is ScoreboardPlayersCommand.DisplayNumberFormatClause numberFormatClause)
+                            {
+                                WriteScoreIdentifier(numberFormatClause.Score, writer);
+                                writer.WriteKeyword($" {numberFormatClause.Format.ToString().ToLower()}");
+
+                                if (numberFormatClause.Format == ScoreboardPlayersCommand.DisplayNumberFormatClause.NumberFormat.Styled)
+                                {
+                                    Debug.Assert(numberFormatClause.Style != null);
+                                    writer.WriteString($" {numberFormatClause.Style}");
+                                }
+                            }
+                            break;
+                        }
+                }
+            }
+            else
+                throw new Exception($"Unexpected scoreboard sub command {node.GetType()}");
+
+            writer.WriteLine();
+        }
+
+        private static void WriteSummonCommand(SummonCommand node, IndentedTextWriter writer)
+        {
+            writer.WriteKeyword(node.Keyword);
+            writer.WriteIdentifier($" {node.EntityType} ");
+            WriteCoords3(node.Location, writer);
+
+            if (node.Nbt != null)
+                writer.WriteString($" {node.Nbt}");
         }
 
         private static void WriteTeleportCommand(TeleportCommand node, IndentedTextWriter writer)

@@ -140,8 +140,10 @@ namespace Blaze.Emit
             _initFunction.AddLineBreak();
             _initFunction.AddCommand(new ForceloadCommand(ForceloadCommand.SubAction.Add, _debugChunk));
             _initFunction.AddCommand($"kill @e[tag=debug,tag=blz]");
-            _initFunction.AddCommand($"summon item_display {_debugChunk.X} 0 {_debugChunk.Z} {{Tags:[\"blz\",\"debug\", \"first\"], UUID:{_mathEntity1.TagValue}, item:{{ id:\"stone_button\",Count:1b,components:{{\"minecraft:custom_data\":{{greater:1,less:0}}}}}}}}");
-            _initFunction.AddCommand($"summon item_display {_debugChunk.X} 0 {_debugChunk.Z} {{Tags:[\"blz\",\"debug\", \"second\"], UUID:{_mathEntity2.TagValue}, item:{{ id:\"stone_button\",Count:1b,components:{{\"minecraft:custom_data\":{{greater:0,less:1}}}}}}}}");
+
+            var coords = new Coordinates3(_debugChunk.X, "0", _debugChunk.Z);
+            _initFunction.AddCommand(new SummonCommand("item_display", coords, $"{{Tags:[\"blz\",\"debug\",\"first\"], UUID:{_mathEntity1.TagValue}, item:{{id:\"stone_button\",Count:1b,components:{{\"minecraft:custom_data\":{{greater:1,less:0}}}}}}}}"));
+            _initFunction.AddCommand(new SummonCommand("item_display", coords, $"{{Tags:[\"blz\",\"debug\", \"second\"], UUID:{_mathEntity2.TagValue}, item:{{ id:\"stone_button\",Count:1b,components:{{\"minecraft:custom_data\":{{greater:0,less:1}}}}}}}}"));
         }
 
         private string GetEmittionVariableName(VariableSymbol variable)
