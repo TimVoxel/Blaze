@@ -19,6 +19,7 @@
         KillCommand,
         ScoreboardCommand,
         SummonCommand,
+        TagCommand,
         TeleportCommand,
         TellrawCommand,
         WeatherCommand,

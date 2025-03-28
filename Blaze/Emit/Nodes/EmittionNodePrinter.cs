@@ -81,6 +81,10 @@ namespace Blaze.Emit.Nodes
                     WriteSummonCommand((SummonCommand)node, writer);
                     break;
 
+                case EmittionNodeKind.TagCommand:
+                    WriteTagCommand((TagCommand)node, writer);
+                    break;
+
                 case EmittionNodeKind.TeleportCommand:
                     WriteTeleportCommand((TeleportCommand)node, writer);
                     break;
@@ -96,7 +100,6 @@ namespace Blaze.Emit.Nodes
                 case EmittionNodeKind.TextBlock:
                     WriteTextBlock((TextBlockEmittionNode)node, writer);
                     break;
-
 
                 case EmittionNodeKind.MacroCommand:
                     WriteMacroCommand((MacroCommand)node, writer);
@@ -518,6 +521,17 @@ namespace Blaze.Emit.Nodes
             if (node.Nbt != null)
                 writer.WriteString($" {node.Nbt}");
 
+            writer.WriteLine();
+        }
+
+        private static void WriteTagCommand(TagCommand node, IndentedTextWriter writer)
+        {
+            writer.WriteKeyword(node.Keyword);
+            writer.WriteIdentifier($" {node.Selector}");
+            writer.WriteKeyword($" {node.Action.ToString().ToLower()}");
+            
+            if (node.TagName != null)
+                writer.WriteString($" {node.TagName}");
             writer.WriteLine();
         }
 

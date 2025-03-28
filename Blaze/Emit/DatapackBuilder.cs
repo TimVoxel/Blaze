@@ -1418,27 +1418,27 @@ namespace Blaze.Emit
                     builder.Add(new TextCommand($"execute positioned {_debugChunk.X} 19999999.9999 {_debugChunk.Z} run tag @e[type=item_display,tag=blz,tag=debug,sort=nearest,limit=1] add .this", false));
                     builder.Add(new TextCommand($"execute store result score {symbol.SaveName} {Vars} run data get entity @e[type=item_display,tag=blz,tag=debug,tag=.this,limit=1] item.components.\"minecraft:custom_data\".greater", false));
                     builder.Add(new TextCommand($"execute at @e[type=item_display,tag=blz,tag=debug,tag=.this,limit=1] if entity @e[type=item_display,tag=blz,tag=debug,tag=!.this,distance=..0.0001] run scoreboard players set {symbol.SaveName} {Vars} 0", false));
-                    builder.Add(new TextCommand($"tag @e[tag=.this] remove .this", false));
+                    builder.Add(new TagCommand("@e[tag=.this]", TagCommand.SubAction.Remove, ".this"));
                     break;
 
                 case BoundBinaryOperatorKind.Less:
                     builder.Add(new TextCommand($"execute positioned {_debugChunk.X} 19999999.9999 {_debugChunk.Z} run tag @e[type=item_display,tag=blz,tag=debug,sort=nearest,limit=1] add .this", false));
                     builder.Add(new TextCommand($"execute store result score {symbol.SaveName} {Vars} run data get entity @e[type=item_display,tag=blz,tag=debug,tag=.this,limit=1] item.components.\"minecraft:custom_data\".less", false));
                     builder.Add(new TextCommand($"execute at @e[type=item_display,tag=blz,tag=debug,tag=.this,limit=1] if entity @e[type=item_display,tag=blz,tag=debug,tag=!.this,distance=..0.0001] run scoreboard players set {symbol.SaveName} {Vars} 0", false));
-                    builder.Add(new TextCommand($"tag @e[tag=.this] remove .this", false));
+                    builder.Add(new TagCommand("@e[tag=.this]", TagCommand.SubAction.Remove, ".this"));
                     break;
 
                 case BoundBinaryOperatorKind.GreaterOrEquals:
                     builder.Add(new TextCommand($"execute positioned {_debugChunk.X} 19999999.9999 {_debugChunk.Z} run tag @e[type=item_display,tag=blz,tag=debug,sort=nearest,limit=1] add .this", false));
                     builder.Add(new TextCommand($"execute store result score {symbol.SaveName} {Vars} run data get entity @e[type=item_display,tag=blz,tag=debug,tag=.this,limit=1] item.components.\"minecraft:custom_data\".greater", false));
-                    builder.Add(new TextCommand($"tag @e[tag=.this] remove .this", false));
+                    builder.Add(new TagCommand("@e[tag=.this]", TagCommand.SubAction.Remove, ".this"));
                     break;
 
                 case BoundBinaryOperatorKind.LessOrEquals:
                     builder.Add(new TextCommand($"execute positioned {_debugChunk.X} 19999999.9999 {_debugChunk.Z} run tag @e[type=item_display,tag=blz,tag=debug,sort=nearest,limit=1] add .this", false));
                     builder.Add(new TextCommand($"execute store result score {symbol.SaveName} {Vars} run data get entity @e[type=item_display,tag=blz,tag=debug,tag=.this,limit=1] item.components.\"minecraft:custom_data\".less", false));
                     builder.Add(new TextCommand($"execute at @e[type=item_display,tag=blz,tag=debug,tag=.this,limit=1] if entity @e[type=item_display,tag=blz,tag=debug,tag=!.this,distance=..0.0001] run scoreboard players set {symbol.SaveName} {Vars} 1", false));
-                    builder.Add(new TextCommand($"tag @e[tag=.this] remove .this", false));
+                    builder.Add(new TagCommand("@e[tag=.this]", TagCommand.SubAction.Remove, ".this"));
                     break;
             }
 
