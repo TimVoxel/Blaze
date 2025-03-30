@@ -1,7 +1,8 @@
 ﻿using Blaze.Binding;
 using Blaze.Symbols;
-using static Blaze.Symbols.EmittionVariableSymbol;
 using static Blaze.Emit.Nodes.ScoreboardPlayersCommand.ScoreboardPlayersOperationsClause;
+using Blaze.Emit.Nodes.Execute;
+using System.Text;
 
 namespace Blaze.Emit
 {
@@ -23,7 +24,7 @@ namespace Blaze.Emit
             }
         }
 
-        public static string GetLocationSyntaxName(DataLocation emittionVariableLocation)
+        public static string GetSyntaxName(this DataLocation emittionVariableLocation)
         {
             return emittionVariableLocation switch
             {
@@ -31,6 +32,56 @@ namespace Blaze.Emit
                 DataLocation.Storage => "storage",
                 _ => throw new Exception($"Unexpected variable location {emittionVariableLocation}")
             };
+        }
+
+        public static string GetSyntaxName(this PositionedOverExecuteSubCommand.HeightMapType heightMap)
+        {
+            return heightMap switch
+            {
+                PositionedOverExecuteSubCommand.HeightMapType.WorldSurface => "world_surface",
+                PositionedOverExecuteSubCommand.HeightMapType.OceanFloor => "ocean_floor",
+                PositionedOverExecuteSubCommand.HeightMapType.MotionBlockNoLeaves => "motion_block_no_leaves",
+                PositionedOverExecuteSubCommand.HeightMapType.MotionBlocking => "motion_blocking",
+                _ => throw new Exception($"Unexpected height map type {heightMap}")
+            };
+        }
+
+        public static string GetSign(this IfScoreClause.ComparisonType comparison)
+        {
+            return comparison switch
+            {
+                IfScoreClause.ComparisonType.Greater => ">",
+                IfScoreClause.ComparisonType.GreaterOrEquals => ">=",
+                IfScoreClause.ComparisonType.Less => "<",
+                IfScoreClause.ComparisonType.LessOrEquals => "<=",
+                IfScoreClause.ComparisonType.Equals => "=",
+                _ => throw new Exception($"Unexpectefd comparison type {comparison}")
+            };
+        }
+
+        internal static IfScoreClause.ComparisonType ToComparisonType(BoundBinaryOperatorKind kind)
+        {
+            return kind switch
+            {
+                BoundBinaryOperatorKind.GreaterOrEquals => IfScoreClause.ComparisonType.GreaterOrEquals,
+                BoundBinaryOperatorKind.Greater => IfScoreClause.ComparisonType.Greater,
+                BoundBinaryOperatorKind.Equals => IfScoreClause.ComparisonType.Equals,
+                BoundBinaryOperatorKind.Less => IfScoreClause.ComparisonType.Less,
+                BoundBinaryOperatorKind.LessOrEquals => IfScoreClause.ComparisonType.LessOrEquals,
+                _ => throw new Exception($"Unexpected binary operator kind {kind}")
+            };
+        }
+
+        internal static StoreExecuteSubCommand.StoreType TypeToStoreType(TypeSymbol type)
+        {
+            if (type == TypeSymbol.Int || type == TypeSymbol.Bool)
+                return StoreExecuteSubCommand.StoreType.Int;
+            if (type == TypeSymbol.Float)
+                return StoreExecuteSubCommand.StoreType.Float;
+            if (type == TypeSymbol.Double)
+                return StoreExecuteSubCommand.StoreType.Double;
+
+            return StoreExecuteSubCommand.StoreType.Int;
         }
 
         internal static PlayersOperation ToPlayersOperation(BoundBinaryOperatorKind kind)
@@ -45,7 +96,7 @@ namespace Blaze.Emit
             };
         }
 
-        internal static string GetSignText(PlayersOperation operation)
+        internal static string GetSign(this PlayersOperation operation)
         {
             return operation switch
             {
@@ -62,28 +113,24 @@ namespace Blaze.Emit
             };
         }
 
-        internal static string GetScoreboardOperationsOperatorSymbol(BoundBinaryOperatorKind kind)
+        public static string GetRangeString(string? lowerBound, string? upperBound)
         {
-            return kind switch
-            {
-                BoundBinaryOperatorKind.Addition => "+=",
-                BoundBinaryOperatorKind.Subtraction => "-=",
-                BoundBinaryOperatorKind.Multiplication => "*=",
-                BoundBinaryOperatorKind.Division => "/=",
-                _ => "="
-            };
-        }
+            var builder = new StringBuilder();
+            if (lowerBound != null)
+                builder.Append(lowerBound);
 
-        internal static string GetComparisonSign(BoundBinaryOperatorKind kind)
-        {
-            return kind switch
+            if (upperBound != null)
             {
-                BoundBinaryOperatorKind.Less => "<",
-                BoundBinaryOperatorKind.LessOrEquals => "<=",
-                BoundBinaryOperatorKind.Greater => ">",
-                BoundBinaryOperatorKind.GreaterOrEquals => ">=",
-                _ => "="
-            };
+                if (upperBound == lowerBound)
+                    return builder.ToString();
+
+                builder.Append("..");
+                builder.Append(upperBound);
+            }
+            else
+                builder.Append("..");
+
+            return builder.ToString();
         }
 
         public static string GetEmittionDefaultValue(TypeSymbol type)
@@ -108,23 +155,4 @@ namespace Blaze.Emit
             return "{}";
         }
     }
-
-
-    /*
-
-    public class ScoreboardPlayersCommand : ScoreboardCommand
-    {
-        enum SubAction 
-        {
-            Add,
-            Remove,
-            Reset
-            
-        }
-           
-        internal ScoreboardPlayersCommand()
-        {
-
-        }
-    }*/
 }

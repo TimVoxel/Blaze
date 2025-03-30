@@ -33,49 +33,15 @@ namespace Blaze.Emit.Nodes
 
     public class TeleportToLocationCommand : TeleportCommand
     {
-        public interface ITeleportRotationClause
-        {
-            public string Text { get; }
-        }
-
-        public class FacingLocationClause : ITeleportRotationClause
-        {
-            public Coordinates3 Location { get; }
-
-            public string Text => $"facing {Location.Text}";
-
-            public FacingLocationClause(Coordinates3 location)
-            {
-                Location = location;
-            }
-        }
-
-        public class FacingEntityClause : ITeleportRotationClause
-        {
-            public string Selector { get; }
-            public FacingAnchor? Anchor { get; }
-
-            public string Text =>
-                Anchor != null
-                    ? $"facing entity {Selector} {Anchor?.ToString().ToLower()}"
-                    : $"facing entity {Selector}";
-
-            public FacingEntityClause(string selector, FacingAnchor? anchor)
-            {
-                Selector = selector;
-                Anchor = anchor;
-            }
-        }
-
         public Coordinates3 Location { get; }
-        public ITeleportRotationClause? RotationClause { get; }
+        public IRotationClause? RotationClause { get; }
 
         public override string Text =>
             RotationClause != null
                 ? $"{Keyword} {TargetSelector} {Location.Text} {RotationClause.Text}"
                 : $"{Keyword} {TargetSelector} {Location.Text}";
 
-        public TeleportToLocationCommand(string selector, Coordinates3 location, ITeleportRotationClause? rotationClause = null) : base(selector)
+        public TeleportToLocationCommand(string selector, Coordinates3 location, IRotationClause? rotationClause = null) : base(selector)
         {
             Location = location;
             RotationClause = rotationClause;

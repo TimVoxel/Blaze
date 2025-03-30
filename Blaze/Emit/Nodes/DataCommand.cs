@@ -38,7 +38,6 @@ namespace Blaze.Emit.Nodes
         public ObjectPathIdentifier Identifier { get; }
         public string? Multiplier { get; }
 
-
         public override string Text =>
             Multiplier == null
                 ? $"{Keyword} get {Identifier.Text}"
@@ -57,7 +56,7 @@ namespace Blaze.Emit.Nodes
         public string StorageObject { get; }
         public string Value { get; }
 
-        public override string Text => $"{Keyword} merge {EmittionFacts.GetLocationSyntaxName(Location)} {StorageObject} {Value}";
+        public override string Text => $"{Keyword} merge {EmittionFacts.GetSyntaxName(Location)} {StorageObject} {Value}";
 
         public DataMergeCommand(DataLocation location, string obj, string value)
         {

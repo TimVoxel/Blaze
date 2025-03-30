@@ -13,6 +13,7 @@
         DataCommand,
         DatapackCommand,
         DifficultyCommand,
+        ExecuteCommand,
         FunctionCommand,
         ForceloadCommand,
         GameruleCommand,

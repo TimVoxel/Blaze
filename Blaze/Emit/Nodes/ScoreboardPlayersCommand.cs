@@ -50,7 +50,7 @@ namespace Blaze.Emit.Nodes
             public PlayersOperation Operation { get; }
             public ScoreIdentifier Right { get; }
 
-            public override string Text => $"{Left.Text} {EmittionFacts.GetSignText(Operation)} {Right.Text}";
+            public override string Text => $"{Left.Text} {EmittionFacts.GetSign(Operation)} {Right.Text}";
 
             public ScoreboardPlayersOperationsClause(string leftSelector, string leftObjective, PlayersOperation operation, string rightSelector, string rightObjective)
             {

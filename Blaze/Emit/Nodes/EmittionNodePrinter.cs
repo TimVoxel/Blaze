@@ -2,7 +2,8 @@
 using Blaze.IO;
 using System.CodeDom.Compiler;
 using System.Diagnostics;
-using System.Globalization;
+using Blaze.Emit.Nodes.Execute;
+
 using static Blaze.Emit.Nodes.ScoreboardObjectivesCommand;
 
 namespace Blaze.Emit.Nodes
@@ -55,6 +56,10 @@ namespace Blaze.Emit.Nodes
 
                 case EmittionNodeKind.DifficultyCommand:
                     WriteDifficultyCommand((DifficultyCommand)node, writer);
+                    break;
+
+                case EmittionNodeKind.ExecuteCommand:
+                    WriteExecuteCommand((ExecuteCommand)node, writer);
                     break;
 
                 case EmittionNodeKind.FunctionCommand:
@@ -221,7 +226,7 @@ namespace Blaze.Emit.Nodes
             else if (node is DataMergeCommand dataMerge)
             {
                 writer.WriteKeyword(" merge ");
-                writer.WriteKeyword(EmittionFacts.GetLocationSyntaxName(dataMerge.Location));
+                writer.WriteKeyword(EmittionFacts.GetSyntaxName(dataMerge.Location));
                 writer.WriteIdentifier($" {dataMerge.StorageObject}");
                 writer.WriteString($" {dataMerge.Value}");
             }
@@ -269,7 +274,7 @@ namespace Blaze.Emit.Nodes
 
         private static void WriteObjectPathIdentifier(ObjectPathIdentifier identifier, IndentedTextWriter writer)
         {
-            writer.WriteKeyword(EmittionFacts.GetLocationSyntaxName(identifier.Location));
+            writer.WriteKeyword(EmittionFacts.GetSyntaxName(identifier.Location));
             writer.WriteIdentifier($" {identifier.StorageObject}");
             writer.WriteIdentifier($" {identifier.Path}");
         }
@@ -335,6 +340,349 @@ namespace Blaze.Emit.Nodes
             if (node.Value != null)
                 writer.WriteKeyword($" {node.Value}");
             writer.WriteLine();
+        }
+
+        private static void WriteExecuteCommand(ExecuteCommand node, IndentedTextWriter writer)
+        {
+            writer.WriteKeyword(node.Keyword);
+
+            foreach (var subCommand in node.SubCommands)
+            {
+                writer.Write(" ");
+                subCommand.WriteTo(writer);
+            }
+
+            writer.WriteKeyword($" run ");
+            node.RunCommand.WriteTo(writer);
+        }
+
+        private static void WriteTo(this ExecuteSubCommand subCommand, IndentedTextWriter writer)
+        {
+            switch (subCommand.Kind)
+            {
+                case ExecuteSubCommandKind.Align:
+                    WriteAlign((AlignExecuteSubCommand)subCommand, writer);
+                    break;
+
+                case ExecuteSubCommandKind.Anchored:
+                    WriteAnchored((AnchoredExecuteSubCommand)subCommand, writer);
+                    break;
+
+                case ExecuteSubCommandKind.As:
+                    WriteAs((AsExecuteSubCommand)subCommand, writer);
+                    break;
+
+                case ExecuteSubCommandKind.At:
+                    WriteAt((AtExecuteSubCommand)subCommand, writer);
+                    break;
+
+                case ExecuteSubCommandKind.Facing:
+                    WriteFacing((FacingExecuteSubCommand)subCommand, writer);
+                    break;
+
+                case ExecuteSubCommandKind.If:
+                    WriteIf((IfExecuteSubCommand)subCommand, writer);
+                    break;
+
+                case ExecuteSubCommandKind.In:
+                    WriteIn((InExecuteSubCommand)subCommand, writer);
+                    break;
+
+                case ExecuteSubCommandKind.On:
+                    WriteOn((OnExecuteSubCommand)subCommand, writer);
+                    break;
+
+                case ExecuteSubCommandKind.Positioned:
+                    WritePositioned((PositionedExecuteSubCommand)subCommand, writer);
+                    break;
+
+                case ExecuteSubCommandKind.PositionedAs:
+                    WritePositionedAs((PositionedAsExecuteSubCommand)subCommand, writer);
+                    break;
+
+                case ExecuteSubCommandKind.PositionedOver:
+                    WritePositionedOver((PositionedOverExecuteSubCommand)subCommand, writer);
+                    break;
+
+                case ExecuteSubCommandKind.Rotated:
+                    WriteRotated((RotatedExecuteSubCommand)subCommand, writer);
+                    break;
+
+                case ExecuteSubCommandKind.RotatedAs:
+                    WriteRotatedAs((RotatedAsExecuteSubCommand)subCommand, writer);
+                    break;
+
+                case ExecuteSubCommandKind.StorePath:
+                    WriteStorePath((StorePathExecuteSubCommand)subCommand, writer);
+                    break;
+
+                case ExecuteSubCommandKind.StoreScore:
+                    WriteStoreScore((StoreScoreExecuteSubCommand)subCommand, writer);
+                    break;
+
+                case ExecuteSubCommandKind.StoreBossbar:
+                    WriteStoreBossbar((StoreBossbarExecuteSubCommand)subCommand, writer);
+                    break;
+
+                case ExecuteSubCommandKind.Unless:
+                    WriteUnless((UnlessExecuteSubCommand)subCommand, writer);
+                    break;
+
+                default:
+                    throw new Exception($"Unexpected sub command type {subCommand.GetType()}");
+
+            }
+        }
+
+        private static void WriteAlign(AlignExecuteSubCommand alignCommand, IndentedTextWriter writer)
+        {
+            writer.WriteKeyword("align");
+            writer.WriteIdentifier($" {alignCommand.Axis}");
+        }
+
+        private static void WriteAnchored(AnchoredExecuteSubCommand anchoredCommand, IndentedTextWriter writer)
+        {
+            writer.WriteKeyword("anchored");
+            writer.WriteKeyword($" {anchoredCommand.Anchor.ToString().ToLower()}");
+        }
+
+        private static void WriteAs(AsExecuteSubCommand asCommand, IndentedTextWriter writer)
+        {
+            writer.WriteKeyword("as");
+            writer.WriteIdentifier($" {asCommand.Selector}");
+        }
+
+        private static void WriteAt(AtExecuteSubCommand atCommand, IndentedTextWriter writer)
+        {
+            writer.WriteKeyword("at");
+            writer.WriteIdentifier($" {atCommand.Selector}");
+        }
+
+        private static void WriteFacing(FacingExecuteSubCommand facingCommand, IndentedTextWriter writer)
+        {
+            writer.WriteKeyword("facing ");
+            WriteRotationClause(facingCommand.RotationClause, writer);
+        }
+
+        private static void WriteIf(IfExecuteSubCommand ifCommand, IndentedTextWriter writer)
+        {
+            writer.WriteKeyword("if ");
+            ifCommand.ConditionClause.WriteTo(writer);
+        }
+
+        private static void WriteIn(InExecuteSubCommand inCommand, IndentedTextWriter writer)
+        {
+            writer.WriteKeyword("in");
+            writer.WriteString($" {inCommand.World}");
+        }
+
+        private static void WriteOn(OnExecuteSubCommand onCommand, IndentedTextWriter writer)
+        {
+            writer.WriteKeyword("on");
+            writer.WriteKeyword($" {onCommand.Relation.ToString().ToLower()}");
+        }
+
+        private static void WritePositioned(PositionedExecuteSubCommand positionedCommand, IndentedTextWriter writer)
+        {
+            writer.WriteKeyword("positioned ");
+            WriteCoords3(positionedCommand.Coords, writer);
+        }
+
+        private static void WritePositionedAs(PositionedAsExecuteSubCommand positionedAsCommand, IndentedTextWriter writer)
+        {
+            writer.WriteKeyword("positioned as");
+            writer.WriteIdentifier($" {positionedAsCommand.Selector}");
+        }
+
+        private static void WritePositionedOver(PositionedOverExecuteSubCommand positionedOverCommand, IndentedTextWriter writer)
+        {
+            writer.WriteKeyword("positioned over");
+            writer.WriteKeyword($" {positionedOverCommand.HeightMap.ToString().ToLower()}");
+        }
+
+        private static void WriteRotated(RotatedExecuteSubCommand rotatedCommand, IndentedTextWriter writer)
+        {
+            writer.WriteKeyword("rotated ");
+            WriteCoords2(rotatedCommand.Rotation, writer);
+        }
+
+        private static void WriteRotatedAs(RotatedAsExecuteSubCommand rotatedAsCommand, IndentedTextWriter writer)
+        {
+            writer.WriteKeyword("rotated as ");
+            writer.WriteIdentifier(rotatedAsCommand.Selector);
+        }
+
+        private static void WriteStorePath(StorePathExecuteSubCommand storePathCommand, IndentedTextWriter writer)
+        {
+            writer.WriteKeyword("store");
+            writer.WriteKeyword($" {storePathCommand.Yield.ToString().ToLower()} ");
+            WriteObjectPathIdentifier(storePathCommand.Identifier, writer);
+            writer.WriteKeyword($" {storePathCommand.ConvertType.ToString().ToLower()}");
+            writer.WriteNumber($" {storePathCommand.Scale}");
+        }
+        
+        private static void WriteStoreScore(StoreScoreExecuteSubCommand storeScoreCommand, IndentedTextWriter writer)
+        {
+            writer.WriteKeyword("store ");
+            writer.WriteKeyword($" {storeScoreCommand.Yield.ToString().ToLower()}");
+            writer.Write(" score ");
+            WriteScoreIdentifier(storeScoreCommand.Identifier, writer);
+        }
+
+        private static void WriteStoreBossbar(StoreBossbarExecuteSubCommand storeBossbarCommand, IndentedTextWriter writer)
+        {
+            writer.WriteKeyword("store");
+            writer.WriteKeyword($" {storeBossbarCommand.Yield.ToString().ToLower()}");
+            writer.WriteKeyword(" bossbar");
+            writer.WriteString($" {storeBossbarCommand.BossbarName}");
+            writer.WriteKeyword($" {storeBossbarCommand.StoreProperty.ToString().ToLower()}");
+        }
+
+        private static void WriteUnless(UnlessExecuteSubCommand unlessCommand, IndentedTextWriter writer)
+        {
+            writer.WriteKeyword("unless ");
+            unlessCommand.ConditionClause.WriteTo(writer);
+        }
+
+        private static void WriteTo(this ExecuteConditionalClause conditionalClause, IndentedTextWriter writer)
+        {
+            switch (conditionalClause)
+            {
+                case IfBiomeClause biomeClause:
+                    WriteIfBiomeClause(biomeClause, writer);
+                    break;
+                case IfBlockClause blockClause:
+                    WriteIfBlockClause(blockClause, writer);
+                    break;
+                case IfBlocksClause blocksClause:
+                    WriteIfBlocksClause(blocksClause, writer);
+                    break;
+                case IfDataClause dataClause:
+                    WriteIfDataClause(dataClause, writer);
+                    break;
+                case IfDimensionClause dimensionClause:
+                    WriteIfDimensionClause(dimensionClause, writer);
+                    break;
+                case IfEntityClause entityClause:
+                    WriteIfEntityClause(entityClause, writer);
+                    break;
+                case IfFunctionClause functionClause:
+                    WriteIfFunctionClause(functionClause, writer);
+                    break;
+                case IfItemsBlockClause itemsBlockClause:
+                    WriteIfItemsBlockClause(itemsBlockClause, writer);
+                    break;
+                case IfItemsEntityClause itemsEntityClause:
+                    WriteIfItemsEntityClause(itemsEntityClause, writer);
+                    break;
+                case IfLoadedClause loadedClause:
+                    WriteIfLoadedClause(loadedClause, writer);
+                    break;
+                case IfPredicateClause predicateClause:
+                    WriteIfPredicateClause(predicateClause, writer);
+                    break;
+                case IfScoreClause scoreClause:
+                    WriteIfScoreClause(scoreClause, writer);
+                    break;
+                case IfScoreMatchesClause scoreMatchesClause:
+                    WriteIfScoreMatchesClause(scoreMatchesClause, writer);
+                    break;
+                default:
+                    throw new Exception($"Unexpected conditional clause type {conditionalClause.GetType()}");
+            }
+        }
+
+        private static void WriteIfBiomeClause(IfBiomeClause biomeClause, IndentedTextWriter writer)
+        {
+            writer.WriteKeyword("biome");
+            WriteCoords3(biomeClause.Position, writer);
+            writer.WriteString($" {biomeClause.Biome}");
+        }
+
+        private static void WriteIfBlockClause(IfBlockClause blockClause, IndentedTextWriter writer)
+        {
+            writer.WriteKeyword("block ");
+            WriteCoords3(blockClause.Position, writer);
+            writer.WriteString($" {blockClause.Block}");
+        }
+
+        private static void WriteIfBlocksClause(IfBlocksClause blocksClause, IndentedTextWriter writer)
+        {
+            writer.WriteKeyword("blocks ");
+            WriteCoords3(blocksClause.FirstStart, writer);
+            writer.Write(" ");
+            WriteCoords3(blocksClause.FirstEnd, writer);
+            writer.Write(" ");
+            WriteCoords3(blocksClause.SecondStart, writer);
+            writer.WriteKeyword($" {blocksClause.Mode.ToString().ToLower()}");
+        }
+
+        private static void WriteIfDataClause(IfDataClause dataClause, IndentedTextWriter writer)
+        {
+            writer.WriteKeyword("data ");
+            WriteObjectPathIdentifier(dataClause.PathIdentifier, writer);
+        }
+
+        private static void WriteIfDimensionClause(IfDimensionClause dimensionClause, IndentedTextWriter writer)
+        {
+            writer.WriteKeyword("dimension");
+            writer.WriteString($" {dimensionClause.Dimension}");
+        }
+
+        private static void WriteIfEntityClause(IfEntityClause entityClause, IndentedTextWriter writer)
+        {
+            writer.WriteKeyword("entity");
+            writer.WriteIdentifier($" {entityClause.Selector}");
+        }
+
+        private static void WriteIfFunctionClause(IfFunctionClause functionClause, IndentedTextWriter writer)
+        {
+            writer.WriteKeyword("function");
+            writer.WriteIdentifier($" {functionClause.FunctionCallName}");
+        }
+
+        private static void WriteIfItemsBlockClause(IfItemsBlockClause itemsBlockClause, IndentedTextWriter writer)
+        {
+            writer.WriteKeyword("items block ");
+            WriteCoords3(itemsBlockClause.Position, writer);
+            writer.WriteIdentifier($" {itemsBlockClause.Slots}");
+            writer.WriteString($" {itemsBlockClause.ItemPredicate}");
+        }
+
+        private static void WriteIfItemsEntityClause(IfItemsEntityClause itemsEntityClause, IndentedTextWriter writer)
+        {
+            writer.WriteKeyword("items entity");
+            writer.WriteIdentifier($" {itemsEntityClause.Selector}");
+            writer.WriteIdentifier($" {itemsEntityClause.Slots}");
+            writer.WriteString($" {itemsEntityClause.ItemPredicate}");
+        }
+
+        private static void WriteIfLoadedClause(IfLoadedClause loadedClause, IndentedTextWriter writer)
+        {
+            writer.WriteKeyword("loaded ");
+            WriteCoords3(loadedClause.Position, writer);
+        }
+
+        private static void WriteIfPredicateClause(IfPredicateClause predicateClause, IndentedTextWriter writer)
+        {
+            writer.WriteKeyword("predicate");
+            writer.WriteString($" {predicateClause.PredicateName}");
+        }
+
+        private static void WriteIfScoreClause(IfScoreClause scoreClause, IndentedTextWriter writer)
+        {
+            writer.WriteKeyword("score ");
+            WriteScoreIdentifier(scoreClause.Left, writer);
+            writer.WritePunctuation($" {scoreClause.Comparison.GetSign()} ");
+            WriteScoreIdentifier(scoreClause.Right, writer);
+        }
+
+        private static void WriteIfScoreMatchesClause(IfScoreMatchesClause scoreMatchesClause, IndentedTextWriter writer)
+        {
+            writer.WriteKeyword("score ");
+            WriteScoreIdentifier(scoreMatchesClause.Identifier, writer);
+            writer.WriteKeyword($" matches ");
+            writer.WriteNumber(EmittionFacts.GetRangeString(scoreMatchesClause.LowerBound, scoreMatchesClause.UpperBound));
         }
 
         private static void WriteFunctionCommand(FunctionCommand node, IndentedTextWriter writer)
@@ -492,7 +840,7 @@ namespace Blaze.Emit.Nodes
                         {
                             var clause = (ScoreboardPlayersCommand.ScoreboardPlayersOperationsClause)scoreboardPlayers.SubClause;
                             WriteScoreIdentifier(clause.Left, writer);
-                            writer.WritePunctuation($" {EmittionFacts.GetSignText(clause.Operation)} ");
+                            writer.WritePunctuation($" {EmittionFacts.GetSign(clause.Operation)} ");
                             WriteScoreIdentifier(clause.Right, writer);
                             break;
                         }
@@ -570,29 +918,32 @@ namespace Blaze.Emit.Nodes
                 
                 if (tpLocation.RotationClause != null)
                 {
-                    if (tpLocation.RotationClause is Coordinates2 pitchYaw)
-                    {
-                        writer.Write(" "); 
-                        WriteCoords2(pitchYaw, writer);
-                    }
-                    else if (tpLocation.RotationClause is TeleportToLocationCommand.FacingLocationClause facingLocation)
-                    {
-                        writer.WriteKeyword(" facing ");
-                        WriteCoords3(facingLocation.Location, writer);
-                    }
-                    else if (tpLocation.RotationClause is TeleportToLocationCommand.FacingEntityClause facingEntity)
-                    {
-                        writer.WriteKeyword(" facing");
-                        writer.WriteKeyword(" entity ");
-                        writer.WriteIdentifier(facingEntity.Selector);
-
-                        if (facingEntity.Anchor != null)
-                            writer.WriteKeyword($" {facingEntity.Anchor?.ToString().ToLower()}");
-                    }
+                    writer.Write(" ");
+                    WriteRotationClause(tpLocation.RotationClause, writer);
                 }
             }
             writer.WriteLine();
         }
+
+        private static void WriteRotationClause(IRotationClause rotationClause, IndentedTextWriter writer)
+        {
+            if (rotationClause is Coordinates2 pitchYaw)
+                WriteCoords2(pitchYaw, writer);
+            else if (rotationClause is FacingLocationClause facingLocation)
+            {
+                writer.WriteKeyword("facing ");
+                WriteCoords3(facingLocation.Location, writer);
+            }
+            else if (rotationClause is FacingEntityClause facingEntity)
+            {
+                writer.WriteKeyword("facing");
+                writer.WriteKeyword(" entity ");
+                writer.WriteIdentifier(facingEntity.Selector);
+
+                if (facingEntity.Anchor != null)
+                    writer.WriteKeyword($" {facingEntity.Anchor?.ToString().ToLower()}");
+            }
+        } 
 
         private static void WriteTellrawCommand(TellrawCommand node, IndentedTextWriter writer)
         {

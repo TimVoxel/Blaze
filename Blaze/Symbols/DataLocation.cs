@@ -3,6 +3,6 @@
     public enum DataLocation
     {
         Scoreboard,
-        Storage
+        Storage,
     }
 }

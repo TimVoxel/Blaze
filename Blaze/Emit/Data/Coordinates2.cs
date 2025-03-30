@@ -2,7 +2,7 @@
 
 namespace Blaze.Emit.Data
 {
-    public class Coordinates2 : TeleportToLocationCommand.ITeleportRotationClause
+    public class Coordinates2 : IRotationClause
     {
         public string X { get; }
         public string Z { get; }
@@ -14,5 +14,7 @@ namespace Blaze.Emit.Data
             X = x;
             Z = z;
         }
+
+        public Coordinates3 WithY(string y) => new Coordinates3(X, y, Z);
     }
 }

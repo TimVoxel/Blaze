@@ -150,9 +150,6 @@ namespace Blaze.Emit.Nodes
             public void AddLineBreak() => Content.Add(TextTriviaNode.LineBreak());
             public void AddComment(string text) => Content.Add(TextTriviaNode.Comment(text));
 
-            //Temporary
-            public void AddCommand(string command, bool isCleanUp = false) => Content.Add(new TextCommand(command, isCleanUp));
-            
             public void AddMacro(CommandNode command)
             {
                 var macro = new MacroCommand(command);

@@ -1,4 +1,4 @@
-﻿namespace Blaze.Emit.NameTranslation
+﻿namespace Blaze.Emit.Data
 {
     internal sealed class UUID 
     {

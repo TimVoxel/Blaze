@@ -12,7 +12,7 @@ namespace Blaze.Emit.Data
         {
             get
             {
-                var location = EmittionFacts.GetLocationSyntaxName(Location);
+                var location = EmittionFacts.GetSyntaxName(Location);
                 return $"{location} {StorageObject} {Path}";
             }
         }
