@@ -692,16 +692,19 @@ namespace Blaze.Emit.Nodes
 
             if (node.WithClause != null)
             {
-                if (node.WithClause.JsonLiteral != null)
+                switch (node.WithClause)
                 {
-                    writer.WriteString(node.WithClause.JsonLiteral);
-                }
-                else if (node.WithClause.Storage != null)
-                {
-                    Debug.Assert(node.WithClause.Symbol != null);
-                    writer.WriteKeyword(" with storage ");
-                    writer.WriteIdentifier(node.WithClause.Storage);
-                    writer.WriteIdentifier($" {node.WithClause.Symbol}");
+                    case FunctionCommand.FunctionWithPathIdentifierClause pathClause:
+                        writer.WriteKeyword(" with ");
+                        WriteObjectPathIdentifier(pathClause.Identifier, writer);
+                        break;
+
+                    case FunctionCommand.FunctionWithArgumentsClause argumentsClause:
+                        writer.WriteString($" {argumentsClause.Arguments}");
+                        break;
+
+                    default:
+                        throw new Exception($"Unexpected with clause type {node.GetType()}");
                 }
             }
             writer.WriteLine();
@@ -827,8 +830,7 @@ namespace Blaze.Emit.Nodes
                     case ScoreboardPlayersCommand.SubAction.Enable:
                     case ScoreboardPlayersCommand.SubAction.Reset:
                         {
-                            var clause = (ScoreboardPlayersCommand.ScoreIdentifierClause)scoreboardPlayers.SubClause;
-                            WriteScoreIdentifier(clause.Score, writer);
+                            WriteScoreIdentifier((ScoreIdentifier)scoreboardPlayers.SubClause, writer);
 
                             if (scoreboardPlayers.Value != null)
                                 writer.WriteNumber($" {scoreboardPlayers.Value}");

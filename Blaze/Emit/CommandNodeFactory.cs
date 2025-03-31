@@ -6,6 +6,7 @@ using Blaze.Symbols;
 using System.Collections.Immutable;
 using System.Diagnostics;
 using static Blaze.Emit.Nodes.Execute.StoreExecuteSubCommand;
+using static Blaze.Emit.Nodes.FunctionCommand;
 
 namespace Blaze.Emit
 {
@@ -326,31 +327,117 @@ namespace Blaze.Emit
             public ExecuteCommand Run(CommandNode runCommand) => new ExecuteCommand(SubCommands.ToImmutable(), runCommand);
         }
 
+        private string RootNamespace { get; }
         private string VarsScoreboard { get; }
         private string MainStorage { get; }
         private string ConstStorage { get; }
+        private EmittionVariableSymbol Macro { get; }
 
-        public CommandNodeFactory(string varsScoreboard, string mainStorage, string constStorage)
+        public CommandNodeFactory(string rootNamespace, string varsScoreboard, string mainStorage, string constStorage, EmittionVariableSymbol macroRoot)
         {
+            RootNamespace = rootNamespace;
             VarsScoreboard = varsScoreboard;
             MainStorage = mainStorage;
             ConstStorage = constStorage;
+            Macro = macroRoot;
         }
 
         internal ScoreIdentifier ToScoreIdentifier(EmittionVariableSymbol variable)
         {
-            Debug.Assert(variable.Location == DataLocation.Scoreboard, $"{variable.SaveName}: {variable.Location}");
+            AssertScoreboardLocation(variable);
             return new ScoreIdentifier(variable.SaveName, VarsScoreboard);
         }
 
         internal ObjectPathIdentifier ToObjectPathIdentifier(EmittionVariableSymbol variable)
         {
-            Debug.Assert(variable.Location == DataLocation.Storage, $"{variable.SaveName}: {variable.Location}");
+            AssertObjectPathIdentifierLocation(variable);
             return new ObjectPathIdentifier(DataLocation.Storage, MainStorage, variable.SaveName);
         }
 
         internal ObjectPathIdentifier ToStoragePathIdentifier(string name) => new ObjectPathIdentifier(DataLocation.Storage, MainStorage, name);
 
-        internal ExecuteCommandBuilder CreateExecuteBuilder() => new ExecuteCommandBuilder(this);    
+        internal ExecuteCommandBuilder CreateExecuteBuilder() => new ExecuteCommandBuilder(this);
+
+        internal CommandNode GetCallWith(MinecraftFunction.Builder function, string jsonLiteral)
+        {
+            return new FunctionCommand(function.CallName, new FunctionWithArgumentsClause(jsonLiteral));
+        }
+        
+        internal CommandNode GetCallWith(MinecraftFunction.Builder function, EmittionVariableSymbol symbol)
+        {
+            Debug.Assert(symbol.Location != DataLocation.Scoreboard);
+            return new FunctionCommand(function.CallName, new FunctionWithPathIdentifierClause(ToObjectPathIdentifier(symbol)));
+        }
+
+        internal CommandNode GetMacroCall(MinecraftFunction.Builder function)
+            => new FunctionCommand(function.CallName, new FunctionWithPathIdentifierClause(ToObjectPathIdentifier(Macro)));
+        
+        internal CommandNode GetCall(MinecraftFunction.Builder function) 
+            => new FunctionCommand(function.CallName, null);
+
+        internal CommandNode GetCall(FunctionSymbol function)
+            => new FunctionCommand($"{RootNamespace}:{function.AddressName}", null);
+
+        internal CommandNode ScoreSet(string variable, int value) 
+            => ScoreboardCommand.SetScore(new ScoreIdentifier(variable, VarsScoreboard), value.ToString());
+
+        internal CommandNode ScoreSet(EmittionVariableSymbol variable, int value)
+            => ScoreboardCommand.SetScore(ToScoreIdentifier(variable), value.ToString());
+
+        internal CommandNode ScoreGet(string variable, string? multiplier = null)
+            => ScoreboardCommand.GetScore(new ScoreIdentifier(variable, VarsScoreboard), multiplier);
+        
+        internal CommandNode ScoreGet(EmittionVariableSymbol variable, string? multiplier = null)
+            => ScoreboardCommand.GetScore(ToScoreIdentifier(variable), multiplier);
+        
+        internal CommandNode ScoreAdd(EmittionVariableSymbol variable, int value)
+            => ScoreboardCommand.ScoreAdd(ToScoreIdentifier(variable), value.ToString());
+        
+        internal CommandNode ScoreSubtract(EmittionVariableSymbol variable, int value)
+            => ScoreboardCommand.ScoreSubtract(ToScoreIdentifier(variable), value.ToString());
+        
+        internal CommandNode ScoreReset(EmittionVariableSymbol variable)
+            => ScoreboardCommand.ScoreReset(ToScoreIdentifier(variable));
+        
+        internal CommandNode ScoreOperation(EmittionVariableSymbol left, BoundBinaryOperatorKind operatorKind, EmittionVariableSymbol right)
+            => ScoreboardCommand.ScoreOperation(ToScoreIdentifier(left), EmittionFacts.ToPlayersOperation(operatorKind), ToScoreIdentifier(right));
+
+        internal CommandNode ScoreCopy(EmittionVariableSymbol left, EmittionVariableSymbol right)
+            => ScoreboardCommand.ScoreOperation(ToScoreIdentifier(left), ScoreboardPlayersCommand.ScoreboardPlayersOperationsClause.PlayersOperation.Assignment, ToScoreIdentifier(right));
+
+
+        //TODO: store the "host" object in the emittion variable symbol
+        internal CommandNode DataCopy(EmittionVariableSymbol left, EmittionVariableSymbol right)
+            => DataCommand.ModifyFrom(ToObjectPathIdentifier(left), DataModifyCommand.ModificationType.Set, ToObjectPathIdentifier(right));
+        
+        internal CommandNode StorageCopy(string targetPath, string sourcePath) 
+            =>  DataCommand.ModifyFrom(new ObjectPathIdentifier(DataLocation.Storage, MainStorage, targetPath), DataModifyCommand.ModificationType.Set, new ObjectPathIdentifier(DataLocation.Storage, MainStorage, sourcePath));
+
+        internal CommandNode DataSetValue(EmittionVariableSymbol symbol, string value)
+            => DataCommand.ModifyWithValue(ToObjectPathIdentifier(symbol), DataModifyCommand.ModificationType.Set, value);
+        
+        internal CommandNode DataStringCopy(EmittionVariableSymbol left, EmittionVariableSymbol right, int? startIndex = null, int? endIndex = null)
+            => DataCommand.ModifyString(ToObjectPathIdentifier(left), DataModifyCommand.ModificationType.Set, ToObjectPathIdentifier(right), startIndex, endIndex);
+        
+        internal CommandNode StorageGet(EmittionVariableSymbol symbol, string? multiplier = null) 
+            => new DataGetCommand(ToObjectPathIdentifier(symbol), multiplier);
+
+        internal CommandNode DataRemove(EmittionVariableSymbol symbol)
+            => new DataRemoveCommand(ToObjectPathIdentifier(symbol));
+
+        internal CommandNode DataModifyFrom(EmittionVariableSymbol left, DataModifyCommand.ModificationType modification, EmittionVariableSymbol right) 
+            => DataCommand.ModifyFrom(ToObjectPathIdentifier(left), modification, ToObjectPathIdentifier(right));
+
+        internal CommandNode DataModifyFromStorage(EmittionVariableSymbol left, DataModifyCommand.ModificationType modification, string path)
+            => DataCommand.ModifyFrom(ToObjectPathIdentifier(left), modification, new ObjectPathIdentifier(DataLocation.Storage, MainStorage, path));
+
+        internal CommandNode DataModifyValue(EmittionVariableSymbol left, DataModifyCommand.ModificationType modification, string value)
+            => DataCommand.ModifyWithValue(ToObjectPathIdentifier(left), modification, value);
+
+        private void AssertScoreboardLocation(EmittionVariableSymbol variable)
+            => Debug.Assert(variable.Location == DataLocation.Scoreboard, $"Unexpected non scoreboard location for variable {variable.SaveName} - {variable.Location}");
+
+        private void AssertObjectPathIdentifierLocation(EmittionVariableSymbol variable)
+            => Debug.Assert(variable.Location == DataLocation.Storage, $"Unexpected object identifier path unfriendly location for variable {variable.SaveName} - {variable.Location}");
     }
 }

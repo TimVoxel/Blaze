@@ -4,14 +4,14 @@ namespace Blaze.Emit.Nodes
 {
     public class ScoreboardPlayersCommand : ScoreboardCommand
     {
-        public abstract class ScoreboardPlayersSubCommandClause
+        public interface IScoreboardPlayersSubCommandClause
         {
-            public abstract string Text { get; }
+            public string Text { get; }
         }
 
-        public class ListTarget : ScoreboardPlayersSubCommandClause
+        public class ListTarget : IScoreboardPlayersSubCommandClause
         {
-            public override string Text { get; }
+            public string Text { get; }
 
             public ListTarget(string? target)
             {
@@ -19,19 +19,7 @@ namespace Blaze.Emit.Nodes
             }
         }
 
-        public class ScoreIdentifierClause : ScoreboardPlayersSubCommandClause
-        {
-            public ScoreIdentifier Score;
-
-            public override string Text => Score.Text;
-
-            public ScoreIdentifierClause(string selector, string objective)
-            {
-                Score = new ScoreIdentifier(selector, objective);
-            }
-        }
-
-        public class ScoreboardPlayersOperationsClause : ScoreboardPlayersSubCommandClause
+        public class ScoreboardPlayersOperationsClause : IScoreboardPlayersSubCommandClause
         {
             public enum PlayersOperation
             {
@@ -50,22 +38,22 @@ namespace Blaze.Emit.Nodes
             public PlayersOperation Operation { get; }
             public ScoreIdentifier Right { get; }
 
-            public override string Text => $"{Left.Text} {EmittionFacts.GetSign(Operation)} {Right.Text}";
+            public string Text => $"{Left.Text} {EmittionFacts.GetSign(Operation)} {Right.Text}";
 
-            public ScoreboardPlayersOperationsClause(string leftSelector, string leftObjective, PlayersOperation operation, string rightSelector, string rightObjective)
+            public ScoreboardPlayersOperationsClause(ScoreIdentifier left, PlayersOperation operation, ScoreIdentifier right)
             {
-                Left = new ScoreIdentifier(leftSelector, leftObjective);
+                Left = left;
                 Operation = operation;
-                Right = new ScoreIdentifier(rightSelector, rightObjective);
+                Right = right;
             }
         }
 
-        public class DisplayNameClause : ScoreboardPlayersSubCommandClause
+        public class DisplayNameClause : IScoreboardPlayersSubCommandClause
         {
             public ScoreIdentifier Score { get; }
             public string Name { get; }
 
-            public override string Text => $"{Score.Text} {Name}";
+            public string Text => $"{Score.Text} {Name}";
 
             public DisplayNameClause(string selector, string objective, string name)
             {
@@ -74,7 +62,7 @@ namespace Blaze.Emit.Nodes
             }
         }
 
-        public class DisplayNumberFormatClause : ScoreboardPlayersSubCommandClause
+        public class DisplayNumberFormatClause : IScoreboardPlayersSubCommandClause
         {
             public enum NumberFormat
             {
@@ -86,7 +74,7 @@ namespace Blaze.Emit.Nodes
             public NumberFormat Format { get; }
             public string? Style { get; }
 
-            public override string Text =>
+            public string Text =>
                 Format == NumberFormat.Styled
                     ? $"{Score.Text} {Format.ToString().ToLower()} {Style}"
                     : $"{Score.Text} {Format.ToString().ToLower()}";
@@ -113,7 +101,7 @@ namespace Blaze.Emit.Nodes
         }
 
         public SubAction Action { get; }
-        public ScoreboardPlayersSubCommandClause SubClause { get; }
+        public IScoreboardPlayersSubCommandClause SubClause { get; }
         public string? Value { get; }
 
         public override string Text =>
@@ -121,7 +109,7 @@ namespace Blaze.Emit.Nodes
                 ? $"{Keyword} players {Action.ToString().ToLower()} {SubClause.Text}"
                 : $"{Keyword} players {Action.ToString().ToLower()} {SubClause.Text} {Value}";
 
-        internal ScoreboardPlayersCommand(SubAction action, ScoreboardPlayersSubCommandClause subClause, string? value)
+        internal ScoreboardPlayersCommand(SubAction action, IScoreboardPlayersSubCommandClause subClause, string? value)
         {
             Action = action;
             SubClause = subClause;

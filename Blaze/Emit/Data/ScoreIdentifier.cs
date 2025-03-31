@@ -1,8 +1,9 @@
-﻿using Blaze.Symbols;
+﻿using Blaze.Emit.Nodes;
+using Blaze.Symbols;
 
 namespace Blaze.Emit.Data
 {
-    public class ScoreIdentifier : DataIdentifier
+    public class ScoreIdentifier : DataIdentifier, ScoreboardPlayersCommand.IScoreboardPlayersSubCommandClause
     {
         public override DataLocation Location => DataLocation.Scoreboard;
         public string Selector { get; }

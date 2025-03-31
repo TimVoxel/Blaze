@@ -43,59 +43,22 @@ namespace Blaze.Emit
 
             _initFunction = MinecraftFunction.Init(_configuration.RootNamespace, program.GlobalNamespace);
             _tickFunction = MinecraftFunction.Tick(_configuration.RootNamespace, program.GlobalNamespace);
-            _factory = new CommandNodeFactory(Vars, MainStorage, CONST);
+            _factory = new CommandNodeFactory(_configuration.RootNamespace, Vars, MainStorage, CONST, _macro);
         }
 
 
-        //These are honestly just for looks, it makes for readable blocks
-        private CommandNode GetCallWith(MinecraftFunction.Builder function, string jsonLiteral) => FunctionCommand.GetCallWith(function.CallName, jsonLiteral);
-        private CommandNode GetCallWith(MinecraftFunction.Builder function, EmittionVariableSymbol symbol) => FunctionCommand.GetCallWith(function.CallName, MainStorage, symbol);
-        private CommandNode GetMacroCall(MinecraftFunction.Builder function) => FunctionCommand.GetCallWith(function.CallName, MainStorage, _macro);
-        private CommandNode GetCall(MinecraftFunction.Builder function) => FunctionCommand.GetCall(function.CallName);
-        private CommandNode GetCall(FunctionSymbol function) => FunctionCommand.GetCall($"{_configuration.RootNamespace}:{function.AddressName}");
+        private CommandNode GetMacroCall(MinecraftFunction.Builder function) => _factory.GetMacroCall(function);
+        private CommandNode GetCall(MinecraftFunction.Builder function) => _factory.GetCall(function);
+        private CommandNode GetCall(FunctionSymbol function) => _factory.GetCall(function);
+        private CommandNode ScoreSet(EmittionVariableSymbol variable, int value) => _factory.ScoreSet(variable, value);
+        private CommandNode ScoreGet(EmittionVariableSymbol variable, string? multiplier = null) => _factory.ScoreGet(variable, multiplier);
 
-        private CommandNode ScoreSet(string variable, int value) => ScoreboardCommand.SetScore(variable, Vars, value.ToString());
-        private CommandNode ScoreSet(EmittionVariableSymbol variable, int value) => ScoreboardCommand.SetScore(variable.SaveName, Vars, value.ToString());
-        private CommandNode ScoreGet(string variable) => ScoreboardCommand.GetScore(variable, Vars, null);
-        private CommandNode ScoreGet(EmittionVariableSymbol variable) => ScoreboardCommand.GetScore(variable.SaveName, Vars, null);
-        private CommandNode ScoreAdd(EmittionVariableSymbol variable, int value) => ScoreboardCommand.ScoreAdd(variable.SaveName, Vars, value.ToString());
-        private CommandNode ScoreSubtract(EmittionVariableSymbol variable, int value) => ScoreboardCommand.ScoreSubtract(variable.SaveName, Vars, value.ToString());
-        private CommandNode ScoreReset(EmittionVariableSymbol variable) => ScoreboardCommand.ScoreReset(variable.SaveName, Vars);
-        private CommandNode ScoreOperation(EmittionVariableSymbol left, BoundBinaryOperatorKind operatorKind, EmittionVariableSymbol right) => ScoreboardCommand.ScoreOperation(left.SaveName, Vars, EmittionFacts.ToPlayersOperation(operatorKind), right.SaveName, Vars);
-        private CommandNode ScoreCopy(EmittionVariableSymbol left, EmittionVariableSymbol right) => ScoreboardCommand.ScoreOperation(left.SaveName, Vars, ScoreboardPlayersCommand.ScoreboardPlayersOperationsClause.PlayersOperation.Assignment, right.SaveName, Vars);
-
-        //TODO: store the "host" object in the emittion variable symbol
-        private CommandNode DataCopy(EmittionVariableSymbol left, EmittionVariableSymbol right)
-        {
-            Debug.Assert(left.Location == DataLocation.Storage, $"LEFT: {left.SaveName} - {left.Location}");
-            Debug.Assert(left.Location == DataLocation.Storage, $"LEFT: {right.SaveName} - {right.Location}");
-            return DataCommand.ModifyFrom(left.Location, MainStorage, left.SaveName, DataModifyCommand.ModificationType.Set, right.Location, MainStorage, right.SaveName);
-        }
-
-        private CommandNode StorageCopy(string targetPath, string sourcePath) => DataCommand.ModifyFrom(DataLocation.Storage, MainStorage, targetPath, DataModifyCommand.ModificationType.Set, DataLocation.Storage, MainStorage, sourcePath);
-        
-        private CommandNode DataSetValue(EmittionVariableSymbol symbol, string value) 
-        {
-            Debug.Assert(symbol.Location == DataLocation.Storage, $"{symbol.SaveName} - {symbol.Location}");
-            return DataCommand.ModifyWithValue(symbol.Location, MainStorage, symbol.SaveName, DataModifyCommand.ModificationType.Set, value);
-        }
-        
-        private CommandNode DataStringCopy(EmittionVariableSymbol left, EmittionVariableSymbol right, int? startIndex = null, int? endIndex = null)
-        {
-            Debug.Assert(left.Location == DataLocation.Storage, $"LEFT: {left.SaveName} - {left.Location}");
-            Debug.Assert(left.Location == DataLocation.Storage, $"LEFT: {right.SaveName} - {right.Location}");
-            return DataCommand.ModifyString(left.Location, MainStorage, left.SaveName, DataModifyCommand.ModificationType.Set, right.Location, MainStorage, right.SaveName, startIndex, endIndex);
-        }
-
-        private CommandNode StorageGet(EmittionVariableSymbol symbol, string? multiplier = null) => DataCommand.Get(symbol.Location, MainStorage, symbol.SaveName, multiplier);
-        private CommandNode DataRemove(EmittionVariableSymbol symbol) => DataCommand.Remove(symbol.Location, MainStorage, symbol.SaveName);
-        private CommandNode DataModifyFrom(EmittionVariableSymbol left, DataModifyCommand.ModificationType modification, EmittionVariableSymbol right) => DataCommand.ModifyFrom(left.Location, MainStorage, left.SaveName, modification, right.Location, MainStorage, right.SaveName);
-        private CommandNode DataModifyValue(EmittionVariableSymbol left, DataModifyCommand.ModificationType modification, string value) => DataCommand.ModifyWithValue(left.Location, MainStorage, left.SaveName, modification, value);
+        private CommandNode DataSetValue(EmittionVariableSymbol symbol, string value) => _factory.DataSetValue(symbol, value);
+        private CommandNode DataStringCopy(EmittionVariableSymbol left, EmittionVariableSymbol right, int? startIndex = null, int? endIndex = null) => _factory.DataStringCopy(left, right, startIndex, endIndex);
 
         private CommandNodeFactory.ExecuteCommandBuilder Execute() => _factory.CreateExecuteBuilder();
         private TextTriviaNode LineBreak() => TextTriviaNode.LineBreak();
         private TextTriviaNode Comment(string comment) => TextTriviaNode.Comment(comment);
-
 
         public Datapack BuildDatapack()
         {
@@ -314,8 +277,8 @@ namespace Blaze.Emit
         {
             return local.Location switch
             {
-                DataLocation.Scoreboard => ScoreReset(local),
-                DataLocation.Storage => DataRemove(local),
+                DataLocation.Scoreboard => _factory.ScoreReset(local),
+                DataLocation.Storage => _factory.DataRemove(local),
                 _ => throw new Exception($"Unexpected variable location {local.Location}"),
             };
         }
@@ -441,7 +404,7 @@ namespace Blaze.Emit
             return Block(
                     GetCleanUp(functionBuilder, functionBuilder.Scope.GetLocals()),
                     GetAssignment(functionBuilder, _returnValue, returnExpression, 0),
-                    new ReturnRunCommand(StorageGet(_returnValue))
+                    new ReturnRunCommand(_factory.StorageGet(_returnValue))
                 );
         }
 
@@ -538,7 +501,7 @@ namespace Blaze.Emit
                 var macroLeft = Macro(functionBuilder, "left");
 
                 if (nameYield.Length > 0)
-                {   
+                {
                     var literal = new BoundLiteralExpression(nameYield.ToString());
                     builder.Add(GetStringConcatenation(functionBuilder, macroLeft, literal, tempIndex));
                 }
@@ -563,7 +526,7 @@ namespace Blaze.Emit
             var builder = ImmutableArray.CreateBuilder<TextEmittionNode>();
             var macroName = Macro(functionBuilder, "name");
 
-            builder.Add(GetAssignment(macroName, $"\"*{nameYield.ToString()}\""));
+            builder.Add(GetAssignment(macroName, $"*{nameYield.ToString()}"));
 
             MinecraftFunction.Builder fabricatedAccessor;
 
@@ -578,8 +541,7 @@ namespace Blaze.Emit
                     for (int i = 0; i < rank; i++)
                         accessRankBuilder.Append($"[$({"a" + i.ToString()})]");
 
-                    var macroValue = $"\"{macroName.Accessor}{accessRankBuilder.ToString()}\"";
-                    var command = DataSetValue(macroLeft, macroValue);
+                    var command = GetAssignment(macroLeft, $"{macroName.Accessor}{accessRankBuilder.ToString()}");
                     fabricatedAccessor.AddMacro(command);
                 }
             }
@@ -592,7 +554,7 @@ namespace Blaze.Emit
                     for (int i = 0; i < rank; i++)
                         accessRankBuilder.Append($"[$({"a" + i.ToString()})]");
 
-                    var command = DataCommand.ModifyFrom(_returnValue.Location, MainStorage, _returnValue.SaveName, DataModifyCommand.ModificationType.Set, DataLocation.Storage, MainStorage, $"{macroName.SaveName}{accessRankBuilder.ToString()}");
+                    var command = _factory.DataModifyFromStorage(_returnValue, DataModifyCommand.ModificationType.Set, $"{macroName.SaveName}{accessRankBuilder.ToString()}");
                     fabricatedAccessor.AddMacro(command);
                 }
             }
@@ -787,10 +749,13 @@ namespace Blaze.Emit
             return GetPrimaryAssignment(functionBuilder, symbol, fieldAccess, tempIndex);
         }
 
-        private CommandNode GetAssignment(EmittionVariableSymbol symbol, object value)
+        private CommandNode GetAssignment(EmittionVariableSymbol symbol, object value, bool writeUnaltered = false)
         {
             if (symbol.Location == DataLocation.Storage)
             {
+                if (writeUnaltered)
+                    return DataSetValue(symbol, $"{value}");
+
                 if (value is int)
                 {
                     var stringValue = $"{value}";
@@ -842,14 +807,14 @@ namespace Blaze.Emit
             };
         }
 
-        private TextEmittionNode GetLiteralAssignment(MinecraftFunction.Builder functionBuilder, EmittionVariableSymbol symbol, BoundLiteralExpression literal) => GetAssignment(symbol, literal.Value);
+        private TextEmittionNode GetLiteralAssignment(MinecraftFunction.Builder functionBuilder, EmittionVariableSymbol symbol, BoundLiteralExpression literal) => GetAssignment(symbol, literal.Value, false);
 
         private TextEmittionNode GetVariableAssignment(MinecraftFunction.Builder functionBuilder, EmittionVariableSymbol symbol, BoundVariableExpression variable)
         {
             if (variable.Variable is StringEnumMemberSymbol stringEnumMember)
-                return GetAssignment(symbol, stringEnumMember.UnderlyingValue);
+                return GetAssignment(symbol, stringEnumMember.UnderlyingValue, false);
             else if (variable.Variable is IntEnumMemberSymbol intEnumMember)
-                return GetAssignment(symbol, intEnumMember.UnderlyingValue);
+                return GetAssignment(symbol, intEnumMember.UnderlyingValue, false);
             else
             {
                 var rightVariable = ToEmittionVariable(functionBuilder, variable.Variable, false, !(variable.Variable is ParameterSymbol));
@@ -860,16 +825,16 @@ namespace Blaze.Emit
         private CommandNode GetAssignment(MinecraftFunction.Builder functionBuilder, EmittionVariableSymbol left, EmittionVariableSymbol right)
         {
             if (left.Location == DataLocation.Storage && right.Location == DataLocation.Storage)
-                return DataCopy(left, right);
+                return _factory.DataCopy(left, right);
 
             if (left.Location == DataLocation.Scoreboard && right.Location == DataLocation.Scoreboard)
-                return ScoreCopy(left, right);
+                return _factory.ScoreCopy(left, right);
 
             if (left.Location == DataLocation.Storage && right.Location == DataLocation.Scoreboard)
                 return Execute().StoreResultStorage(left, StoreType.Int, "1").Run(ScoreGet(right));
 
             if (left.Location == DataLocation.Scoreboard && right.Location == DataLocation.Storage)
-                return Execute().StoreResultScore(left).Run(StorageGet(right));
+                return Execute().StoreResultScore(left).Run(_factory.StorageGet(right));
 
             throw new Exception($"Unexpected variable location combination {left.Location} and {right.Location}");
         }
@@ -894,7 +859,7 @@ namespace Blaze.Emit
             if (rightVar.Location == DataLocation.Storage)
             {
                 if (GetOrCreateBuiltIn(BuiltInNamespace.Blaze.AssignStSt, out assignmentMacro))
-                    assignmentMacro.AddMacro(StorageCopy(left.Accessor, rightVar.SaveName));
+                    assignmentMacro.AddMacro(_factory.StorageCopy(left.Accessor, rightVar.SaveName));
             }
             else
             {
@@ -982,18 +947,18 @@ namespace Blaze.Emit
                         }
 
                         initializerBuilder.Append("]");
-                        assignmentCommand = GetAssignment(arraySymbol, initializerBuilder.ToString());
+                        assignmentCommand = GetAssignment(arraySymbol, initializerBuilder.ToString(), true);
                         builder.Add(assignmentCommand);
                         previous = arraySymbol;
                         continue;
                     }
                     else
-                        assignmentCommand = DataModifyValue(arraySymbol, DataModifyCommand.ModificationType.Append, defaultValue);
+                        assignmentCommand = _factory.DataModifyValue(arraySymbol, DataModifyCommand.ModificationType.Append, defaultValue);
                 }
                 else
-                    assignmentCommand = DataModifyFrom(arraySymbol, DataModifyCommand.ModificationType.Append, previous);
+                    assignmentCommand = _factory.DataModifyFrom(arraySymbol, DataModifyCommand.ModificationType.Append, previous);
                 
-                builder.Add(GetAssignment(arraySymbol, "[]"));
+                builder.Add(GetAssignment(arraySymbol, "[]", true));
 
                 var subFunction = functionBuilder.CreateSub(SubFunctionKind.Loop);
                 var callCommand = GetCall(subFunction);
@@ -1009,7 +974,7 @@ namespace Blaze.Emit
                     builder.Add(GetResetCommand(previous));
 
                 subFunction.Content.Add(assignmentCommand);
-                subFunction.Content.Add(ScoreAdd(tempIter, 1));
+                subFunction.Content.Add(_factory.ScoreAdd(tempIter, 1));
                 subFunction.Content.Add(Execute()
                                         .IfScore(tempIter, BoundBinaryOperatorKind.Less, tempUpperBound)
                                         .Run(callCommand));
@@ -1060,7 +1025,7 @@ namespace Blaze.Emit
                     GetAssignment(functionBuilder, operandSymbol, operand, tempIndex),
 
                     symbol.Location == DataLocation.Scoreboard
-                        ? ScoreOperation(symbol, BoundBinaryOperatorKind.Multiplication, minusOneConst)
+                        ? _factory.ScoreOperation(symbol, BoundBinaryOperatorKind.Multiplication, minusOneConst)
                         : Execute().StoreResultStorage(symbol, StoreType.Int, "-1").Run(ScoreGet(operandSymbol))
                 );
         }
@@ -1284,7 +1249,7 @@ namespace Blaze.Emit
             {
                 if (operation == BoundBinaryOperatorKind.Addition)
                 {
-                    builder.Add(ScoreAdd(leftSymbol, (int) l.Value));
+                    builder.Add(_factory.ScoreAdd(leftSymbol, (int) l.Value));
 
                     if (symbol.Location == DataLocation.Storage)
                         builder.Add(GetAssignment(functionBuilder, symbol, leftSymbol));
@@ -1293,7 +1258,7 @@ namespace Blaze.Emit
                 }
                 else if (operation == BoundBinaryOperatorKind.Subtraction)
                 {
-                    builder.Add(ScoreSubtract(leftSymbol, (int)l.Value));
+                    builder.Add(_factory.ScoreSubtract(leftSymbol, (int) l.Value));
 
                     if (symbol.Location == DataLocation.Storage)
                         builder.Add(GetAssignment(functionBuilder, symbol, leftSymbol));
@@ -1320,7 +1285,7 @@ namespace Blaze.Emit
                 builder.Add(GetAssignment(functionBuilder, rightSymbol, right, tempIndex + 1));
             }
 
-            builder.Add(ScoreOperation(leftSymbol, operation, rightSymbol));
+            builder.Add(_factory.ScoreOperation(leftSymbol, operation, rightSymbol));
 
             if (symbol.Location == DataLocation.Storage)
                 builder.Add(GetAssignment(functionBuilder, symbol, leftSymbol));
@@ -1535,7 +1500,7 @@ namespace Blaze.Emit
                                                      .Run(DataStringCopy(macroA, macroA, 0, -1)));
                             sub.Content.Add(Execute().IfData(DataLocation.Storage, MainStorage, $"{{ \"{last.SaveName}\" : \"f\" }}")
                                                      .Run(DataStringCopy(macroA, macroA, 0, -1)));
-                            sub.Content.Add(GetAssignment(macroPolarity, "\"\""));
+                            sub.Content.Add(GetAssignment(macroPolarity, string.Empty));
                         }
 
                         blockBuilder.Add(GetAssignment(functionBuilder, macroB, symbol));
@@ -1842,7 +1807,7 @@ namespace Blaze.Emit
 
                 return Block(
                         GetAssignment(functionBuilder, temp, right, tempIndex),
-                        GetAssignment(macroRule, $"\"{gameruleField.Name}\""),
+                        GetAssignment(macroRule, $"{gameruleField.Name}"),
                         GetAssignment(functionBuilder, macroValue, temp),
                         GetMacroCall(macro)
                     );
@@ -2060,7 +2025,7 @@ namespace Blaze.Emit
                             GetAssignment(functionBuilder, macroType, weatherType, tempIndex),
                             GetAssignment(functionBuilder, duration, call.Arguments[1], tempIndex),
                             GetAssignment(functionBuilder, macroDuration, duration),
-                            GetAssignment(macroTimeUnits, $"\"{timeUnits}\""),
+                            GetAssignment(macroTimeUnits, $"{timeUnits}"),
                             GetMacroCall(macro)
                         );
                 }

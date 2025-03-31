@@ -1,47 +1,37 @@
-﻿using Blaze.Symbols;
+﻿using Blaze.Emit.Data;
+using Blaze.Symbols;
 using System.Diagnostics;
 
 namespace Blaze.Emit.Nodes
 {
     public class FunctionCommand : CommandNode
     {
-        public class FunctionWithClause
+        public abstract class FunctionWithClause
         {
-            public string? Storage { get; }
-            public EmittionVariableSymbol? Symbol { get; }
-            public string? JsonLiteral { get; }
+            public abstract string Text { get; }
+        }
 
-            public FunctionWithClause(string storage, EmittionVariableSymbol symbol)
+        public class FunctionWithPathIdentifierClause : FunctionWithClause
+        {
+            public ObjectPathIdentifier Identifier { get; }
+
+            public override string Text => $"with {Identifier.Text}";
+
+            public FunctionWithPathIdentifierClause(ObjectPathIdentifier identifier)
             {
-                Storage = storage;
-                Symbol = symbol;
-            }
+                Identifier = identifier;
+            }    
+        }
 
-            public FunctionWithClause(string jsonLiteral)
+        public class FunctionWithArgumentsClause : FunctionWithClause
+        {
+            public string Arguments { get; }
+
+            public override string Text => Arguments;
+
+            public FunctionWithArgumentsClause(string arguments)
             {
-                JsonLiteral = jsonLiteral; 
-            }
-
-            public string Text
-            {
-                get
-                {
-                    if (JsonLiteral != null)
-                    {
-                        return JsonLiteral;
-                    }
-                    else
-                    {
-                        if (Storage != null)
-                        {
-                            Debug.Assert(Symbol != null);
-                            return $"with storage {Storage} {Symbol.SaveName}";
-                        }
-                        else
-                            throw new Exception("No storage but emittion variable symbol is there");
-                    }
-                }
-
+                Arguments = arguments;
             }
         }
 
@@ -62,36 +52,10 @@ namespace Blaze.Emit.Nodes
             }
         }
 
-        private FunctionCommand(string function, FunctionWithClause? withClause)
+        public FunctionCommand(string function, FunctionWithClause? withClause)
         {
             FunctionCallName = function;
             WithClause = withClause;
         }
-
-        public static FunctionCommand GetCall(string function) => new FunctionCommand(function, null);
-
-        public static FunctionCommand GetCallWith(string function, string storage, EmittionVariableSymbol symbol)
-            => new FunctionCommand(function, new FunctionWithClause(storage, symbol));
-
-        public static FunctionCommand GetCallWith(string function, string jsonLiteral)
-            => new FunctionCommand(function, new FunctionWithClause(jsonLiteral));
     }
-
-    /*
-
-    public class ScoreboardPlayersCommand : ScoreboardCommand
-    {
-        enum SubAction 
-        {
-            Add,
-            Remove,
-            Reset
-            
-        }
-           
-        internal ScoreboardPlayersCommand()
-        {
-
-        }
-    }*/
 }

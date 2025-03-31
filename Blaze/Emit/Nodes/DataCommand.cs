@@ -9,27 +9,23 @@ namespace Blaze.Emit.Nodes
         public override string Keyword => "data";
         public override EmittionNodeKind Kind => EmittionNodeKind.DataCommand;
 
-        public static DataGetCommand Get(DataLocation location, string obj, string path, string? multiplier) => new DataGetCommand(new ObjectPathIdentifier(location, obj, path), multiplier);
-        public static DataRemoveCommand Remove(DataLocation location, string obj, string path) => new DataRemoveCommand(new ObjectPathIdentifier(location, obj, path));
-        public static DataMergeCommand Merge(DataLocation location, string obj, string path) => new DataMergeCommand(location, obj, path);
+        public static DataModifyCommand ModifyFrom(ObjectPathIdentifier target, DataModifyCommand.ModificationType modification, ObjectPathIdentifier source)
+            => new DataModifyCommand(target, modification, null, new DataModifyCommand.FromSource(source));
 
-        public static DataModifyCommand ModifyFrom(DataLocation location, string obj, string path, DataModifyCommand.ModificationType modification, DataLocation sourceLocation, string sourceObj, string sourcePath)
-            => new DataModifyCommand(new ObjectPathIdentifier(location, obj, path), modification, null, new DataModifyCommand.FromSource(new ObjectPathIdentifier(sourceLocation, sourceObj, sourcePath)));
+        public static DataModifyCommand ModifyWithValue(ObjectPathIdentifier target, DataModifyCommand.ModificationType modification, string value)
+            => new DataModifyCommand(target, modification, null, new DataModifyCommand.ValueSource(value));
 
-        public static DataModifyCommand ModifyWithValue(DataLocation location, string obj, string path, DataModifyCommand.ModificationType modification, string value)
-            => new DataModifyCommand(new ObjectPathIdentifier(location, obj, path), modification, null, new DataModifyCommand.ValueSource(value));
-
-        public static DataModifyCommand ModifyString(DataLocation location, string obj, string path, DataModifyCommand.ModificationType modification, DataLocation sourceLocation, string sourceObj, string sourcePath, int? startIndex = null, int? endIndex = null)
-            => new DataModifyCommand(new ObjectPathIdentifier(location, obj, path), modification, null, new DataModifyCommand.StringSource(new ObjectPathIdentifier(sourceLocation, sourceObj, sourcePath), startIndex, endIndex));
+        public static DataModifyCommand ModifyString(ObjectPathIdentifier target, DataModifyCommand.ModificationType modification, ObjectPathIdentifier source, int? startIndex = null, int? endIndex = null)
+            => new DataModifyCommand(target, modification, null, new DataModifyCommand.StringSource(source, startIndex, endIndex));
        
-        public static DataModifyCommand InsertFrom(DataLocation location, string obj, string path, string insertIndex, DataLocation sourceLocation, string sourceObj, string sourcePath)
-            => new DataModifyCommand(new ObjectPathIdentifier(location, obj, path), DataModifyCommand.ModificationType.Insert, insertIndex, new DataModifyCommand.FromSource(new ObjectPathIdentifier(sourceLocation, sourceObj, sourcePath)));
+        public static DataModifyCommand InsertFrom(ObjectPathIdentifier target, string insertIndex, DataLocation sourceLocation, ObjectPathIdentifier source)
+            => new DataModifyCommand(target, DataModifyCommand.ModificationType.Insert, insertIndex, new DataModifyCommand.FromSource(source));
 
-        public static DataModifyCommand InsertValue(DataLocation location, string obj, string path, string insertIndex, string value)
-            => new DataModifyCommand(new ObjectPathIdentifier(location, obj, path), DataModifyCommand.ModificationType.Insert, insertIndex, new DataModifyCommand.ValueSource(value));
+        public static DataModifyCommand InsertValue(ObjectPathIdentifier target, string insertIndex, string value)
+            => new DataModifyCommand(target, DataModifyCommand.ModificationType.Insert, insertIndex, new DataModifyCommand.ValueSource(value));
 
-        public static DataModifyCommand InsertString(DataLocation location, string obj, string path, string insertIndex, DataLocation sourceLocation, string sourceObj, string sourcePath, int? startIndex = null, int? endIndex = null)
-            => new DataModifyCommand(new ObjectPathIdentifier(location, obj, path), DataModifyCommand.ModificationType.Insert, insertIndex, new DataModifyCommand.StringSource(new ObjectPathIdentifier(sourceLocation, sourceObj, sourcePath), startIndex, endIndex));
+        public static DataModifyCommand InsertString(ObjectPathIdentifier target, string insertIndex, ObjectPathIdentifier source, int? startIndex = null, int? endIndex = null)
+            => new DataModifyCommand(target, DataModifyCommand.ModificationType.Insert, insertIndex, new DataModifyCommand.StringSource(source, startIndex, endIndex));
 
     }
 

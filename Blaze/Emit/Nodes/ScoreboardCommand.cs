@@ -1,4 +1,5 @@
-﻿using static Blaze.Emit.Nodes.ScoreboardObjectivesCommand;
+﻿using Blaze.Emit.Data;
+using static Blaze.Emit.Nodes.ScoreboardObjectivesCommand;
 
 namespace Blaze.Emit.Nodes
 {
@@ -15,29 +16,28 @@ namespace Blaze.Emit.Nodes
         internal static ScoreboardObjectivesCommand SetDisplay(string objective, string displaySlot) => new ScoreboardObjectivesCommand(objective, SubAction.SetDisplay, displaySlot: displaySlot);
         internal static ScoreboardObjectivesCommand ModifyObjective(string objective, string modifiedProperty, object modifyValue) => new ScoreboardObjectivesCommand(objective, SubAction.Modify, modifiedProperty: modifiedProperty, modifyValue: modifyValue);
 
+        internal static ScoreboardPlayersCommand GetScore(ScoreIdentifier identifier, string? multiplier)
+           => new ScoreboardPlayersCommand(ScoreboardPlayersCommand.SubAction.Get, identifier, multiplier);
 
-        internal static ScoreboardPlayersCommand GetScore(string selector, string objective, string? multiplier)
-           => new ScoreboardPlayersCommand(ScoreboardPlayersCommand.SubAction.Get, new ScoreboardPlayersCommand.ScoreIdentifierClause(selector, objective), multiplier);
-
-        internal static ScoreboardPlayersCommand ScoreOperation(string leftSelector, string leftObjective, ScoreboardPlayersCommand.ScoreboardPlayersOperationsClause.PlayersOperation operation, string rightSelector, string rightObjective)
+        internal static ScoreboardPlayersCommand ScoreOperation(ScoreIdentifier left, ScoreboardPlayersCommand.ScoreboardPlayersOperationsClause.PlayersOperation operation, ScoreIdentifier right)
             => new ScoreboardPlayersCommand(ScoreboardPlayersCommand.SubAction.Operation, 
-                new ScoreboardPlayersCommand.ScoreboardPlayersOperationsClause(leftSelector, leftObjective, operation, rightSelector, rightObjective),
+                new ScoreboardPlayersCommand.ScoreboardPlayersOperationsClause(left, operation, right),
                 null);
 
-        internal static ScoreboardPlayersCommand ScoreAdd(string selector, string objective, string value)
-            => new ScoreboardPlayersCommand(ScoreboardPlayersCommand.SubAction.Add, new ScoreboardPlayersCommand.ScoreIdentifierClause(selector, objective), value);
+        internal static ScoreboardPlayersCommand ScoreAdd(ScoreIdentifier identifier, string value)
+            => new ScoreboardPlayersCommand(ScoreboardPlayersCommand.SubAction.Add, identifier, value);
 
-        internal static ScoreboardPlayersCommand SetScore(string selector, string objective, string value)
-           => new ScoreboardPlayersCommand(ScoreboardPlayersCommand.SubAction.Set, new ScoreboardPlayersCommand.ScoreIdentifierClause(selector, objective), value);
+        internal static ScoreboardPlayersCommand SetScore(ScoreIdentifier identifier, string value)
+           => new ScoreboardPlayersCommand(ScoreboardPlayersCommand.SubAction.Set, identifier, value);
 
-        internal static ScoreboardPlayersCommand ScoreSubtract(string selector, string objective, string value)
-            => new ScoreboardPlayersCommand(ScoreboardPlayersCommand.SubAction.Remove, new ScoreboardPlayersCommand.ScoreIdentifierClause(selector, objective), value);
+        internal static ScoreboardPlayersCommand ScoreSubtract(ScoreIdentifier identifier, string value)
+            => new ScoreboardPlayersCommand(ScoreboardPlayersCommand.SubAction.Remove, identifier, value);
 
-        internal static ScoreboardPlayersCommand ScoreReset(string selector, string objective)
-            => new ScoreboardPlayersCommand(ScoreboardPlayersCommand.SubAction.Reset, new ScoreboardPlayersCommand.ScoreIdentifierClause(selector, objective), null);
+        internal static ScoreboardPlayersCommand ScoreReset(ScoreIdentifier identifier)
+            => new ScoreboardPlayersCommand(ScoreboardPlayersCommand.SubAction.Reset, identifier, null);
 
-        internal static ScoreboardPlayersCommand TriggerEnable(string selector, string objective)
-            => new ScoreboardPlayersCommand(ScoreboardPlayersCommand.SubAction.Enable, new ScoreboardPlayersCommand.ScoreIdentifierClause(selector, objective), null);
+        internal static ScoreboardPlayersCommand TriggerEnable(ScoreIdentifier identifier)
+            => new ScoreboardPlayersCommand(ScoreboardPlayersCommand.SubAction.Enable, identifier, null);
 
         internal static ScoreboardPlayersCommand ScoreList(string? selector)
             => new ScoreboardPlayersCommand(ScoreboardPlayersCommand.SubAction.List, new ScoreboardPlayersCommand.ListTarget(selector), null);
